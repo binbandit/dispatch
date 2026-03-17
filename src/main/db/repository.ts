@@ -89,6 +89,49 @@ export function setPreference(key: string, value: string): void {
   `).run(key, value);
 }
 
+// ---------------------------------------------------------------------------
+// Workspaces
+// ---------------------------------------------------------------------------
+
+export function addWorkspace(path: string, name: string): void {
+  const db = getDatabase();
+  db.prepare(`
+    INSERT INTO workspaces (path, name, added_at)
+    VALUES (?, ?, datetime('now'))
+    ON CONFLICT(path) DO NOTHING
+  `).run(path, name);
+}
+
+export function getWorkspaces(): Array<{
+  id: number;
+  path: string;
+  name: string;
+  addedAt: string;
+}> {
+  const db = getDatabase();
+  const rows = db
+    .prepare("SELECT id, path, name, added_at FROM workspaces ORDER BY added_at DESC")
+    .all() as Array<{ id: number; path: string; name: string; added_at: string }>;
+  return rows.map((r) => ({ id: r.id, path: r.path, name: r.name, addedAt: r.added_at }));
+}
+
+export function removeWorkspace(id: number): void {
+  const db = getDatabase();
+  db.prepare("DELETE FROM workspaces WHERE id = ?").run(id);
+}
+
+export function getActiveWorkspace(): string | null {
+  return getPreference("activeWorkspace");
+}
+
+export function setActiveWorkspace(path: string): void {
+  setPreference("activeWorkspace", path);
+}
+
+// ---------------------------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------------------------
+
 /**
  * Convenience: run an operation in a transaction.
  */

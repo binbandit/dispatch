@@ -1,3 +1,4 @@
+import { dialog } from "electron";
 import { z } from "zod/v4";
 
 import * as repo from "../db/repository";
@@ -177,6 +178,50 @@ const reviewRouter = router({
 });
 
 // ---------------------------------------------------------------------------
+// Workspace management
+// ---------------------------------------------------------------------------
+
+const workspaceRouter = router({
+  list: publicProcedure.query(() => {
+    return repo.getWorkspaces();
+  }),
+
+  add: publicProcedure.input(z.object({ path: z.string() })).mutation(async ({ input }) => {
+    const root = await gitCli.getRepoRoot(input.path);
+    if (!root) {
+      throw new Error(`"${input.path}" is not inside a git repository.`);
+    }
+
+    const name = root.split("/").pop() ?? root;
+    repo.addWorkspace(root, name);
+
+    return { path: root, name };
+  }),
+
+  remove: publicProcedure.input(z.object({ id: z.number() })).mutation(({ input }) => {
+    repo.removeWorkspace(input.id);
+    return { success: true };
+  }),
+
+  active: publicProcedure.query(() => {
+    return repo.getActiveWorkspace();
+  }),
+
+  setActive: publicProcedure.input(z.object({ path: z.string() })).mutation(({ input }) => {
+    repo.setActiveWorkspace(input.path);
+    return { success: true };
+  }),
+
+  pickFolder: publicProcedure.mutation(async () => {
+    const result = await dialog.showOpenDialog({ properties: ["openDirectory"] });
+    if (result.canceled || result.filePaths.length === 0) {
+      return null;
+    }
+    return result.filePaths[0];
+  }),
+});
+
+// ---------------------------------------------------------------------------
 // Root router
 // ---------------------------------------------------------------------------
 
@@ -186,6 +231,7 @@ export const appRouter = router({
   checks: checksRouter,
   git: gitRouter,
   review: reviewRouter,
+  workspace: workspaceRouter,
 });
 
 export type AppRouter = typeof appRouter;

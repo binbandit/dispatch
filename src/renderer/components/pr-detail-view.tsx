@@ -1,12 +1,22 @@
+import type { DiffFile } from "../lib/diff-parser";
+
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { relativeTime } from "@/shared/format";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, GitMerge } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { parseDiff } from "../lib/diff-parser";
+import { queryClient, trpc } from "../lib/trpc";
+import { useWorkspace } from "../lib/workspace-context";
+import { ChecksPanel } from "./checks-panel";
+import { DiffViewer } from "./diff-viewer";
+import { FileTree } from "./file-tree";
 
 /**
- * PR detail view matching DISPATCH-DESIGN-SYSTEM.md § 8.5, 8.6:
- *
- * - PR Header: padding 12px 20px, bg --bg-surface, border-bottom --border
- * - Diff viewer toolbar: height 38px, padding 0 12px
+ * PR detail view — DISPATCH-DESIGN-SYSTEM.md § 8.5, 8.6, 8.7, 8.8
  */
 
 interface PrDetailViewProps {
@@ -18,28 +28,220 @@ export function PrDetailView({ prNumber }: PrDetailViewProps) {
     return <EmptyState />;
   }
 
+  return <PrDetail prNumber={prNumber} />;
+}
+
+// ---------------------------------------------------------------------------
+// Main PR detail (with data)
+// ---------------------------------------------------------------------------
+
+function PrDetail({ prNumber }: { prNumber: number }) {
+  const { cwd } = useWorkspace();
+  const [currentFileIndex, setCurrentFileIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState<"checks" | "reviews" | "files">("files");
+
+  // PR detail query
+  const detailQuery = useQuery({
+    ...trpc.pr.detail.queryOptions({ cwd, prNumber }),
+    refetchInterval: 60_000,
+  });
+
+  // PR diff query
+  const diffQuery = useQuery({
+    ...trpc.pr.diff.queryOptions({ cwd, prNumber }),
+    staleTime: 60_000,
+  });
+
+  // Viewed files
+  const repoName = cwd.split("/").pop() ?? "";
+  const viewedQuery = useQuery(trpc.review.viewedFiles.queryOptions({ repo: repoName, prNumber }));
+  const viewedFiles = useMemo(() => new Set(viewedQuery.data ?? []), [viewedQuery.data]);
+
+  const setViewedMutation = useMutation(
+    trpc.review.setFileViewed.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["review", "viewedFiles"] });
+      },
+    }),
+  );
+
+  // Parse diff
+  const files: DiffFile[] = useMemo(() => {
+    if (!diffQuery.data) {
+      return [];
+    }
+    return parseDiff(diffQuery.data);
+  }, [diffQuery.data]);
+
+  const currentFile = files[currentFileIndex] ?? null;
+
+  // File navigation
+  const goToPrevFile = useCallback(() => {
+    setCurrentFileIndex((i) => Math.max(0, i - 1));
+  }, []);
+
+  const goToNextFile = useCallback(() => {
+    setCurrentFileIndex((i) => Math.min(files.length - 1, i + 1));
+  }, [files.length]);
+
+  // Keyboard: [ and ] for file navigation
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return;
+      }
+      if (e.key === "[") {
+        goToPrevFile();
+      } else if (e.key === "]") {
+        goToNextFile();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [goToPrevFile, goToNextFile]);
+
+  // Loading state
+  if (detailQuery.isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner className="text-primary h-5 w-5" />
+      </div>
+    );
+  }
+
+  if (detailQuery.isError || !detailQuery.data) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <p className="text-destructive text-sm">Failed to load PR #{prNumber}</p>
+      </div>
+    );
+  }
+
+  const pr = detailQuery.data;
+  const totalAdditions = pr.files.reduce((sum, f) => sum + f.additions, 0);
+  const totalDeletions = pr.files.reduce((sum, f) => sum + f.deletions, 0);
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       {/* PR Header (§ 8.5) */}
-      <PrHeader prNumber={prNumber} />
+      <div className="border-border bg-bg-surface flex items-center gap-3 border-b px-5 py-3">
+        <div className="min-w-0 flex-1">
+          <h1 className="text-text-primary text-base font-semibold tracking-[-0.02em]">
+            {pr.title} <span className="text-text-tertiary font-normal">#{pr.number}</span>
+          </h1>
+          <div className="text-text-secondary mt-0.5 flex items-center gap-1.5 text-xs">
+            <Badge
+              variant="outline"
+              className="border-border bg-bg-raised text-accent-text rounded-sm font-mono text-[11px]"
+            >
+              {pr.headRefName}
+            </Badge>
+            <span className="text-text-tertiary">→</span>
+            <span className="text-text-tertiary font-mono text-[11px]">{pr.baseRefName}</span>
+            <span className="text-text-ghost">·</span>
+            <span>{pr.author.login}</span>
+            <span className="text-text-ghost">·</span>
+            <span>{relativeTime(new Date(pr.updatedAt))}</span>
+            <span className="text-text-ghost">·</span>
+            <span className="text-success font-mono text-[11px]">+{totalAdditions}</span>
+            <span className="text-destructive font-mono text-[11px]">-{totalDeletions}</span>
+          </div>
+        </div>
+        <MergeButton
+          cwd={cwd}
+          prNumber={prNumber}
+          pr={pr}
+        />
+      </div>
 
-      {/* Diff viewer area */}
+      {/* Diff viewer + side panel */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Diff content */}
+        {/* Diff content area */}
         <div className="flex flex-1 flex-col overflow-hidden">
-          <DiffToolbar />
-          <DiffPlaceholder />
+          {/* Toolbar (§ 8.6) */}
+          <DiffToolbar
+            currentFile={currentFile}
+            currentIndex={currentFileIndex}
+            totalFiles={files.length}
+            onPrev={goToPrevFile}
+            onNext={goToNextFile}
+          />
+
+          {/* Diff viewer */}
+          {diffQuery.isLoading ? (
+            <div className="flex flex-1 items-center justify-center">
+              <Spinner className="text-primary h-4 w-4" />
+            </div>
+          ) : currentFile ? (
+            <DiffViewer file={currentFile} />
+          ) : (
+            <div className="flex flex-1 items-center justify-center">
+              <p className="text-text-tertiary text-xs">No files changed</p>
+            </div>
+          )}
         </div>
 
         {/* Side panel (§ 8.7) — 320px */}
-        <SidePanel />
+        <aside className="border-border bg-bg-surface flex w-[320px] shrink-0 flex-col border-l">
+          {/* Tabs */}
+          <div className="border-border flex border-b px-3 pt-2.5">
+            <TabButton
+              label="Files"
+              count={files.length}
+              active={activeTab === "files"}
+              onClick={() => setActiveTab("files")}
+            />
+            <TabButton
+              label="Checks"
+              count={pr.statusCheckRollup.length}
+              active={activeTab === "checks"}
+              onClick={() => setActiveTab("checks")}
+            />
+            <TabButton
+              label="Reviews"
+              count={pr.reviews.length}
+              active={activeTab === "reviews"}
+              onClick={() => setActiveTab("reviews")}
+            />
+          </div>
+
+          {/* Tab content */}
+          <div className="flex-1 overflow-y-auto">
+            {activeTab === "files" && (
+              <div className="p-2">
+                <FileTree
+                  files={files}
+                  currentFileIndex={currentFileIndex}
+                  onSelectFile={setCurrentFileIndex}
+                  viewedFiles={viewedFiles}
+                  onToggleViewed={(filePath, viewed) => {
+                    setViewedMutation.mutate({
+                      repo: repoName,
+                      prNumber,
+                      filePath,
+                      viewed,
+                    });
+                  }}
+                />
+              </div>
+            )}
+            {activeTab === "checks" && <ChecksPanel prNumber={prNumber} />}
+            {activeTab === "reviews" && <ReviewsList reviews={pr.reviews} />}
+          </div>
+
+          {/* Merge panel (§ 8.8) */}
+          <MergeChecklist pr={pr} />
+        </aside>
       </div>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Empty state (§ 10.5)
+// Sub-components
 // ---------------------------------------------------------------------------
 
 function EmptyState() {
@@ -61,165 +263,88 @@ function EmptyState() {
   );
 }
 
-// ---------------------------------------------------------------------------
-// PR Header (§ 8.5)
-// ---------------------------------------------------------------------------
+function DiffToolbar({
+  currentFile,
+  currentIndex,
+  totalFiles,
+  onPrev,
+  onNext,
+}: {
+  currentFile: DiffFile | null;
+  currentIndex: number;
+  totalFiles: number;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  const filePath = currentFile?.newPath ?? currentFile?.oldPath ?? "";
+  const fileName = filePath.split("/").pop() ?? "";
+  const dirPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/") + 1) : "";
 
-function PrHeader({ prNumber }: { prNumber: number }) {
-  return (
-    <div className="border-border bg-bg-surface flex items-center gap-3 border-b px-5 py-3">
-      <div className="min-w-0 flex-1">
-        <h1 className="text-text-primary text-base font-semibold tracking-[-0.02em]">
-          Add CI/CD pipeline integration{" "}
-          <span className="text-text-tertiary font-normal">#{prNumber}</span>
-        </h1>
-        <p className="text-text-secondary mt-0.5 text-xs">
-          <Badge
-            variant="outline"
-            className="border-border bg-bg-raised text-accent-text mr-1.5 rounded-sm font-mono text-[11px]"
-          >
-            feature/ci-cd
-          </Badge>
-          → main · opened 2 hours ago by alice
-        </p>
-      </div>
-      <Button
-        size="sm"
-        variant="default"
-        className="bg-primary text-primary-foreground hover:bg-accent-hover gap-1.5"
-      >
-        <GitMerge size={13} />
-        Merge
-      </Button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Diff toolbar (§ 8.6 Toolbar)
-// ---------------------------------------------------------------------------
-
-function DiffToolbar() {
   return (
     <div className="border-border-subtle bg-bg-surface flex h-[38px] shrink-0 items-center gap-2 border-b px-3">
-      {/* File navigation arrows (§ 8.6) */}
       <button
         type="button"
-        className="text-text-secondary hover:bg-bg-raised hover:text-text-primary flex h-6 w-6 items-center justify-center rounded-sm"
+        onClick={onPrev}
+        disabled={currentIndex === 0}
+        className="text-text-secondary hover:bg-bg-raised hover:text-text-primary flex h-6 w-6 items-center justify-center rounded-sm disabled:opacity-30"
       >
         <ChevronLeft size={13} />
       </button>
       <button
         type="button"
-        className="text-text-secondary hover:bg-bg-raised hover:text-text-primary flex h-6 w-6 items-center justify-center rounded-sm"
+        onClick={onNext}
+        disabled={currentIndex >= totalFiles - 1}
+        className="text-text-secondary hover:bg-bg-raised hover:text-text-primary flex h-6 w-6 items-center justify-center rounded-sm disabled:opacity-30"
       >
         <ChevronRight size={13} />
       </button>
 
-      {/* File name (§ 8.6) */}
       <span className="text-text-tertiary font-mono text-xs">
-        src/main/<span className="text-text-primary font-medium">index.ts</span>
+        {dirPath}
+        <span className="text-text-primary font-medium">{fileName}</span>
       </span>
 
       <div className="flex-1" />
 
-      {/* File stats */}
-      <span className="text-success font-mono text-[11px]">+42</span>
-      <span className="text-destructive font-mono text-[11px]">-12</span>
+      {currentFile && (
+        <>
+          <span className="text-success font-mono text-[11px]">+{currentFile.additions}</span>
+          <span className="text-destructive font-mono text-[11px]">-{currentFile.deletions}</span>
+        </>
+      )}
 
-      {/* Progress bar (§ 8.6 Progress bar) */}
-      <div className="flex items-center gap-1.5">
-        <div className="bg-border h-[3px] w-[60px] overflow-hidden rounded-full">
-          <div className="bg-primary h-full w-1/4 rounded-full" />
+      {totalFiles > 0 && (
+        <div className="flex items-center gap-1.5">
+          <div className="bg-border h-[3px] w-[60px] overflow-hidden rounded-full">
+            <div
+              className="bg-primary h-full rounded-full transition-all"
+              style={{ width: `${((currentIndex + 1) / totalFiles) * 100}%` }}
+            />
+          </div>
+          <span className="text-text-tertiary font-mono text-[10px]">
+            {currentIndex + 1}/{totalFiles}
+          </span>
         </div>
-        <span className="text-text-tertiary font-mono text-[10px]">1/4</span>
-      </div>
+      )}
     </div>
   );
 }
 
-// ---------------------------------------------------------------------------
-// Diff placeholder
-// ---------------------------------------------------------------------------
-
-function DiffPlaceholder() {
-  return (
-    <div className="bg-bg-root flex-1 overflow-auto p-4">
-      <div className="border-border bg-bg-surface rounded-lg border p-4">
-        <p className="text-text-tertiary font-mono text-xs">
-          Diff viewer will be rendered here with virtualized lines.
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Side panel (§ 8.7)
-// ---------------------------------------------------------------------------
-
-function SidePanel() {
-  return (
-    <aside className="border-border bg-bg-surface flex w-[320px] shrink-0 flex-col border-l">
-      {/* Tabs (§ 8.7) */}
-      <div className="border-border flex border-b px-3 pt-2.5">
-        <SidePanelTab
-          label="Checks"
-          count={4}
-          active
-        />
-        <SidePanelTab
-          label="Reviews"
-          count={2}
-        />
-        <SidePanelTab
-          label="Files"
-          count={12}
-        />
-      </div>
-
-      {/* Panel content */}
-      <div className="flex-1 overflow-y-auto p-3">
-        <CheckItem
-          name="Build"
-          status="success"
-          detail="Completed in 2m 34s"
-        />
-        <CheckItem
-          name="Lint"
-          status="success"
-          detail="Completed in 45s"
-        />
-        <CheckItem
-          name="Test"
-          status="failure"
-          detail="3 tests failed"
-        />
-        <CheckItem
-          name="Deploy Preview"
-          status="pending"
-          detail="Running..."
-        />
-      </div>
-
-      {/* Merge panel (§ 8.8) */}
-      <MergePanel />
-    </aside>
-  );
-}
-
-function SidePanelTab({
+function TabButton({
   label,
   count,
-  active = false,
+  active,
+  onClick,
 }: {
   label: string;
   count: number;
-  active?: boolean;
+  active: boolean;
+  onClick: () => void;
 }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className={`relative px-3 pb-2.5 text-xs ${
         active
           ? "text-text-primary font-medium"
@@ -236,65 +361,97 @@ function SidePanelTab({
 }
 
 // ---------------------------------------------------------------------------
-// Check items (§ 8.7 Check items)
+// Reviews list
 // ---------------------------------------------------------------------------
 
-const CHECK_ICONS: Record<string, { color: string; icon: string }> = {
-  success: { color: "text-success", icon: "✓" },
-  failure: { color: "text-destructive", icon: "✕" },
-  pending: { color: "text-warning", icon: "◎" },
-};
-
-function CheckItem({ name, status, detail }: { name: string; status: string; detail: string }) {
-  const { color, icon } = CHECK_ICONS[status] ?? { color: "text-text-ghost", icon: "?" };
+function ReviewsList({
+  reviews,
+}: {
+  reviews: Array<{ author: { login: string }; state: string; submittedAt: string }>;
+}) {
+  if (reviews.length === 0) {
+    return <div className="text-text-tertiary px-3 py-4 text-center text-xs">No reviews yet</div>;
+  }
 
   return (
-    <div className="hover:bg-bg-raised flex items-center gap-2 rounded-md px-2 py-1.5">
-      <span className={`flex h-4 w-4 items-center justify-center text-sm ${color}`}>{icon}</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-text-primary truncate text-xs font-[450]">{name}</p>
-        <p className="text-text-tertiary font-mono text-[10px]">{detail}</p>
-      </div>
+    <div className="flex flex-col gap-1 p-2">
+      {reviews.map((review, i) => (
+        <div
+          key={`${review.author.login}-${review.submittedAt}-${i}`}
+          className="flex items-center gap-2 rounded-md px-2 py-1.5"
+        >
+          {/* Avatar */}
+          <div
+            className="text-bg-root flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold"
+            style={{ background: "linear-gradient(135deg, var(--primary), #7c5a2a)" }}
+          >
+            {review.author.login[0]?.toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <span className="text-text-primary text-xs font-medium">{review.author.login}</span>
+          </div>
+          <Badge
+            variant="outline"
+            className={`text-[10px] ${
+              review.state === "APPROVED"
+                ? "border-success/30 text-success"
+                : review.state === "CHANGES_REQUESTED"
+                  ? "border-destructive/30 text-destructive"
+                  : "border-border text-text-tertiary"
+            }`}
+          >
+            {review.state === "APPROVED"
+              ? "Approved"
+              : review.state === "CHANGES_REQUESTED"
+                ? "Changes"
+                : review.state === "COMMENTED"
+                  ? "Commented"
+                  : review.state}
+          </Badge>
+        </div>
+      ))}
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------
-// Merge panel (§ 8.8)
+// Merge checklist (§ 8.8)
 // ---------------------------------------------------------------------------
 
-function MergePanel() {
+function MergeChecklist({
+  pr,
+}: {
+  pr: {
+    reviewDecision: string;
+    mergeable: string;
+    statusCheckRollup: Array<{ conclusion: string | null }>;
+  };
+}) {
+  const hasApproval = pr.reviewDecision === "APPROVED";
+  const allChecksPassing = pr.statusCheckRollup.every((c) => c.conclusion === "success");
+  const noConflicts = pr.mergeable === "MERGEABLE";
+
   return (
     <div className="border-border bg-bg-raised border-t p-3">
       <div className="flex flex-col gap-1.5">
-        <MergeChecklistItem
-          label="CI checks passing"
-          passed={false}
-        />
-        <MergeChecklistItem
+        <ChecklistItem
           label="Review approved"
-          passed
+          passed={hasApproval}
         />
-        <MergeChecklistItem
-          label="No merge conflicts"
-          passed
+        <ChecklistItem
+          label="CI checks passing"
+          passed={allChecksPassing}
         />
-      </div>
-      <div className="mt-3 flex gap-1.5">
-        <Button
-          size="sm"
-          className="bg-primary text-primary-foreground flex-1 gap-1.5 opacity-50"
-          disabled
-        >
-          <GitMerge size={13} />
-          Merge
-        </Button>
+        <ChecklistItem
+          label={pr.mergeable === "CONFLICTING" ? "Merge conflicts" : "No merge conflicts"}
+          passed={noConflicts}
+        />
       </div>
     </div>
   );
 }
 
-function MergeChecklistItem({ label, passed }: { label: string; passed: boolean }) {
+function ChecklistItem({ label, passed }: { label: string; passed: boolean }) {
   return (
     <div className="flex items-center gap-1.5">
       <span
@@ -308,5 +465,51 @@ function MergeChecklistItem({ label, passed }: { label: string; passed: boolean 
         {label}
       </span>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Merge button (§ 8.8)
+// ---------------------------------------------------------------------------
+
+function MergeButton({
+  cwd,
+  prNumber,
+  pr,
+}: {
+  cwd: string;
+  prNumber: number;
+  pr: {
+    reviewDecision: string;
+    mergeable: string;
+    statusCheckRollup: Array<{ conclusion: string | null }>;
+  };
+}) {
+  const [strategy, _setStrategy] = useState<"squash" | "merge" | "rebase">("squash");
+
+  const mergeMutation = useMutation(
+    trpc.pr.merge.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["pr"] });
+      },
+    }),
+  );
+
+  const hasApproval = pr.reviewDecision === "APPROVED";
+  const allChecksPassing = pr.statusCheckRollup.every((c) => c.conclusion === "success");
+  const canMerge = hasApproval && allChecksPassing && pr.mergeable === "MERGEABLE";
+
+  return (
+    <Button
+      size="sm"
+      className="bg-primary text-primary-foreground hover:bg-accent-hover gap-1.5 disabled:opacity-50"
+      disabled={!canMerge || mergeMutation.isPending}
+      onClick={() => {
+        mergeMutation.mutate({ cwd, prNumber, strategy });
+      }}
+    >
+      {mergeMutation.isPending ? <Spinner className="h-3 w-3" /> : <GitMerge size={13} />}
+      Merge
+    </Button>
   );
 }

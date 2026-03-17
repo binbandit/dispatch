@@ -54,6 +54,13 @@ export function initDatabase(): Database.Database {
       key           TEXT    PRIMARY KEY,
       value         TEXT    NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS workspaces (
+      id            INTEGER PRIMARY KEY,
+      path          TEXT    NOT NULL UNIQUE,
+      name          TEXT    NOT NULL,
+      added_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
   `);
 
   return db;
