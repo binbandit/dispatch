@@ -4,7 +4,6 @@ import { type BrowserWindowConstructorOptions, app, BrowserWindow } from "electr
 
 import { closeDatabase, initDatabase } from "./db/database";
 import { registerTrpcIpcHandler } from "./trpc/ipc-handler";
-import { appRouter } from "./trpc/router";
 
 // ---------------------------------------------------------------------------
 // Window configuration
@@ -50,7 +49,7 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(() => {
   // Initialize infrastructure
   initDatabase();
-  registerTrpcIpcHandler(appRouter);
+  registerTrpcIpcHandler();
 
   // Create main window
   createWindow();

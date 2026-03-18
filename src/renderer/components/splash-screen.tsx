@@ -1,12 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /**
- * Splash screen shown while the app initializes.
+ * Splash screen — shows while the app initializes behind it.
  *
- * Matches DISPATCH-DESIGN-SYSTEM.md § 10.5 empty states:
- * - Instrument Serif italic for display text
- * - Warm copper accent colors
- * - Animated logo mark
+ * The parent fires all tRPC queries immediately. The splash runs
+ * its animation for a minimum of 1.2s, then calls onComplete.
+ * The parent holds the splash visible until data is also ready.
+ *
+ * Design: DISPATCH-DESIGN-SYSTEM.md § 10.5
  */
 
 interface SplashScreenProps {
@@ -14,38 +15,31 @@ interface SplashScreenProps {
 }
 
 export function SplashScreen({ onComplete }: SplashScreenProps) {
-  const [phase, setPhase] = useState<"logo" | "text" | "done">("logo");
+  const [phase, setPhase] = useState<"logo" | "text">("logo");
+  const calledRef = useRef(false);
 
   useEffect(() => {
-    // Phase 1: Logo appears (instant)
-    // Phase 2: Text fades in (after 400ms)
+    // Phase 1 → Phase 2: text fades in after 300ms
     const textTimer = setTimeout(() => {
       setPhase("text");
-    }, 400);
+    }, 300);
 
-    // Phase 3: Transition to app (after 1200ms)
-    const doneTimer = setTimeout(() => {
-      setPhase("done");
+    // Signal readiness after minimum animation time (1.2s)
+    const readyTimer = setTimeout(() => {
+      if (!calledRef.current) {
+        calledRef.current = true;
+        onComplete();
+      }
     }, 1200);
-
-    // Actually leave splash (after fade-out completes)
-    const leaveTimer = setTimeout(() => {
-      onComplete();
-    }, 1600);
 
     return () => {
       clearTimeout(textTimer);
-      clearTimeout(doneTimer);
-      clearTimeout(leaveTimer);
+      clearTimeout(readyTimer);
     };
   }, [onComplete]);
 
   return (
-    <div
-      className={`bg-bg-root fixed inset-0 z-50 flex flex-col items-center justify-center transition-opacity duration-[400ms] ${
-        phase === "done" ? "opacity-0" : "opacity-100"
-      }`}
-    >
+    <div className="bg-bg-root fixed inset-0 z-50 flex flex-col items-center justify-center">
       {/* Logo mark — animated scale-in */}
       <div
         className={`bg-primary flex h-16 w-16 items-center justify-center rounded-lg transition-all duration-[600ms] ${
@@ -59,50 +53,28 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         <span className="font-heading text-bg-root text-4xl leading-none italic">d</span>
       </div>
 
-      {/* App name — fades in after logo */}
+      {/* App name */}
       <div
         className={`mt-5 transition-all duration-500 ${
-          phase === "text" || phase === "done"
-            ? "translate-y-0 opacity-100"
-            : "translate-y-2 opacity-0"
+          phase === "text" ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
         }`}
       >
         <span className="text-text-primary text-lg font-semibold tracking-[-0.02em]">Dispatch</span>
       </div>
 
-      {/* Subtitle */}
+      {/* Subtle loading bar */}
       <div
-        className={`mt-2 transition-all delay-100 duration-500 ${
-          phase === "text" || phase === "done"
-            ? "translate-y-0 opacity-100"
-            : "translate-y-2 opacity-0"
+        className={`mt-6 transition-opacity duration-500 ${
+          phase === "text" ? "opacity-100" : "opacity-0"
         }`}
       >
-        <span className="text-text-tertiary text-xs">Code review, redefined.</span>
-      </div>
-
-      {/* Loading indicator */}
-      <div
-        className={`mt-8 transition-all delay-200 duration-500 ${
-          phase === "text" || phase === "done" ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        <div className="bg-border h-[2px] w-16 overflow-hidden rounded-full">
+        <div className="bg-border h-[2px] w-12 overflow-hidden rounded-full">
           <div
-            className="bg-primary h-full rounded-full"
-            style={{
-              animation: "splash-progress 1s ease-out forwards",
-            }}
+            className="bg-primary/50 h-full animate-pulse rounded-full"
+            style={{ width: "60%" }}
           />
         </div>
       </div>
-
-      <style>{`
-        @keyframes splash-progress {
-          from { width: 0%; }
-          to { width: 100%; }
-        }
-      `}</style>
     </div>
   );
 }

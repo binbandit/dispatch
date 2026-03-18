@@ -1,47 +1,44 @@
-import type { AnyTRPCRouter } from "@trpc/server";
-
-import { callTRPCProcedure, getTRPCErrorShape } from "@trpc/server";
 import { ipcMain } from "electron";
-import superjson from "superjson";
 
 import { TRPC_IPC_CHANNEL } from "../../shared/ipc";
+import { createCallerFactory } from "./init";
+import { appRouter } from "./router";
 
 /**
  * Register the tRPC IPC handler on the main process.
  *
- * The renderer sends { type, path, input } over ipcMain.handle,
- * and we call the corresponding tRPC procedure directly.
+ * Uses tRPC's createCallerFactory for a clean server-side call.
+ * The renderer sends { path, input } and we route it to the
+ * correct procedure via the caller.
  */
-export function registerTrpcIpcHandler(router: AnyTRPCRouter): void {
+export function registerTrpcIpcHandler(): void {
+  const createCaller = createCallerFactory(appRouter);
+  const caller = createCaller({});
+
   ipcMain.handle(
     TRPC_IPC_CHANNEL,
     async (_event, payload: { type: "query" | "mutation"; path: string; input: unknown }) => {
-      const { type, path, input } = payload;
+      const { path, input } = payload;
 
       try {
-        const result = await callTRPCProcedure({
-          procedures: router._def.procedures,
-          path,
-          getRawInput: async () => input,
-          type,
-          ctx: {},
-        });
+        // Navigate the caller object using the dot-separated path
+        // e.g. "env.check" → caller.env.check(input)
+        const segments = path.split(".");
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let current: any = caller;
+        for (const segment of segments) {
+          current = current[segment];
+        }
 
-        return {
-          result: { type: "data" as const, data: superjson.serialize(result) },
-        };
+        const result = await current(input);
+
+        return { ok: true, data: result };
       } catch (error) {
-        const shape = getTRPCErrorShape({
-          config: router._def._config,
-          error: error as Error,
-          type,
-          path,
-          input,
-          ctx: {},
-        });
-
         return {
-          error: { type: "error" as const, shape },
+          ok: false,
+          error: {
+            message: error instanceof Error ? error.message : String(error),
+          },
         };
       }
     },

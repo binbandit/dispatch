@@ -2,14 +2,15 @@ import type { AppRouter } from "../../main/trpc/router";
 import type { TRPCLink } from "@trpc/client";
 
 import { QueryClient } from "@tanstack/react-query";
-import { createTRPCClient } from "@trpc/client";
+import { TRPCClientError, createTRPCClient } from "@trpc/client";
 import { observable } from "@trpc/server/observable";
 import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
-import superjson from "superjson";
 
 /**
- * Custom tRPC link that routes calls through Electron's IPC bridge
- * instead of HTTP. The preload script exposes `window.api.trpc()`.
+ * Custom tRPC link that routes calls through Electron's IPC bridge.
+ *
+ * The main process uses a tRPC caller factory — no HTTP, no superjson.
+ * Data is passed via Electron's structured clone (handles Dates, etc.).
  */
 function ipcLink(): TRPCLink<AppRouter> {
   return () =>
@@ -18,22 +19,23 @@ function ipcLink(): TRPCLink<AppRouter> {
         const { type, path, input } = op;
 
         window.api
-          .trpc({ type, path, input: superjson.serialize(input) })
+          .trpc({ type: type as "query" | "mutation", path, input })
           .then((response) => {
-            const res = response as { result: { data: unknown } } | { error: { shape: unknown } };
+            const res = response as { ok: boolean; data?: unknown; error?: { message: string } };
 
-            if ("error" in res) {
-              observer.error(res.error.shape);
-            } else {
-              const data = superjson.deserialize(
-                res.result.data as { json: unknown; meta?: unknown },
+            if (!res.ok) {
+              observer.error(
+                TRPCClientError.from(new Error(res.error?.message ?? "Unknown IPC error")),
               );
-              observer.next({ result: { type: "data", data } });
+            } else {
+              observer.next({ result: { type: "data", data: res.data } });
               observer.complete();
             }
           })
           .catch((err) => {
-            observer.error(err);
+            observer.error(
+              TRPCClientError.from(err instanceof Error ? err : new Error(String(err))),
+            );
           });
       });
 }
@@ -60,7 +62,6 @@ export const trpcClient = createTRPCClient<AppRouter>({
 
 /**
  * tRPC + TanStack React Query integration.
- * Use `trpc.someRouter.someQuery.queryOptions(input)` with `useQuery()`.
  */
 export const trpc = createTRPCOptionsProxy<AppRouter>({
   client: trpcClient,
