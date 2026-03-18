@@ -12,10 +12,15 @@ import { Bell, GitPullRequest, Settings } from "lucide-react";
 export function Navbar({ selectedPr }: { selectedPr?: number | null }) {
   return (
     <header
-      className="border-border bg-bg-surface flex h-10 shrink-0 items-center border-b px-3"
-      style={{ WebkitAppRegion: "drag" } as React.CSSProperties}
+      className="border-border bg-bg-surface flex h-10 shrink-0 items-center border-b pr-3"
+      style={
+        {
+          WebkitAppRegion: "drag",
+          paddingLeft: 78,
+        } as React.CSSProperties
+      }
     >
-      {/* Logo (§ 8.1 Logo) */}
+      {/* Logo (§ 8.1 Logo) — after traffic light safe zone */}
       <div
         className="flex items-center gap-[7px]"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}

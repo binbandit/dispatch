@@ -16,7 +16,7 @@ const WINDOW_CONFIG: BrowserWindowConstructorOptions = {
   minHeight: 600,
   show: false,
   titleBarStyle: "hiddenInset",
-  trafficLightPosition: { x: 12, y: 12 },
+  trafficLightPosition: { x: 16, y: 14 },
   backgroundColor: "#08080a",
   webPreferences: {
     preload: join(__dirname, "preload.js"),
