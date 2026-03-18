@@ -4,7 +4,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Clock, RotateCcw, XCircle } from "lucide-react";
 import { useState } from "react";
 
-import { queryClient, trpc } from "../lib/trpc";
+import { ipc } from "../lib/ipc";
+import { queryClient } from "../lib/trpc";
 import { useWorkspace } from "../lib/workspace-context";
 import { LogViewer } from "./log-viewer";
 
@@ -55,7 +56,8 @@ export function ChecksPanel({ prNumber }: ChecksPanelProps) {
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
 
   const checksQuery = useQuery({
-    ...trpc.checks.list.queryOptions({ cwd, prNumber }),
+    queryKey: ["checks", "list", cwd, prNumber],
+    queryFn: () => ipc("checks.list", { cwd, prNumber }),
     refetchInterval: 10_000,
   });
 
@@ -152,13 +154,12 @@ export function ChecksPanel({ prNumber }: ChecksPanelProps) {
 }
 
 function RerunButton({ cwd, runId }: { cwd: string; runId: number }) {
-  const rerunMutation = useMutation(
-    trpc.checks.rerunFailed.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["checks"] });
-      },
-    }),
-  );
+  const rerunMutation = useMutation({
+    mutationFn: (args: { cwd: string; runId: number }) => ipc("checks.rerunFailed", args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["checks"] });
+    },
+  });
 
   return (
     <Button

@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 
-import { trpc } from "../lib/trpc";
+import { ipc } from "../lib/ipc";
 
 /**
  * CI Log viewer — DISPATCH-DESIGN-SYSTEM.md § 8.7
@@ -19,7 +19,8 @@ interface LogViewerProps {
 
 export function LogViewer({ cwd, runId }: LogViewerProps) {
   const logQuery = useQuery({
-    ...trpc.checks.logs.queryOptions({ cwd, runId }),
+    queryKey: ["checks", "logs", cwd, runId],
+    queryFn: () => ipc("checks.logs", { cwd, runId }),
     staleTime: 60_000,
     retry: 1,
   });

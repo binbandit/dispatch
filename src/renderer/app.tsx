@@ -6,7 +6,8 @@ import { AppLayout } from "./components/app-layout";
 import { EnvCheck } from "./components/env-check";
 import { Onboarding } from "./components/onboarding";
 import { SplashScreen } from "./components/splash-screen";
-import { queryClient, trpc } from "./lib/trpc";
+import { ipc } from "./lib/ipc";
+import { queryClient } from "./lib/trpc";
 import { WorkspaceProvider } from "./lib/workspace-context";
 
 /**
@@ -26,9 +27,18 @@ function AppContent() {
   const dataLoadedOnce = useRef(false);
 
   // Fire ALL queries immediately — they resolve during the splash
-  const envQuery = useQuery(trpc.env.check.queryOptions());
-  const activeQuery = useQuery(trpc.workspace.active.queryOptions());
-  const workspacesQuery = useQuery(trpc.workspace.list.queryOptions());
+  const envQuery = useQuery({
+    queryKey: ["env", "check"],
+    queryFn: () => ipc("env.check"),
+  });
+  const activeQuery = useQuery({
+    queryKey: ["workspace", "active"],
+    queryFn: () => ipc("workspace.active"),
+  });
+  const workspacesQuery = useQuery({
+    queryKey: ["workspace", "list"],
+    queryFn: () => ipc("workspace.list"),
+  });
 
   const dataReady = !envQuery.isLoading && !activeQuery.isLoading && !workspacesQuery.isLoading;
 

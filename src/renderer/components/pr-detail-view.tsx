@@ -14,7 +14,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSyntaxHighlighter } from "../hooks/use-syntax-highlight";
 import { parseDiff } from "../lib/diff-parser";
 import { inferLanguage } from "../lib/highlighter";
-import { queryClient, trpc } from "../lib/trpc";
+import { ipc } from "../lib/ipc";
+import { queryClient } from "../lib/trpc";
 import { useWorkspace } from "../lib/workspace-context";
 import { ChecksPanel } from "./checks-panel";
 import { DiffViewer } from "./diff-viewer";
@@ -52,49 +53,58 @@ function PrDetail({ prNumber }: { prNumber: number }) {
 
   // PR detail query
   const detailQuery = useQuery({
-    ...trpc.pr.detail.queryOptions({ cwd, prNumber }),
+    queryKey: ["pr", "detail", cwd, prNumber],
+    queryFn: () => ipc("pr.detail", { cwd, prNumber }),
     refetchInterval: 60_000,
   });
 
   // Full PR diff query
   const diffQuery = useQuery({
-    ...trpc.pr.diff.queryOptions({ cwd, prNumber }),
+    queryKey: ["pr", "diff", cwd, prNumber],
+    queryFn: () => ipc("pr.diff", { cwd, prNumber }),
     staleTime: 60_000,
   });
 
   // Review rounds: last reviewed SHA
   const repoName = cwd.split("/").pop() ?? "";
-  const lastShaQuery = useQuery(trpc.review.getLastSha.queryOptions({ repo: repoName, prNumber }));
+  const lastShaQuery = useQuery({
+    queryKey: ["review", "getLastSha", repoName, prNumber],
+    queryFn: () => ipc("review.getLastSha", { repo: repoName, prNumber }),
+  });
   const lastSha = lastShaQuery.data ?? null;
   const headSha = detailQuery.data?.headRefOid ?? "";
 
   // Incremental diff (since last review)
   const incrementalDiffQuery = useQuery({
-    ...trpc.git.diff.queryOptions({ cwd, fromRef: lastSha ?? "", toRef: headSha }),
+    queryKey: ["git", "diff", cwd, lastSha, headSha],
+    queryFn: () => ipc("git.diff", { cwd, fromRef: lastSha ?? "", toRef: headSha }),
     enabled: diffMode === "since-review" && !!lastSha && !!headSha && lastSha !== headSha,
     staleTime: 60_000,
   });
 
   // Save review SHA mutation
-  const saveShaMutation = useMutation(
-    trpc.review.saveSha.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["review", "getLastSha"] });
-      },
-    }),
-  );
+  const saveShaMutation = useMutation({
+    mutationFn: (args: { repo: string; prNumber: number; sha: string }) =>
+      ipc("review.saveSha", args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["review", "getLastSha"] });
+    },
+  });
 
   // Viewed files
-  const viewedQuery = useQuery(trpc.review.viewedFiles.queryOptions({ repo: repoName, prNumber }));
+  const viewedQuery = useQuery({
+    queryKey: ["review", "viewedFiles", repoName, prNumber],
+    queryFn: () => ipc("review.viewedFiles", { repo: repoName, prNumber }),
+  });
   const viewedFiles = useMemo(() => new Set(viewedQuery.data ?? []), [viewedQuery.data]);
 
-  const setViewedMutation = useMutation(
-    trpc.review.setFileViewed.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["review", "viewedFiles"] });
-      },
-    }),
-  );
+  const setViewedMutation = useMutation({
+    mutationFn: (args: { repo: string; prNumber: number; filePath: string; viewed: boolean }) =>
+      ipc("review.setFileViewed", args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["review", "viewedFiles"] });
+    },
+  });
 
   // Parse diff — choose between full and incremental
   const rawDiff =
@@ -111,7 +121,8 @@ function PrDetail({ prNumber }: { prNumber: number }) {
 
   // PR comments (inline in diff)
   const commentsQuery = useQuery({
-    ...trpc.pr.comments.queryOptions({ cwd, prNumber }),
+    queryKey: ["pr", "comments", cwd, prNumber],
+    queryFn: () => ipc("pr.comments", { cwd, prNumber }),
     staleTime: 30_000,
   });
 
@@ -131,7 +142,8 @@ function PrDetail({ prNumber }: { prNumber: number }) {
 
   // CI annotations (inline in diff)
   const annotationsQuery = useQuery({
-    ...trpc.checks.annotations.queryOptions({ cwd, prNumber }),
+    queryKey: ["checks", "annotations", cwd, prNumber],
+    queryFn: () => ipc("checks.annotations", { cwd, prNumber }),
     staleTime: 30_000,
   });
 
@@ -631,25 +643,28 @@ function MergeButton({
 }) {
   const [strategy, _setStrategy] = useState<"squash" | "merge" | "rebase">("squash");
 
-  const mergeMutation = useMutation(
-    trpc.pr.merge.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["pr"] });
-        toastManager.add({
-          title: `PR #${prNumber} merged`,
-          description: "Branch deleted.",
-          type: "success",
-        });
-      },
-      onError: (err) => {
-        toastManager.add({
-          title: "Merge failed",
-          description: String(err.message),
-          type: "error",
-        });
-      },
-    }),
-  );
+  const mergeMutation = useMutation({
+    mutationFn: (args: {
+      cwd: string;
+      prNumber: number;
+      strategy: "merge" | "squash" | "rebase";
+    }) => ipc("pr.merge", args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr"] });
+      toastManager.add({
+        title: `PR #${prNumber} merged`,
+        description: "Branch deleted.",
+        type: "success",
+      });
+    },
+    onError: (err) => {
+      toastManager.add({
+        title: "Merge failed",
+        description: String(err.message),
+        type: "error",
+      });
+    },
+  });
 
   const hasApproval = pr.reviewDecision === "APPROVED";
   const allChecksPassing = pr.statusCheckRollup.every((c) => c.conclusion === "success");
@@ -675,25 +690,29 @@ function MergeButton({
 // ---------------------------------------------------------------------------
 
 function ApproveButton({ cwd, prNumber }: { cwd: string; prNumber: number }) {
-  const approveMutation = useMutation(
-    trpc.pr.submitReview.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["pr"] });
-        toastManager.add({
-          title: "Review submitted",
-          description: "You approved this PR.",
-          type: "success",
-        });
-      },
-      onError: (err) => {
-        toastManager.add({
-          title: "Review failed",
-          description: String(err.message),
-          type: "error",
-        });
-      },
-    }),
-  );
+  const approveMutation = useMutation({
+    mutationFn: (args: {
+      cwd: string;
+      prNumber: number;
+      event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
+      body?: string;
+    }) => ipc("pr.submitReview", args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr"] });
+      toastManager.add({
+        title: "Review submitted",
+        description: "You approved this PR.",
+        type: "success",
+      });
+    },
+    onError: (err) => {
+      toastManager.add({
+        title: "Review failed",
+        description: String(err.message),
+        type: "error",
+      });
+    },
+  });
 
   return (
     <Button

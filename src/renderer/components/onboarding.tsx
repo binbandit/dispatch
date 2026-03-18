@@ -2,7 +2,8 @@ import { Button } from "@/components/ui/button";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { FolderOpen, GitBranch, Trash2 } from "lucide-react";
 
-import { queryClient, trpc } from "../lib/trpc";
+import { ipc } from "../lib/ipc";
+import { queryClient } from "../lib/trpc";
 
 /**
  * Onboarding flow: shown when no workspaces are configured.
@@ -16,39 +17,41 @@ interface OnboardingProps {
 }
 
 export function Onboarding({ onComplete }: OnboardingProps) {
-  const workspacesQuery = useQuery(trpc.workspace.list.queryOptions());
+  const workspacesQuery = useQuery({
+    queryKey: ["workspace", "list"],
+    queryFn: () => ipc("workspace.list"),
+  });
   const workspaces = workspacesQuery.data ?? [];
 
-  const addMutation = useMutation(
-    trpc.workspace.add.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["workspace"] });
-      },
-    }),
-  );
+  const addMutation = useMutation({
+    mutationFn: (args: { path: string }) => ipc("workspace.add", args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workspace"] });
+    },
+  });
 
-  const removeMutation = useMutation(
-    trpc.workspace.remove.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["workspace"] });
-      },
-    }),
-  );
+  const removeMutation = useMutation({
+    mutationFn: (args: { id: number }) => ipc("workspace.remove", args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workspace"] });
+    },
+  });
 
-  const setActiveMutation = useMutation(trpc.workspace.setActive.mutationOptions());
+  const setActiveMutation = useMutation({
+    mutationFn: (args: { path: string }) => ipc("workspace.setActive", args),
+  });
 
-  const pickFolderMutation = useMutation(
-    trpc.workspace.pickFolder.mutationOptions({
-      onSuccess: (result) => {
-        if (result) {
-          addMutation.mutate({ path: result });
-        }
-      },
-      onError: () => {
-        // Error shown via pickFolderMutation.isError below
-      },
-    }),
-  );
+  const pickFolderMutation = useMutation({
+    mutationFn: () => ipc("workspace.pickFolder"),
+    onSuccess: (result) => {
+      if (result) {
+        addMutation.mutate({ path: result });
+      }
+    },
+    onError: () => {
+      // Error shown via pickFolderMutation.isError below
+    },
+  });
 
   function handleContinue() {
     const firstWorkspace = workspaces[0];

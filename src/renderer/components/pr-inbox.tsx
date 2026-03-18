@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Inbox, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { trpc } from "../lib/trpc";
+import { ipc } from "../lib/ipc";
 import { useWorkspace } from "../lib/workspace-context";
 
 /**
@@ -14,7 +14,7 @@ import { useWorkspace } from "../lib/workspace-context";
  * - Width: 260px, bg: --bg-surface, border-right: 1px solid --border
  * - Two sections: "Needs your review" + "Your pull requests"
  * - Keyboard-navigable (j/k/Enter)
- * - Real tRPC data with 30s polling
+ * - Real IPC data with 30s polling
  */
 
 interface PrInboxProps {
@@ -61,12 +61,14 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
 
   // Real data queries with 30s polling
   const reviewQuery = useQuery({
-    ...trpc.pr.list.queryOptions({ cwd, filter: "reviewRequested" }),
+    queryKey: ["pr", "list", cwd, "reviewRequested"],
+    queryFn: () => ipc("pr.list", { cwd, filter: "reviewRequested" }),
     refetchInterval: 30_000,
   });
 
   const authorQuery = useQuery({
-    ...trpc.pr.list.queryOptions({ cwd, filter: "authored" }),
+    queryKey: ["pr", "list", cwd, "authored"],
+    queryFn: () => ipc("pr.list", { cwd, filter: "authored" }),
     refetchInterval: 30_000,
   });
 

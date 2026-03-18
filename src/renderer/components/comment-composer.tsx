@@ -3,7 +3,8 @@ import { Spinner } from "@/components/ui/spinner";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
-import { queryClient, trpc } from "../lib/trpc";
+import { ipc } from "../lib/ipc";
+import { queryClient } from "../lib/trpc";
 import { useWorkspace } from "../lib/workspace-context";
 
 /**
@@ -29,14 +30,19 @@ export function CommentComposer({ prNumber, filePath, line, onClose }: CommentCo
     textareaRef.current?.focus();
   }, []);
 
-  const createMutation = useMutation(
-    trpc.pr.createComment.mutationOptions({
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: ["pr", "comments"] });
-        onClose();
-      },
-    }),
-  );
+  const createMutation = useMutation({
+    mutationFn: (args: {
+      cwd: string;
+      prNumber: number;
+      body: string;
+      path: string;
+      line: number;
+    }) => ipc("pr.createComment", args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr", "comments"] });
+      onClose();
+    },
+  });
 
   function handleSubmit() {
     if (!body.trim()) {

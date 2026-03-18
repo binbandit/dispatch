@@ -1,33 +1,17 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-import { TRPC_IPC_CHANNEL } from "../shared/ipc";
+import { IPC_CHANNEL } from "../shared/ipc";
 
 /**
- * Expose a safe, typed API to the renderer process.
- *
- * Access in the renderer via `window.api`.
+ * Expose a minimal, safe API to the renderer process.
+ * Access via `window.api`.
  */
 contextBridge.exposeInMainWorld("api", {
   /**
-   * Send a tRPC request to the main process.
-   * This is the only IPC method the renderer needs.
+   * Call a typed IPC method on the main process.
    */
-  trpc(payload: { type: "query" | "mutation"; path: string; input: unknown }): Promise<unknown> {
-    return ipcRenderer.invoke(TRPC_IPC_CHANNEL, payload);
-  },
-
-  /**
-   * Send a one-way message to the main process.
-   */
-  send(channel: string, ...args: unknown[]): void {
-    ipcRenderer.send(channel, ...args);
-  },
-
-  /**
-   * Send a message and await a response from the main process.
-   */
-  invoke(channel: string, ...args: unknown[]): Promise<unknown> {
-    return ipcRenderer.invoke(channel, ...args);
+  invoke(method: string, args: unknown): Promise<unknown> {
+    return ipcRenderer.invoke(IPC_CHANNEL, { method, args });
   },
 
   /**
@@ -38,9 +22,7 @@ contextBridge.exposeInMainWorld("api", {
     const listener = (_event: Electron.IpcRendererEvent, ...args: unknown[]) => {
       callback(...args);
     };
-
     ipcRenderer.on(channel, listener);
-
     return () => {
       ipcRenderer.removeListener(channel, listener);
     };

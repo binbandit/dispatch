@@ -2,7 +2,7 @@ import { relativeTime } from "@/shared/format";
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { trpc } from "../lib/trpc";
+import { ipc } from "../lib/ipc";
 import { useWorkspace } from "../lib/workspace-context";
 
 /**
@@ -25,12 +25,8 @@ export function BlamePopover({ file, line, gitRef, anchorRect }: BlamePopoverPro
   const { cwd } = useWorkspace();
 
   const blameQuery = useQuery({
-    ...trpc.git.blame.queryOptions({
-      cwd,
-      file,
-      line: line ?? 1,
-      ref: gitRef,
-    }),
+    queryKey: ["git", "blame", cwd, file, line, gitRef],
+    queryFn: () => ipc("git.blame", { cwd, file, line: line ?? 1, ref: gitRef }),
     enabled: line !== null && line > 0,
     staleTime: 300_000, // Cache blame results for 5 minutes
     retry: 0,

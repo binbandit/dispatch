@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { type BrowserWindowConstructorOptions, app, BrowserWindow } from "electron";
 
 import { closeDatabase, initDatabase } from "./db/database";
-import { registerTrpcIpcHandler } from "./trpc/ipc-handler";
+import { registerIpcHandler } from "./ipc-handler";
 
 // ---------------------------------------------------------------------------
 // Window configuration
@@ -49,7 +49,7 @@ function createWindow(): BrowserWindow {
 app.whenReady().then(() => {
   // Initialize infrastructure
   initDatabase();
-  registerTrpcIpcHandler();
+  registerIpcHandler();
 
   // Create main window
   createWindow();

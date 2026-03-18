@@ -17,7 +17,7 @@ Before implementing any UI described in this spec, you **MUST** read [`DISPATCH-
 - **Application Shell:** Electron
 - **Frontend (Renderer):** React 19, Tailwind CSS v4, Vite
 - **State Management/Routing:** React Query (for polling/caching `gh` responses), minimal client-side routing.
-- **Communication:** tRPC (Typed IPC bridge between Electron Main and Renderer)
+- **Communication:** Typed IPC (direct `ipcMain.handle` / `ipcRenderer.invoke` with shared type contract in `src/shared/ipc.ts`)
 - **Local Storage (Main Process):** SQLite (better-sqlite3) for caching PR states, user preferences, and tracking the last-reviewed SHA for diff comparisons.
 - **Data Layer (Main Process):**
   - `gh` CLI adapter (executing child processes for `gh api` and `gh pr` commands).
@@ -26,7 +26,7 @@ Before implementing any UI described in this spec, you **MUST** read [`DISPATCH-
 
 ### Architecture Rules for AI
 
-1. **Renderer Process:** Pure UI. No direct Node.js APIs. It requests data via tRPC.
+1. **Renderer Process:** Pure UI. No direct Node.js APIs. It requests data via typed IPC (`ipc()` function).
 2. **Main Process:** The only place where `child_process.exec`, file system reads, and SQLite queries occur.
 3. **Authentication:** Assume the user has run `gh auth login` on their machine. Use the existing system keychain/auth token. Do not build login screens.
 
@@ -86,6 +86,6 @@ Before implementing any UI described in this spec, you **MUST** read [`DISPATCH-
 
 1. Initialize a standard Electron + Vite + React + TypeScript boilerplate.
 2. Install Tailwind CSS v4 and configure the Vite plugin.
-3. Set up the tRPC bridge connecting the Electron `ipcMain` to the React `ipcRenderer`.
+3. Set up typed IPC bridge connecting `ipcMain.handle` to `ipcRenderer.invoke` with shared type contract.
 4. Create a utility service in the Main process called `GhCliService.ts` that uses Node's `child_process.exec` to run `gh --version` to verify the environment.
 5. Pause and output the directory structure and the `GhCliService.ts` code for human review.
