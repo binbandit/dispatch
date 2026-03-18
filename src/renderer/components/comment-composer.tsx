@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
 
@@ -40,6 +41,7 @@ export function CommentComposer({ prNumber, filePath, line, onClose }: CommentCo
     }) => ipc("pr.createComment", args),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr", "comments"] });
+      toastManager.add({ title: "Comment added", type: "success" });
       onClose();
     },
   });

@@ -8,7 +8,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, GitMerge } from "lucide-react";
+import { ChevronDown, ChevronLeft, ChevronRight, GitMerge, MessageSquare } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useSyntaxHighlighter } from "../hooks/use-syntax-highlight";
@@ -88,6 +88,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       ipc("review.saveSha", args),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["review", "getLastSha"] });
+      toastManager.add({ title: "Review SHA saved", type: "success" });
     },
   });
 
@@ -239,6 +240,10 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         </div>
         <div className="flex items-center gap-1.5">
           <ApproveButton
+            cwd={cwd}
+            prNumber={prNumber}
+          />
+          <RequestChangesButton
             cwd={cwd}
             prNumber={prNumber}
           />
@@ -628,6 +633,12 @@ function ChecklistItem({ label, passed }: { label: string; passed: boolean }) {
 // Merge button (§ 8.8)
 // ---------------------------------------------------------------------------
 
+const STRATEGY_LABELS: Record<string, string> = {
+  squash: "Squash & Merge",
+  merge: "Merge",
+  rebase: "Rebase & Merge",
+};
+
 function MergeButton({
   cwd,
   prNumber,
@@ -641,7 +652,8 @@ function MergeButton({
     statusCheckRollup: Array<{ conclusion: string | null }>;
   };
 }) {
-  const [strategy, _setStrategy] = useState<"squash" | "merge" | "rebase">("squash");
+  const [strategy, setStrategy] = useState<"squash" | "merge" | "rebase">("squash");
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const mergeMutation = useMutation({
     mutationFn: (args: {
@@ -671,17 +683,48 @@ function MergeButton({
   const canMerge = hasApproval && allChecksPassing && pr.mergeable === "MERGEABLE";
 
   return (
-    <Button
-      size="sm"
-      className="bg-primary text-primary-foreground hover:bg-accent-hover gap-1.5 disabled:opacity-50"
-      disabled={!canMerge || mergeMutation.isPending}
-      onClick={() => {
-        mergeMutation.mutate({ cwd, prNumber, strategy });
-      }}
-    >
-      {mergeMutation.isPending ? <Spinner className="h-3 w-3" /> : <GitMerge size={13} />}
-      Merge
-    </Button>
+    <div className="relative flex">
+      <Button
+        size="sm"
+        className="bg-primary text-primary-foreground hover:bg-accent-hover gap-1.5 rounded-r-none disabled:opacity-50"
+        disabled={!canMerge || mergeMutation.isPending}
+        onClick={() => {
+          mergeMutation.mutate({ cwd, prNumber, strategy });
+        }}
+      >
+        {mergeMutation.isPending ? <Spinner className="h-3 w-3" /> : <GitMerge size={13} />}
+        {STRATEGY_LABELS[strategy]}
+      </Button>
+      <Button
+        size="sm"
+        className="border-l-primary-foreground/20 bg-primary text-primary-foreground hover:bg-accent-hover rounded-l-none border-l px-1.5 disabled:opacity-50"
+        disabled={!canMerge || mergeMutation.isPending}
+        onClick={() => setMenuOpen(!menuOpen)}
+      >
+        <ChevronDown size={12} />
+      </Button>
+      {menuOpen && (
+        <div className="border-border bg-bg-elevated absolute top-full right-0 z-20 mt-1 rounded-md border p-1 shadow-lg">
+          {(["squash", "merge", "rebase"] as const).map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => {
+                setStrategy(s);
+                setMenuOpen(false);
+              }}
+              className={`flex w-full items-center rounded-sm px-3 py-1.5 text-left text-xs transition-colors ${
+                strategy === s
+                  ? "bg-accent-muted text-accent-text"
+                  : "text-text-secondary hover:bg-bg-raised hover:text-text-primary"
+              }`}
+            >
+              {STRATEGY_LABELS[s]}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -690,20 +733,17 @@ function MergeButton({
 // ---------------------------------------------------------------------------
 
 function ApproveButton({ cwd, prNumber }: { cwd: string; prNumber: number }) {
-  const approveMutation = useMutation({
+  const reviewMutation = useMutation({
     mutationFn: (args: {
       cwd: string;
       prNumber: number;
       event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
       body?: string;
     }) => ipc("pr.submitReview", args),
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
-      toastManager.add({
-        title: "Review submitted",
-        description: "You approved this PR.",
-        type: "success",
-      });
+      const desc = variables.event === "APPROVE" ? "You approved this PR." : "Review submitted.";
+      toastManager.add({ title: "Review submitted", description: desc, type: "success" });
     },
     onError: (err) => {
       toastManager.add({
@@ -719,13 +759,110 @@ function ApproveButton({ cwd, prNumber }: { cwd: string; prNumber: number }) {
       size="sm"
       variant="outline"
       className="border-success/30 text-success hover:bg-success-muted gap-1.5"
-      disabled={approveMutation.isPending}
+      disabled={reviewMutation.isPending}
       onClick={() => {
-        approveMutation.mutate({ cwd, prNumber, event: "APPROVE" });
+        reviewMutation.mutate({ cwd, prNumber, event: "APPROVE" });
       }}
     >
-      {approveMutation.isPending ? <Spinner className="h-3 w-3" /> : "✓"}
+      {reviewMutation.isPending ? <Spinner className="h-3 w-3" /> : "✓"}
       Approve
     </Button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Request Changes button
+// ---------------------------------------------------------------------------
+
+function RequestChangesButton({ cwd, prNumber }: { cwd: string; prNumber: number }) {
+  const [open, setOpen] = useState(false);
+  const [body, setBody] = useState("");
+
+  const reviewMutation = useMutation({
+    mutationFn: (args: {
+      cwd: string;
+      prNumber: number;
+      event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
+      body?: string;
+    }) => ipc("pr.submitReview", args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr"] });
+      toastManager.add({ title: "Changes requested", type: "success" });
+      setOpen(false);
+      setBody("");
+    },
+    onError: (err) => {
+      toastManager.add({
+        title: "Review failed",
+        description: String(err.message),
+        type: "error",
+      });
+    },
+  });
+
+  return (
+    <div className="relative">
+      <Button
+        size="sm"
+        variant="ghost"
+        className="text-destructive hover:bg-danger-muted hover:text-destructive gap-1.5"
+        onClick={() => setOpen(!open)}
+      >
+        <MessageSquare size={13} />
+        Request Changes
+      </Button>
+      {open && (
+        <div className="border-border bg-bg-elevated absolute top-full right-0 z-20 mt-1 w-72 rounded-md border p-3 shadow-lg">
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="What needs to change?"
+            rows={3}
+            className="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-primary w-full resize-none rounded-md border px-3 py-2 text-xs focus:outline-none"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && e.metaKey && body.trim()) {
+                e.preventDefault();
+                reviewMutation.mutate({
+                  cwd,
+                  prNumber,
+                  event: "REQUEST_CHANGES",
+                  body: body.trim(),
+                });
+              }
+              if (e.key === "Escape") {
+                setOpen(false);
+              }
+            }}
+          />
+          <div className="mt-2 flex items-center justify-end gap-1.5">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setOpen(false);
+                setBody("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-destructive hover:bg-destructive/90 text-white"
+              disabled={!body.trim() || reviewMutation.isPending}
+              onClick={() => {
+                reviewMutation.mutate({
+                  cwd,
+                  prNumber,
+                  event: "REQUEST_CHANGES",
+                  body: body.trim(),
+                });
+              }}
+            >
+              {reviewMutation.isPending ? <Spinner className="h-3 w-3" /> : "Submit"}
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

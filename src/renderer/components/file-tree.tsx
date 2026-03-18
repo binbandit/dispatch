@@ -1,6 +1,7 @@
 import type { DiffFile } from "../lib/diff-parser";
 
 import { Check, Square } from "lucide-react";
+import { useMemo } from "react";
 
 /**
  * File tree sidebar — DISPATCH-DESIGN-SYSTEM.md § 8.7 (Files tab)
@@ -32,6 +33,21 @@ export function FileTree({
 }: FileTreeProps) {
   const viewedCount = files.filter((f) => viewedFiles.has(f.newPath)).length;
 
+  const sortedFiles = useMemo(() => {
+    return [...files].sort((a, b) => {
+      const aPath = a.newPath || a.oldPath;
+      const bPath = b.newPath || b.oldPath;
+      const aDir = aPath.includes("/") ? aPath.slice(0, aPath.lastIndexOf("/")) : "";
+      const bDir = bPath.includes("/") ? bPath.slice(0, bPath.lastIndexOf("/")) : "";
+      if (aDir !== bDir) {
+        return aDir.localeCompare(bDir);
+      }
+      const aName = aPath.split("/").pop() ?? aPath;
+      const bName = bPath.split("/").pop() ?? bPath;
+      return aName.localeCompare(bName);
+    });
+  }, [files]);
+
   return (
     <div className="flex flex-col">
       {/* Progress */}
@@ -49,20 +65,21 @@ export function FileTree({
 
       {/* File list */}
       <div className="flex flex-col gap-0.5">
-        {files.map((file, index) => {
+        {sortedFiles.map((file) => {
+          const originalIndex = files.indexOf(file);
           const filePath = file.newPath || file.oldPath;
           const fileName = filePath.split("/").pop() ?? filePath;
           const dirPath = filePath.includes("/")
             ? filePath.slice(0, filePath.lastIndexOf("/"))
             : "";
           const isViewed = viewedFiles.has(filePath);
-          const isActive = currentFileIndex === index;
+          const isActive = currentFileIndex === originalIndex;
 
           return (
             <button
               key={filePath}
               type="button"
-              onClick={() => onSelectFile(index)}
+              onClick={() => onSelectFile(originalIndex)}
               className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left transition-colors ${
                 isActive
                   ? "border-l-primary bg-accent-muted border-l-2"

@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { CheckCircle2, Clock, RotateCcw, XCircle } from "lucide-react";
 import { useState } from "react";
@@ -158,6 +159,14 @@ function RerunButton({ cwd, runId }: { cwd: string; runId: number }) {
     mutationFn: (args: { cwd: string; runId: number }) => ipc("checks.rerunFailed", args),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["checks"] });
+      toastManager.add({
+        title: "Re-run started",
+        description: "Failed jobs are being re-run.",
+        type: "success",
+      });
+    },
+    onError: (err) => {
+      toastManager.add({ title: "Re-run failed", description: String(err.message), type: "error" });
     },
   });
 
