@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Component, useCallback, useState } from "react";
 
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
+import { useNotificationPolling } from "../hooks/use-notification-polling";
 import { RouterProvider, useRouter } from "../lib/router";
 import { Navbar } from "./navbar";
 import { PrDetailView } from "./pr-detail-view";
@@ -35,6 +36,7 @@ function AppShell() {
   }, []);
 
   useKeyboardShortcuts([{ key: "b", modifiers: ["meta"], handler: toggleSidebar }]);
+  useNotificationPolling();
 
   const selectedPr = route.view === "review" ? route.prNumber : null;
 

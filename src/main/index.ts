@@ -1,6 +1,13 @@
 import { join } from "node:path";
 
-import { type BrowserWindowConstructorOptions, app, BrowserWindow } from "electron";
+import {
+  type BrowserWindowConstructorOptions,
+  Tray,
+  app,
+  ipcMain,
+  nativeImage,
+  BrowserWindow,
+} from "electron";
 
 import { closeDatabase, initDatabase } from "./db/database";
 import { registerIpcHandler } from "./ipc-handler";
@@ -46,6 +53,19 @@ function createWindow(): BrowserWindow {
   return win;
 }
 
+// ---------------------------------------------------------------------------
+// System tray
+// ---------------------------------------------------------------------------
+
+function setupTray(): void {
+  // 16x16 copper-tinted icon as a simple data URL
+  const icon = nativeImage.createFromDataURL(
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAWklEQVQ4T2P8z8DwHwMNACMDAwMjNQwYZGb8/88A1UENLzAykmIAvS0g2gCaewGnF4hxMU29QIwBNPcCIxkG0DwOGBkYaOsFogygpReINoDmgURzA2juBSINAACXizARd37XYAAAAABJRU5ErkJggg==",
+  );
+  const tray = new Tray(icon);
+  tray.setToolTip("Dispatch");
+}
+
 app.whenReady().then(() => {
   // Initialize infrastructure
   initDatabase();
@@ -53,6 +73,14 @@ app.whenReady().then(() => {
 
   // Create main window
   createWindow();
+
+  // System tray (macOS dock badge is handled via app.setBadgeCount)
+  setupTray();
+
+  // Listen for badge count updates from renderer
+  ipcMain.on("set-badge-count", (_event, count: number) => {
+    app.setBadgeCount(count);
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

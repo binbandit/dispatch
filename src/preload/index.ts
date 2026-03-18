@@ -15,6 +15,13 @@ contextBridge.exposeInMainWorld("api", {
   },
 
   /**
+   * Update the dock badge count (macOS).
+   */
+  setBadgeCount(count: number): void {
+    ipcRenderer.send("set-badge-count", count);
+  },
+
+  /**
    * Subscribe to messages from the main process.
    * Returns an unsubscribe function.
    */

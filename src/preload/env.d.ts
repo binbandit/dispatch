@@ -3,6 +3,7 @@
  */
 interface ElectronApi {
   invoke(method: string, args: unknown): Promise<unknown>;
+  setBadgeCount(count: number): void;
   on(channel: string, callback: (...args: unknown[]) => void): () => void;
 }
 
