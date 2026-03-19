@@ -41,6 +41,7 @@ import { ensureLanguage, inferLanguage } from "../lib/highlighter";
 import { ipc } from "../lib/ipc";
 import { queryClient } from "../lib/query-client";
 import { useWorkspace } from "../lib/workspace-context";
+import { AiReviewSummary } from "./ai-review-summary";
 import { ChecksPanel } from "./checks-panel";
 import { DiffViewer } from "./diff-viewer";
 import { GitHubAvatar } from "./github-avatar";
@@ -510,6 +511,16 @@ function OverviewTab({
 }) {
   return (
     <div className="flex flex-col gap-0">
+      {/* AI review summary */}
+      <AiReviewSummary
+        prNumber={prNumber}
+        prTitle={pr.body ? pr.body.slice(0, 100) : ""}
+        prBody={pr.body}
+        author={pr.author.login}
+        files={[]}
+        diffSnippet=""
+      />
+
       {/* PR description */}
       <div className="border-border border-b px-4 py-3">
         <div className="mb-2 flex items-center gap-2">

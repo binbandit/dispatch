@@ -58,53 +58,71 @@ function resolveStatusColor(
 // ---------------------------------------------------------------------------
 
 export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
-  const { cwd } = useWorkspace();
+  const { cwd, switchWorkspace } = useWorkspace();
   const [searchQuery, setSearchQuery] = useState("");
   const [focusIndex, setFocusIndex] = useState(0);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("review");
+  const [multiRepo, setMultiRepo] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Only fetch the active tab's data (lazy — no wasted requests on mount)
+  // Single-repo queries (lazy — only active tab fires)
   const reviewQuery = useQuery({
     queryKey: ["pr", "list", cwd, "reviewRequested"],
     queryFn: () => ipc("pr.list", { cwd, filter: "reviewRequested" }),
     refetchInterval: 30_000,
-    enabled: activeFilter === "review",
+    enabled: !multiRepo && activeFilter === "review",
   });
 
   const authorQuery = useQuery({
     queryKey: ["pr", "list", cwd, "authored"],
     queryFn: () => ipc("pr.list", { cwd, filter: "authored" }),
     refetchInterval: 30_000,
-    enabled: activeFilter === "mine",
+    enabled: !multiRepo && activeFilter === "mine",
   });
 
   const allQuery = useQuery({
     queryKey: ["pr", "list", cwd, "all"],
     queryFn: () => ipc("pr.list", { cwd, filter: "all" }),
     refetchInterval: 30_000,
-    enabled: activeFilter === "all",
+    enabled: !multiRepo && activeFilter === "all",
   });
 
-  const reviewPrs = reviewQuery.data ?? [];
-  const authorPrs = authorQuery.data ?? [];
-  const allPrs = allQuery.data ?? [];
+  // Multi-repo query (when toggle is active)
+  const multiRepoQuery = useQuery({
+    queryKey: ["pr", "listAll", activeFilter],
+    queryFn: () =>
+      ipc("pr.listAll", {
+        filter:
+          activeFilter === "mine" ? "authored" : activeFilter === "all" ? "all" : "reviewRequested",
+      }),
+    refetchInterval: 30_000,
+    enabled: multiRepo,
+  });
+
+  const reviewPrs = multiRepo ? [] : (reviewQuery.data ?? []);
+  const authorPrs = multiRepo ? [] : (authorQuery.data ?? []);
+  const allPrs = multiRepo ? [] : (allQuery.data ?? []);
+  const multiRepoPrs = multiRepoQuery.data ?? [];
 
   // Filter by active tab + search
   const filteredPrs = useMemo(() => {
     let prs: GhPrListItem[];
-    switch (activeFilter) {
-      case "review": {
-        prs = reviewPrs;
-        break;
-      }
-      case "mine": {
-        prs = authorPrs;
-        break;
-      }
-      case "all": {
-        prs = allPrs;
-        break;
+    if (multiRepo) {
+      prs = multiRepoPrs;
+    } else {
+      switch (activeFilter) {
+        case "review": {
+          prs = reviewPrs;
+          break;
+        }
+        case "mine": {
+          prs = authorPrs;
+          break;
+        }
+        case "all": {
+          prs = allPrs;
+          break;
+        }
       }
     }
 
@@ -118,7 +136,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
         String(pr.number).includes(q) ||
         pr.author.login.toLowerCase().includes(q),
     );
-  }, [reviewPrs, authorPrs, allPrs, activeFilter, searchQuery]);
+  }, [reviewPrs, authorPrs, allPrs, multiRepoPrs, activeFilter, searchQuery, multiRepo]);
 
   // Clamp focusIndex when the list shrinks
   useEffect(() => {
@@ -163,11 +181,24 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
 
   return (
     <aside className="border-border bg-bg-surface flex h-full flex-col">
-      {/* Header */}
-      <div className="px-3 pt-3 pb-2">
+      {/* Header with multi-repo toggle */}
+      <div className="flex items-center justify-between px-3 pt-3 pb-2">
         <h2 className="text-text-secondary text-[11px] font-semibold tracking-[0.06em] uppercase">
           Pull Requests
         </h2>
+        <button
+          type="button"
+          onClick={() => {
+            setMultiRepo(!multiRepo);
+            setFocusIndex(0);
+          }}
+          className={`cursor-pointer rounded-sm px-1.5 py-0.5 text-[9px] font-medium transition-colors ${
+            multiRepo ? "bg-primary/15 text-primary" : "text-text-ghost hover:text-text-tertiary"
+          }`}
+          title={multiRepo ? "Showing all repos" : "Show all repos"}
+        >
+          {multiRepo ? "All repos" : "This repo"}
+        </button>
       </div>
 
       {/* Filter tabs */}
@@ -272,8 +303,16 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
               statusColor={resolveStatusColor(pr.reviewDecision, pr.statusCheckRollup, pr.isDraft)}
               isActive={selectedPr === pr.number}
               isFocused={focusIndex === index}
+              workspace={
+                multiRepo ? (pr as GhPrListItem & { workspace?: string }).workspace : undefined
+              }
               onClick={() => {
                 setFocusIndex(index);
+                // Switch workspace if clicking a PR from a different repo
+                const prAny = pr as GhPrListItem & { workspacePath?: string };
+                if (multiRepo && prAny.workspacePath && prAny.workspacePath !== cwd) {
+                  switchWorkspace(prAny.workspacePath);
+                }
                 onSelectPr(pr.number, pr.title);
               }}
             />
@@ -351,12 +390,14 @@ function PrItem({
   isActive,
   isFocused,
   onClick,
+  workspace,
 }: {
   pr: GhPrListItem;
   statusColor: string;
   isActive: boolean;
   isFocused: boolean;
   onClick: () => void;
+  workspace?: string;
 }) {
   const size = prSizeLabel(pr.additions, pr.deletions);
 
@@ -392,6 +433,12 @@ function PrItem({
           <span>#{pr.number}</span>
           <span className="text-text-ghost">·</span>
           <span className="truncate">{pr.author.login}</span>
+          {workspace && (
+            <>
+              <span className="text-text-ghost">·</span>
+              <span className="text-info truncate">{workspace}</span>
+            </>
+          )}
           <span className="text-text-ghost">·</span>
           <span className="shrink-0">{relativeTime(new Date(pr.updatedAt))}</span>
           {pr.isDraft && (

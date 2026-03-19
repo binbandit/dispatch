@@ -1,12 +1,10 @@
-# Phase 4: Distribution, Polish & Go-to-Market
+# Phase 4: Distribution, Quality & Observability
 
 ## Context
 
-Phases 1-3 built the product. Phase 4 makes it shippable.
+Phases 1-3 built the product. Phase 4 makes it shippable and maintainable.
 
-At this point Dispatch has: PR review with syntax highlighting, blame, inline comments, CI annotations, checks panel with logs, approve/merge flow, review rounds, workflows dashboard with Gantt timelines and run comparison, team metrics, releases with changelog generation, AI-powered explanations and summaries, multi-repo inbox, desktop notifications with in-app center, and a settings panel.
-
-The app works. Now it needs to be installable, updatable, discoverable, and monetizable.
+This phase focuses on: distribution (code signing, auto-update, CI pipeline, Homebrew), observability (PostHog analytics, Sentry crash reporting), testing, and polish (keyboard shortcut dialog, README). Browser extension, website, and monetization are deliberately deferred.
 
 ---
 
@@ -14,12 +12,12 @@ The app works. Now it needs to be installable, updatable, discoverable, and mone
 
 ### A1. Code Signing
 
-Unsigned Electron apps trigger Gatekeeper warnings on macOS ("app is from an unidentified developer") and SmartScreen on Windows. This kills adoption.
+Unsigned Electron apps trigger Gatekeeper warnings on macOS and SmartScreen on Windows. This kills adoption.
 
 **macOS:**
 
-1. Enroll in the Apple Developer Program ($99/year) → get a Developer ID certificate
-2. Sign the app with `electron-builder`'s built-in signing:
+1. Enroll in the Apple Developer Program ($99/year) to get a Developer ID certificate.
+2. Configure `electron-builder` signing in `package.json`:
    ```json
    "mac": {
      "identity": "Developer ID Application: Your Name (TEAM_ID)",
@@ -29,14 +27,7 @@ Unsigned Electron apps trigger Gatekeeper warnings on macOS ("app is from an uni
      "entitlementsInherit": "build/entitlements.mac.plist"
    }
    ```
-3. Notarize with Apple — `electron-builder` supports `@electron/notarize`:
-   ```json
-   "afterSign": "scripts/notarize.js"
-   ```
-4. Create `build/entitlements.mac.plist` — needs at minimum:
-   - `com.apple.security.cs.allow-jit` (for Shiki WASM)
-   - `com.apple.security.cs.allow-unsigned-executable-memory` (for Shiki WASM)
-   - `com.apple.security.network.client` (for AI API calls)
+3. Notarize with Apple via `@electron/notarize` (after-sign hook).
 
 **New file:** `build/entitlements.mac.plist`
 
@@ -54,6 +45,11 @@ Unsigned Electron apps trigger Gatekeeper warnings on macOS ("app is from an uni
 </dict>
 </plist>
 ```
+
+Entitlements explained:
+
+- `allow-jit` + `allow-unsigned-executable-memory`: Required for Shiki WASM (syntax highlighting)
+- `network.client`: Required for AI API calls and PostHog telemetry
 
 **New file:** `scripts/notarize.js`
 
@@ -74,8 +70,8 @@ exports.default = async function notarizing(context) {
 
 **Windows:**
 
-1. Get an EV code signing certificate (DigiCert, Sectigo, etc.) — $200-500/year
-2. Configure in `electron-builder`:
+1. Get an EV code signing certificate (DigiCert, Sectigo) — $200-500/year.
+2. Configure in `package.json`:
    ```json
    "win": {
      "signingHashAlgorithms": ["sha256"],
@@ -86,7 +82,7 @@ exports.default = async function notarizing(context) {
 
 ### A2. Auto-Update
 
-Users should never manually download updates. The app should silently update in the background.
+Users should never manually download updates.
 
 **Install:**
 
@@ -94,7 +90,7 @@ Users should never manually download updates. The app should silently update in 
 bun add electron-updater
 ```
 
-**Backend:** Host releases on GitHub Releases (free, already integrated with `gh`). `electron-updater` supports GitHub Releases as an update source natively.
+Host releases on GitHub Releases. `electron-updater` supports this natively.
 
 **Modify:** `src/main/index.ts`
 
@@ -106,23 +102,21 @@ autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
 
 autoUpdater.on("update-available", (info) => {
-  // Optionally notify renderer
   mainWindow?.webContents.send("update-available", info.version);
 });
 
 autoUpdater.on("update-downloaded", (info) => {
-  // Show a non-intrusive notification
   mainWindow?.webContents.send("update-downloaded", info.version);
 });
 
-// Check for updates on launch, then every 4 hours
+// Check on launch, then every 4 hours
 autoUpdater.checkForUpdates();
 setInterval(() => autoUpdater.checkForUpdates(), 4 * 60 * 60 * 1000);
 ```
 
-**UI component:** `src/renderer/components/update-banner.tsx`
+**New component:** `src/renderer/components/update-banner.tsx`
 
-A subtle banner at the top of the app when an update is downloaded:
+A subtle banner that slides down from the accent bar when an update is downloaded:
 
 ```
 Update v0.2.0 ready — restart to apply  [Restart now]  [Later]
@@ -130,11 +124,12 @@ Update v0.2.0 ready — restart to apply  [Restart now]  [Later]
 
 - Background: `var(--accent-muted)`
 - Text: `var(--accent-text)`, 12px
-- "Restart now" button: ghost variant, accent color
-- Dismissible with "Later" (hides until next launch)
-- Height: 32px, slides down from the accent bar
+- "Restart now": ghost button, accent color. Calls `window.api.invoke("app.restart")` (new IPC endpoint that calls `autoUpdater.quitAndInstall()`)
+- "Later": dismisses until next launch
+- Height: 32px, `transition: max-height 300ms var(--ease-out)`
+- Listens for `update-downloaded` event via `window.api.on("update-downloaded", ...)`
 
-**Modify:** `package.json` build config:
+**Add to `package.json` build config:**
 
 ```json
 "publish": {
@@ -144,7 +139,7 @@ Update v0.2.0 ready — restart to apply  [Restart now]  [Later]
 }
 ```
 
-### A3. CI/CD Pipeline for Releases
+### A3. Release CI Pipeline
 
 **New file:** `.github/workflows/release.yml`
 
@@ -196,15 +191,9 @@ jobs:
       - run: npx electron-builder --linux --publish always
 ```
 
-This creates a GitHub Release with DMG (macOS), NSIS installer (Windows), and AppImage/deb (Linux) on every version tag.
-
-### A4. Homebrew Cask (macOS)
-
-Most developers install desktop apps via `brew install --cask`. Create a Homebrew tap.
+### A4. Homebrew Cask
 
 **New repo:** `dispatchdev/homebrew-tap`
-
-**File:** `Casks/dispatch.rb`
 
 ```ruby
 cask "dispatch" do
@@ -234,174 +223,175 @@ Installation: `brew install dispatchdev/tap/dispatch`
 
 ---
 
-## Part B: Browser Extension
+## Part B: Observability — PostHog + Sentry
 
-A Chrome/Firefox extension that intercepts GitHub PR URLs and opens them in Dispatch.
+### B1. PostHog Analytics
 
-### B1. Extension Architecture
+PostHog gives us product analytics, feature flags, and session replay — all self-hostable if needed for enterprise.
 
-When a user navigates to `github.com/{owner}/{repo}/pull/{number}`, the extension:
+**Install:**
 
-1. Shows a small "Open in Dispatch" button overlaid on the GitHub PR page
-2. On click, opens a `dispatch://` deep link that Dispatch handles
+```bash
+bun add posthog-js
+```
 
-### B2. Deep Link Protocol
-
-**Modify:** `src/main/index.ts`
-
-Register Dispatch as a handler for the `dispatch://` protocol:
+**New file:** `src/renderer/lib/posthog.ts`
 
 ```typescript
-if (process.defaultApp) {
-  if (process.argv.length >= 2) {
-    app.setAsDefaultProtocolClient("dispatch", process.execPath, [resolve(process.argv[1])]);
-  }
-} else {
-  app.setAsDefaultProtocolClient("dispatch");
+import posthog from "posthog-js";
+
+import { ipc } from "./ipc";
+
+let initialized = false;
+
+/**
+ * Initialize PostHog.
+ *
+ * Only activates if the user has opted in via preferences.
+ * Identifies the user by their GitHub login (already available from env.user).
+ * No code content, PR bodies, or diff data is ever sent.
+ */
+export async function initPostHog(): Promise<void> {
+  if (initialized) return;
+
+  // Check opt-in preference
+  const prefs = await ipc("preferences.getAll", {});
+  const optedIn = prefs["analytics-opted-in"] === "true";
+
+  if (!optedIn) return;
+
+  posthog.init("phc_YOUR_PROJECT_KEY", {
+    api_host: "https://us.i.posthog.com", // or eu.i.posthog.com, or self-hosted URL
+    autocapture: false, // No automatic DOM event tracking — we control exactly what's sent
+    capture_pageview: false, // SPA in Electron, manual pageviews
+    capture_pageleave: false,
+    disable_session_recording: true, // No session replay — this is a desktop app with sensitive code
+    persistence: "localStorage",
+    loaded: (ph) => {
+      // Identify by GitHub username if available
+      ipc("env.user", {})
+        .then((user) => {
+          if (user?.login) {
+            ph.identify(user.login, {
+              name: user.name ?? user.login,
+            });
+          }
+        })
+        .catch(() => {});
+    },
+  });
+
+  initialized = true;
 }
 
-// Handle the protocol URL
-app.on("open-url", (_event, url) => {
-  // url format: dispatch://review/{owner}/{repo}/{number}
-  const match = url.match(/dispatch:\/\/review\/([^/]+)\/([^/]+)\/(\d+)/);
-  if (match) {
-    const [, owner, repo, number] = match;
-    // Send to renderer to navigate
-    mainWindow?.webContents.send("deep-link", { owner, repo, prNumber: Number(number) });
-  }
-});
-```
-
-**Modify:** Renderer to listen for deep-link events and navigate to the correct PR.
-
-### B3. Chrome Extension
-
-**New repo:** `dispatchdev/dispatch-extension`
-
-Minimal manifest v3 extension:
-
-```json
-{
-  "manifest_version": 3,
-  "name": "Open in Dispatch",
-  "version": "0.1.0",
-  "description": "Open GitHub pull requests in Dispatch",
-  "permissions": ["activeTab"],
-  "content_scripts": [
-    {
-      "matches": ["https://github.com/*/*/pull/*"],
-      "js": ["content.js"],
-      "css": ["content.css"]
-    }
-  ],
-  "icons": {
-    "16": "icon-16.png",
-    "48": "icon-48.png",
-    "128": "icon-128.png"
-  }
+/**
+ * Track a product event.
+ *
+ * Events are purely behavioral — what actions the user takes.
+ * NEVER include code content, PR bodies, diff text, or file paths.
+ */
+export function track(event: string, properties?: Record<string, string | number | boolean>): void {
+  if (!initialized) return;
+  posthog.capture(event, properties);
 }
-```
 
-**`content.js`:**
-
-```javascript
-// Inject "Open in Dispatch" button next to the PR title
-const prMatch = window.location.pathname.match(/^\/([^/]+)\/([^/]+)\/pull\/(\d+)/);
-if (prMatch) {
-  const [, owner, repo, number] = prMatch;
-  const btn = document.createElement("a");
-  btn.href = `dispatch://review/${owner}/${repo}/${number}`;
-  btn.textContent = "Open in Dispatch";
-  btn.className = "dispatch-btn";
-  // Insert next to the PR title header
-  const header = document.querySelector(".gh-header-title");
-  if (header) header.appendChild(btn);
+/**
+ * Track a view/page navigation.
+ */
+export function trackPage(view: string): void {
+  if (!initialized) return;
+  posthog.capture("$pageview", { $current_url: `dispatch://${view}` });
 }
-```
 
-**`content.css`:**
-
-```css
-.dispatch-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: 8px;
-  padding: 2px 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #d4883a;
-  border: 1px solid #d4883a33;
-  border-radius: 6px;
-  text-decoration: none;
-  vertical-align: middle;
-}
-.dispatch-btn:hover {
-  background: #d4883a15;
+/**
+ * Shut down PostHog (on app quit or opt-out).
+ */
+export function shutdownPostHog(): void {
+  if (!initialized) return;
+  posthog.shutdown();
+  initialized = false;
 }
 ```
 
-Use the existing icon PNGs from `resources/` for the extension icons.
+**Events to track:**
 
----
+Track only _actions_, never _content_. The goal is to understand which features are used and where users drop off.
 
-## Part C: Website & Landing Page
+| Event                   | Properties                                          | When                                               |
+| ----------------------- | --------------------------------------------------- | -------------------------------------------------- |
+| `app_opened`            | `version`                                           | App launch (after splash)                          |
+| `pr_opened`             | `file_count`, `additions`, `deletions`              | User opens a PR in the detail view                 |
+| `pr_approved`           | —                                                   | User approves a PR                                 |
+| `pr_changes_requested`  | —                                                   | User requests changes                              |
+| `pr_merged`             | `strategy` (squash/merge/rebase)                    | User merges a PR                                   |
+| `comment_created`       | —                                                   | User creates an inline comment                     |
+| `diff_search_used`      | —                                                   | User triggers Cmd+F in diff                        |
+| `blame_viewed`          | —                                                   | Blame popover appears (debounced, max once per PR) |
+| `ci_rerun`              | —                                                   | User re-runs a failed CI job                       |
+| `ci_log_viewed`         | —                                                   | User expands a CI log viewer                       |
+| `ci_annotation_seen`    | `level` (failure/warning/notice)                    | CI annotation renders in diff                      |
+| `workflow_triggered`    | —                                                   | User triggers a workflow_dispatch run              |
+| `run_comparison_used`   | —                                                   | User opens run comparison view                     |
+| `ai_explanation_used`   | `provider`                                          | User triggers an AI code explanation               |
+| `ai_summary_generated`  | `provider`                                          | AI review summary is generated                     |
+| `ai_failure_explained`  | `provider`                                          | AI CI failure explanation triggered                |
+| `review_round_toggled`  | `mode` (all/since-last)                             | User toggles review round mode                     |
+| `workspace_switched`    | —                                                   | User switches workspace                            |
+| `notification_received` | `type` (review/ci-fail/approve)                     | OS notification sent                               |
+| `view_navigated`        | `view` (review/workflows/metrics/releases/settings) | Tab/view change                                    |
 
-### C1. Domain & Hosting
+**NEVER track:** file paths, code content, PR titles, branch names, commit messages, comment bodies, usernames of PR authors/reviewers, or any GitHub data beyond aggregate counts.
 
-- Domain: `dispatch.dev` (or `getdispatch.dev` / `dispatchdev.com` if unavailable)
-- Hosting: Vercel or Cloudflare Pages (static site, free tier)
-- Framework: Plain HTML/CSS or Astro (minimal, fast)
+**Integration points:**
 
-### C2. Landing Page Content
+**Modify:** `src/renderer/app.tsx`
 
-Single-page site. No blog, no docs site (yet). Just the pitch:
+```typescript
+import { initPostHog } from "./lib/posthog";
 
-**Hero section:**
+// In the PostSplashApp component, after resolving "ready" phase:
+useEffect(() => {
+  initPostHog();
+}, []);
+```
 
-- Display heading (Instrument Serif italic): "Review. Verify. Ship."
-- Subheading: "The CI/CD-integrated code review app for GitHub. Desktop-native. Keyboard-first. AI-augmented."
-- CTA button: "Download for macOS" (copper, large) + secondary "Windows" / "Linux" links
-- Hero screenshot: The PR detail view showing the diff with CI annotation and blame popover
+**Modify:** `src/renderer/lib/router.tsx`
 
-**Feature sections (3-4):**
+```typescript
+import { trackPage } from "./posthog";
 
-1. "CI failures at the exact line" — screenshot of CI annotation inline in diff
-2. "Blame without leaving the review" — screenshot of blame popover
-3. "Workflows at a glance" — screenshot of Gantt timeline
-4. "AI that augments, not replaces" — screenshot of AI explanation inline
+// In the navigate function:
+function navigate(route: Route) {
+  setRoute(route);
+  trackPage(route.view);
+}
+```
 
-**Social proof (when available):**
+**Modify individual components** — add `track()` calls at the action points listed above. Each is a single line addition:
 
-- GitHub stars count
-- "Used by engineers at..." logos
-- Testimonial quotes
+```typescript
+track("pr_approved");
+```
 
-**Footer:**
+#### Settings UI for Opt-In
 
-- Links: GitHub, Twitter/X, Discord, Changelog
-- "Built by [your name/team]"
-- "Dispatch is open source" (if applicable) or pricing link
+**Modify:** `src/renderer/components/settings-view.tsx`
 
-**Design:** Use the Dispatch design system — dark background (`#08080a`), copper accent, DM Sans + Instrument Serif, noise texture. The website should feel like the app.
+Add an "Analytics" section:
 
-### C3. Changelog
+```
+Analytics
+  [ ] Send anonymous usage data to help improve Dispatch
+  We track which features are used, not what you're reviewing.
+  No code, file paths, or PR content is ever sent.
+```
 
-**New file in website repo:** `changelog.md` or `/changelog` page
+- Toggle: Calls `ipc("preferences.set", { key: "analytics-opted-in", value: checked ? "true" : "false" })`
+- Default: **OFF** (opt-in, not opt-out)
+- When toggled ON: Call `initPostHog()`
+- When toggled OFF: Call `shutdownPostHog()`
 
-Each release gets an entry with:
-
-- Version number and date
-- 3-5 bullet points of what changed
-- Screenshot if the change is visual
-
-This is essential for early adopters who want to know the app is actively developed.
-
----
-
-## Part D: Analytics & Crash Reporting
-
-### D1. Crash Reporting (Sentry)
+### B2. Sentry Crash Reporting
 
 **Install:**
 
@@ -413,117 +403,59 @@ bun add @sentry/electron
 
 ```typescript
 import * as Sentry from "@sentry/electron/main";
-Sentry.init({ dsn: "https://xxx@sentry.io/xxx" });
+
+Sentry.init({
+  dsn: "https://xxx@xxx.ingest.us.sentry.io/xxx",
+  // Only send if user opted in (check preference synchronously from SQLite)
+  enabled: getPreference("crash-reports-opted-in") === "true",
+});
 ```
 
 **Modify:** `src/renderer/main.tsx`
 
 ```typescript
 import * as Sentry from "@sentry/electron/renderer";
-Sentry.init({});
+
+Sentry.init({
+  // Renderer Sentry auto-connects to the main process init
+});
 ```
 
-This captures unhandled exceptions and promise rejections in both main and renderer processes. Essential for fixing bugs you can't reproduce locally.
+**What Sentry captures:** Stack traces, error messages, Electron version, OS version. **NOT:** code content, PR data, file paths, GitHub tokens.
 
-**Privacy:** Sentry receives stack traces and error messages. No code, no PR content, no GitHub data. Add a note in the settings view: "Dispatch sends anonymous crash reports to help us fix bugs. No code or personal data is included."
+**Settings toggle:** Add alongside the analytics toggle:
 
-### D2. Anonymous Usage Analytics (Opt-in)
+```
+Crash Reports
+  [ ] Send anonymous crash reports to help fix bugs
+  Only error stack traces are sent. No code or personal data.
+```
 
-Lightweight, privacy-respecting analytics to understand which features are used.
+Default: **OFF**.
 
-**Do NOT use:** Google Analytics, Mixpanel, Amplitude (too invasive, enterprise teams will reject).
+### B3. PostHog Feature Flags (Future Use)
 
-**Options:**
+PostHog's feature flags let us gate features remotely without shipping an update. This is useful for:
 
-- **Plausible** (self-hosted or cloud, privacy-first, no cookies) — for the website
-- **PostHog** (self-hosted option, feature flags, product analytics) — for the app
-- **Roll your own** — a single `fetch()` to a Cloudflare Worker that increments counters. No user identification. Just: "app opened", "PR reviewed", "merge clicked", "AI explanation used". Aggregate counts only.
+- Rolling out AI features to a subset of users
+- A/B testing UI changes
+- Disabling a broken feature without a hotfix
 
-For v1, roll your own with a Cloudflare Worker. Keep it dead simple:
+Don't implement this now — just be aware it's available in PostHog for free. When we need it:
 
 ```typescript
-// In renderer, on significant actions:
-function trackEvent(event: string): void {
-  if (!analyticsOptedIn) return;
-  fetch("https://telemetry.dispatch.dev/event", {
-    method: "POST",
-    body: JSON.stringify({ event, version: APP_VERSION }),
-  }).catch(() => {}); // Fire-and-forget
+import posthog from "posthog-js";
+
+if (posthog.isFeatureEnabled("ai-review-summary")) {
+  // Show the AI summary component
 }
 ```
 
-**Settings toggle:** "Send anonymous usage data to help improve Dispatch" — default OFF. Respect the choice.
-
 ---
 
-## Part E: Licensing & Monetization (If Going Commercial)
+## Part C: Testing & Quality
 
-### E1. Pricing Model
-
-Based on competitive analysis:
-
-| Tier     | Price          | What you get                                                                                 |
-| -------- | -------------- | -------------------------------------------------------------------------------------------- |
-| **Free** | $0             | Full PR review experience (Phase 1). Single repo. No AI.                                     |
-| **Pro**  | $12/user/month | Multi-repo inbox, AI features, team metrics, workflows dashboard, releases. Unlimited repos. |
-| **Team** | $20/user/month | Everything in Pro + priority support + future enterprise features (SSO, audit logs).         |
-
-Compare: Graphite charges $40/user/month. We undercut significantly because we have no server costs.
-
-### E2. License Key System
-
-**Simple approach:** Use a license key that unlocks Pro/Team features.
-
-**New IPC endpoint:** `license.validate`
-
-```typescript
-"license.validate": {
-  args: { key: string };
-  result: {
-    valid: boolean;
-    tier: "free" | "pro" | "team";
-    expiresAt: string;
-    seats: number;
-  };
-};
-```
-
-**Implementation:** The license key is a signed JWT (or a simple encrypted token) that encodes the tier, expiry, and seat count. Validate it against a simple API endpoint on your website.
-
-**Backend:** A minimal API (Cloudflare Worker or Vercel Edge Function) that:
-
-- Issues license keys after Stripe payment
-- Validates keys (checks expiry, seat count)
-- Returns tier info
-
-**Gating in the app:**
-
-- Store the license key + validation result in SQLite preferences
-- Check on app start + every 24 hours
-- For free tier: Hide AI features, disable multi-repo, hide metrics/releases
-- Show a subtle upgrade prompt in the settings view: "Upgrade to Pro for multi-repo, AI, and team metrics"
-- Never nag. Never block core functionality. The free tier should be genuinely useful.
-
-### E3. Stripe Integration
-
-Use Stripe Checkout for payments. No payment UI in the app — redirect to a Stripe-hosted checkout page on the website.
-
-Flow:
-
-1. User clicks "Upgrade" in settings
-2. Opens `https://dispatch.dev/pricing` in their browser
-3. They complete Stripe Checkout
-4. Webhook to your API generates a license key
-5. User copies the key back into Dispatch settings
-6. App validates and unlocks Pro features
-
-This is intentionally low-tech. No in-app payment UI, no Electron payment flow complexity. Just a key.
-
----
-
-## Part F: Testing & Quality
-
-### F1. Component Tests
+### C1. Component Tests
 
 **Install:**
 
@@ -531,141 +463,279 @@ This is intentionally low-tech. No in-app payment UI, no Electron payment flow c
 bun add -d @testing-library/react @testing-library/jest-dom jsdom
 ```
 
+**Configure vitest** for component tests in `vite.config.ts`:
+
+```typescript
+test: {
+  environment: "jsdom",
+  setupFiles: ["./src/test-setup.ts"],
+  include: ["src/**/*.{test,spec}.{ts,tsx}"],
+}
+```
+
+**New file:** `src/test-setup.ts`
+
+```typescript
+import "@testing-library/jest-dom";
+
+// Mock the IPC layer for component tests
+vi.mock("./renderer/lib/ipc", () => ({
+  ipc: vi.fn(),
+}));
+```
+
 **Priority test targets:**
 
-| Component              | What to test                                                                                      |
-| ---------------------- | ------------------------------------------------------------------------------------------------- |
-| `diff-parser.ts`       | Already has 431 lines of tests. Maintain.                                                         |
-| `diff-viewer.tsx`      | Renders correct line counts, handles empty files, word-diff highlighting, hunk headers            |
-| `pr-inbox.tsx`         | Renders PR items from mock data, search filtering works, keyboard navigation                      |
-| `checks-panel.tsx`     | Status icon mapping, re-run button calls correct IPC                                              |
-| `merge flow`           | Button disabled when checks failing, enabled when conditions met, calls correct IPC with strategy |
-| `notification polling` | Detects new PRs, CI failures, approvals correctly                                                 |
-| `router.tsx`           | Navigates between views, preserves state                                                          |
+| Component                   | What to test                                                                              | File                             |
+| --------------------------- | ----------------------------------------------------------------------------------------- | -------------------------------- |
+| `diff-parser.ts`            | Already has 431 lines of tests. Maintain.                                                 | `diff-parser.test.ts`            |
+| `diff-viewer.tsx`           | Renders correct line counts, handles empty files, word-diff segments, hunk headers sticky | `diff-viewer.test.tsx`           |
+| `pr-inbox.tsx`              | Renders PR items from mock IPC data, search filters correctly, size badge labels          | `pr-inbox.test.tsx`              |
+| `checks-panel.tsx`          | Status icon color mapping, re-run calls correct IPC, expandable log toggle                | `checks-panel.test.tsx`          |
+| `router.tsx`                | Navigates between views, `route.view` changes, back/forward (if applicable)               | `router.test.tsx`                |
+| `notifications.ts`          | `sendNotification` calls Web Notification API with correct title/body/tag                 | `notifications.test.ts`          |
+| `use-keyboard-shortcuts.ts` | Fires handler on key match, skips in inputs, respects modifiers and `when`                | `use-keyboard-shortcuts.test.ts` |
 
-### F2. E2E Tests (Stretch)
+Each test file should mock the IPC layer (`vi.mock`) and provide fake data that matches the `ipc.ts` contract types.
 
-Use Playwright with `electron` support. Test the full flow:
+### C2. Performance Benchmarks
 
-1. App launches → splash → onboarding (mock workspace)
-2. Navigate to PR list → select PR → view diff
-3. Approve PR → merge → toast appears
+**New file:** `src/renderer/lib/diff-parser.bench.ts`
 
-This is a stretch goal. Prioritize component tests first.
+```typescript
+import { bench, describe } from "vitest";
+import { parseDiff } from "./diff-parser";
 
-### F3. Performance Benchmarks
+// Generate a synthetic diff with N lines
+function generateDiff(lineCount: number): string {
+  let diff = "diff --git a/big-file.ts b/big-file.ts\n--- a/big-file.ts\n+++ b/big-file.ts\n";
+  diff += `@@ -1,${lineCount} +1,${lineCount} @@\n`;
+  for (let i = 0; i < lineCount; i++) {
+    if (i % 5 === 0) diff += `+const added_${i} = true;\n`;
+    else if (i % 7 === 0) diff += `-const removed_${i} = false;\n`;
+    else diff += ` const context_${i} = null;\n`;
+  }
+  return diff;
+}
 
-Create a benchmark script that:
+describe("diff parser performance", () => {
+  bench("parse 1,000 lines", () => {
+    parseDiff(generateDiff(1000));
+  });
+  bench("parse 10,000 lines", () => {
+    parseDiff(generateDiff(10000));
+  });
+  bench("parse 50,000 lines", () => {
+    parseDiff(generateDiff(50000));
+  });
+});
+```
 
-1. Generates a synthetic diff with 10,000 lines
-2. Renders it in the diff viewer
-3. Measures: time to first paint, scroll FPS, memory usage
+Run with: `bun vitest bench`
 
-Run this in CI to catch performance regressions. Especially important once virtualization is implemented.
+This gives us a baseline for parser performance. When virtualization is implemented, add a render benchmark using React Testing Library's `render()` + scroll simulation.
+
+### C3. CI Quality Pipeline
+
+**New file:** `.github/workflows/ci.yml`
+
+Runs on every push and PR:
+
+```yaml
+name: CI
+on: [push, pull_request]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run format:check
+      - run: bun run typecheck
+      - run: bun run test
+      - run: bun run build
+```
+
+This ensures: lint passes, formatting is consistent, types check, tests pass, and the app builds. Gate PRs on this.
 
 ---
 
-## Part G: Documentation
+## Part D: Documentation & Polish
 
-### G1. README.md
+### D1. README.md
 
-The repo needs a proper README:
+**New file:** `README.md` (replace any existing stub)
 
 ```markdown
 # Dispatch
 
-The CI/CD-integrated code review app for GitHub.
+The CI/CD-integrated code review app for GitHub. Desktop-native. Keyboard-first.
 
-[Screenshot]
+![Dispatch screenshot](resources/screenshot.png)
 
 ## Features
 
-- PR inbox with real-time polling across multiple repos
-- Virtualized diff viewer with syntax highlighting and blame-on-hover
-- CI annotations inline at the exact line that failed
-- Workflows dashboard with Gantt timelines and run comparison
-- AI-powered code explanations and review summaries
-- Team metrics, releases, desktop notifications
+- **PR inbox** with real-time polling across multiple repos
+- **Diff viewer** with syntax highlighting, word-level diffs, and git blame on hover
+- **CI annotations** inline at the exact line that caused a failure
+- **Checks panel** with live status, log viewer, and one-click re-run
+- **Workflows dashboard** with Gantt timelines, run comparison, and workflow triggers
+- **AI-powered** code explanations, review summaries, and CI failure analysis
+- **Team metrics** — cycle time, review load, PR size trends
+- **Releases** with auto-generated changelogs
+- **Desktop notifications** and system tray presence
+- **Keyboard-first** — every action has a keybinding
+
+## Requirements
+
+- [GitHub CLI](https://cli.github.com/) (`gh`) installed and authenticated
+- [Git](https://git-scm.com/) installed
+- A local clone of the repo(s) you want to review
 
 ## Install
 
-### macOS
-```
+### macOS (Homebrew)
 
+\`\`\`
 brew install dispatchdev/tap/dispatch
-
-```
+\`\`\`
 
 ### Download
-[Download for macOS](link) · [Windows](link) · [Linux](link)
+
+See [Releases](https://github.com/dispatchdev/dispatch/releases) for macOS (DMG), Windows (installer), and Linux (AppImage).
 
 ## Development
-```
 
+\`\`\`bash
 bun install
 bun dev
+\`\`\`
 
-```
+### Scripts
+
+| Command                | Description                      |
+| ---------------------- | -------------------------------- |
+| `bun dev`              | Start dev server with hot reload |
+| `bun run build`        | Build for production             |
+| `bun run lint`         | Run oxlint                       |
+| `bun run format:check` | Check formatting with oxfmt      |
+| `bun run typecheck`    | TypeScript type check            |
+| `bun run test`         | Run tests                        |
 
 ## Architecture
-See [MISSION.md](MISSION.md) for the full technical vision.
+
+Dispatch is an Electron app with a React renderer. It uses the `gh` CLI as its primary data layer and local `git` for blame/history. All data stays on your machine.
+
+See [MISSION.md](MISSION.md) for the full technical vision and architectural decisions.
+
+## License
+
+[MIT](LICENSE)
 ```
 
-### G2. CONTRIBUTING.md
-
-If open-sourcing:
-
-- How to set up the dev environment
-- How to run tests
-- Code style (oxlint + oxfmt)
-- PR process
-
-### G3. In-App Help (Keyboard Shortcut Sheet)
+### D2. Keyboard Shortcuts Dialog
 
 **New component:** `src/renderer/components/keyboard-shortcuts-dialog.tsx`
 
-Triggered by `?` key (standard in keyboard-driven apps). Shows a modal/dialog with all available shortcuts:
+Triggered by pressing `?` (standard in keyboard-driven apps like GitHub, Gmail, Figma).
+
+Shows a dialog/modal with all available shortcuts, organized by section:
 
 ```
-Navigation
-  j / k          Previous / next PR
-  Enter          Open selected PR
-  [ / ]          Previous / next file
-  Cmd+B          Toggle sidebar
-
-Actions
-  a              Approve PR
-  m              Merge PR
-  v              Toggle file viewed
-  n              Next unreviewed file
-  c              Comment on line
-
+Navigation                    Actions
+  j / k    Prev / next PR      a        Approve PR
+  Enter    Open PR              m        Merge PR
+  [ / ]    Prev / next file     v        Toggle viewed
+  Cmd+B    Toggle sidebar       n        Next unreviewed
+                                c        Comment on line
 Search
-  /              Focus search
-  Cmd+F          Search in diff
-  Escape         Clear / close
+  /        Focus search        Views
+  Cmd+F    Search in diff       1        Review
+  Esc      Clear / close        2        Workflows
+                                3        Metrics
+                                ?        This dialog
 ```
 
-Styled per design system: `bg-bg-elevated`, `border-border-strong`, monospace keys in `<kbd>` elements, sections with uppercase labels.
+**Styling:**
+
+- Overlay: `var(--bg-overlay)`
+- Dialog: `var(--bg-elevated)`, `var(--border-strong)`, `var(--radius-xl)`, `var(--shadow-lg)`
+- Max width: 560px, centered
+- Sections: Two-column grid
+- Section headers: 10px uppercase label, `var(--text-tertiary)`
+- Key: `<kbd>` styled per design system section 8.12
+- Description: 12px, `var(--text-secondary)`
+- Close: `Escape` key or click outside
+
+**Register the `?` shortcut** in `app-layout.tsx` via `useKeyboardShortcuts`:
+
+```typescript
+{ key: "?", handler: () => setShowShortcuts(true) }
+```
+
+### D3. CONTRIBUTING.md (If Open-Sourcing)
+
+```markdown
+# Contributing to Dispatch
+
+## Setup
+
+1. Install [Bun](https://bun.sh)
+2. Install [GitHub CLI](https://cli.github.com/) and run `gh auth login`
+3. Clone the repo and run `bun install`
+4. Run `bun dev` to start the development server
+
+## Code Style
+
+We use [oxlint](https://oxc.rs/docs/guide/usage/linter) for linting and [oxfmt](https://oxc.rs/docs/guide/usage/formatter) for formatting. Run `bun run lint:fix` and `bun run format` before committing.
+
+## Testing
+
+Run `bun run test` to run all tests. The diff parser has the most comprehensive test coverage — maintain it when changing parser logic.
+
+## Architecture
+
+- `src/main/` — Electron main process (IPC handlers, gh/git CLI adapters, SQLite)
+- `src/renderer/` — React renderer (components, hooks, lib)
+- `src/shared/` — Shared types and IPC contract
+- `src/preload/` — Electron preload script (context bridge)
+
+All GitHub data flows through the `gh` CLI. All local git data flows through the `git` CLI. The IPC contract in `src/shared/ipc.ts` defines every endpoint.
+
+See [MISSION.md](MISSION.md) for design principles and continuation guidelines.
+```
 
 ---
 
 ## New Files Summary
 
-| Action | File                                                    | Description                                                  |
-| ------ | ------------------------------------------------------- | ------------------------------------------------------------ |
-| Create | `build/entitlements.mac.plist`                          | macOS entitlements for code signing                          |
-| Create | `scripts/notarize.js`                                   | Apple notarization after-sign script                         |
-| Create | `.github/workflows/release.yml`                         | CI pipeline for building + publishing releases               |
-| Create | `src/renderer/components/update-banner.tsx`             | "Update available" non-intrusive banner                      |
-| Create | `src/renderer/components/keyboard-shortcuts-dialog.tsx` | `?` key shortcut reference sheet                             |
-| Modify | `src/main/index.ts`                                     | Auto-updater, deep link protocol handler                     |
-| Modify | `package.json`                                          | Add `publish` config, `electron-updater` dep, signing config |
+| Action | File                                                    | Description                                           |
+| ------ | ------------------------------------------------------- | ----------------------------------------------------- |
+| Create | `src/renderer/lib/posthog.ts`                           | PostHog initialization, event tracking, page tracking |
+| Create | `src/renderer/components/update-banner.tsx`             | Auto-update notification banner                       |
+| Create | `src/renderer/components/keyboard-shortcuts-dialog.tsx` | `?` key shortcut reference                            |
+| Create | `build/entitlements.mac.plist`                          | macOS code signing entitlements                       |
+| Create | `scripts/notarize.js`                                   | Apple notarization after-sign hook                    |
+| Create | `.github/workflows/release.yml`                         | Cross-platform release build pipeline                 |
+| Create | `.github/workflows/ci.yml`                              | Quality gate: lint, format, typecheck, test, build    |
+| Create | `src/test-setup.ts`                                     | Test environment setup (jsdom, IPC mock)              |
+| Create | `src/renderer/lib/diff-parser.bench.ts`                 | Performance benchmarks for diff parser                |
+| Create | `README.md`                                             | Project README                                        |
+| Create | `CONTRIBUTING.md`                                       | Contributor guide                                     |
+| Modify | `src/main/index.ts`                                     | Sentry init, auto-updater, `app.restart` IPC          |
+| Modify | `src/renderer/app.tsx`                                  | PostHog init on ready                                 |
+| Modify | `src/renderer/lib/router.tsx`                           | Page tracking on navigate                             |
+| Modify | `src/renderer/components/settings-view.tsx`             | Analytics + crash reporting opt-in toggles            |
+| Modify | `src/renderer/components/app-layout.tsx`                | `?` shortcut registration                             |
+| Modify | `package.json`                                          | `publish` config, new dependencies                    |
 
 ## Dependencies to Install
 
 ```bash
-bun add electron-updater
+bun add posthog-js electron-updater @sentry/electron
 bun add -d @electron/notarize @testing-library/react @testing-library/jest-dom jsdom
 ```
 
@@ -673,15 +743,22 @@ bun add -d @electron/notarize @testing-library/react @testing-library/jest-dom j
 
 ## Priority Order
 
-If you can only do some of this:
+1. **CI quality pipeline** (`.github/workflows/ci.yml`) — gate every PR on lint+type+test+build
+2. **PostHog + Sentry** — start collecting data and catching crashes immediately
+3. **Component tests** — safety net before distributing to real users
+4. **Code signing + notarization** — required for distribution
+5. **Auto-update + update banner** — users won't manually re-download
+6. **Release CI pipeline** — automates signing + publishing
+7. **Keyboard shortcuts dialog** — quick polish win
+8. **README + CONTRIBUTING** — needed before any external visibility
+9. **Homebrew cask** — after first stable release
+10. **Performance benchmarks** — ongoing, run in CI
 
-1. **Code signing + notarization** (can't distribute without it)
-2. **Auto-update** (users won't manually re-download)
-3. **Release CI pipeline** (automates 1 + 2)
-4. **Landing page** (people need to find and download the app)
-5. **Homebrew cask** (developer distribution channel)
-6. **Browser extension** (drives adoption from GitHub)
-7. **Crash reporting** (find bugs in the wild)
-8. **Keyboard shortcuts dialog** (quick win, high polish)
-9. **Component tests** (safety net for ongoing development)
-10. **Licensing** (only when you have users to charge)
+## What's Deferred (Intentionally)
+
+| Item                     | Reason                                                                                                           | When                          |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Browser extension        | Need users first. Extension drives adoption from GitHub, but only useful once the app is stable and distributed. | Phase 5                       |
+| Website / landing page   | Need a downloadable build first. No point marketing what people can't install.                                   | Phase 5                       |
+| Monetization / licensing | Need users before revenue. Free tier should be generous to drive adoption.                                       | Phase 5+                      |
+| Session replay (PostHog) | Disabled — desktop app with sensitive code on screen. Too risky for trust.                                       | Never (or heavily restricted) |
