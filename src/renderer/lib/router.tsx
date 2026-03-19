@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 
+import { trackPage } from "./posthog";
+
 /**
  * Simple state-based client-side router.
  *
@@ -35,12 +37,12 @@ export function RouterProvider({ children }: { children: ReactNode }) {
 
   const navigate = useCallback((next: Route) => {
     setRoute((current) => {
-      // Remember the last non-settings route
       if (current.view !== "settings") {
         previousRoute.current = current;
       }
       return next;
     });
+    trackPage(next.view);
   }, []);
 
   const toggleSettings = useCallback(() => {

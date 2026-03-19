@@ -8,6 +8,7 @@ import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { useNotificationPolling } from "../hooks/use-notification-polling";
 import { FileNavProvider } from "../lib/file-nav-context";
 import { RouterProvider, useRouter } from "../lib/router";
+import { KeyboardShortcutsDialog } from "./keyboard-shortcuts-dialog";
 import { MetricsView } from "./metrics-view";
 import { Navbar } from "./navbar";
 import { PrDetailView } from "./pr-detail-view";
@@ -15,6 +16,7 @@ import { PrFileSidebar } from "./pr-file-sidebar";
 import { PrInbox } from "./pr-inbox";
 import { ReleasesView } from "./releases-view";
 import { SettingsView } from "./settings-view";
+import { UpdateBanner } from "./update-banner";
 import { WorkflowsDashboard } from "./workflows-dashboard";
 
 /**
@@ -36,12 +38,20 @@ function AppShell() {
   const { route, navigate } = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedPrTitle, setSelectedPrTitle] = useState("");
+  const [showShortcuts, setShowShortcuts] = useState(false);
 
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed((v) => !v);
   }, []);
 
-  useKeyboardShortcuts([{ key: "b", modifiers: ["meta"], handler: toggleSidebar }]);
+  useKeyboardShortcuts([
+    { key: "b", modifiers: ["meta"], handler: toggleSidebar },
+    { key: "?", handler: () => setShowShortcuts(true) },
+    { key: "1", handler: () => navigate({ view: "review", prNumber: null }) },
+    { key: "2", handler: () => navigate({ view: "workflows" }) },
+    { key: "3", handler: () => navigate({ view: "metrics" }) },
+    { key: "4", handler: () => navigate({ view: "releases" }) },
+  ]);
   useNotificationPolling();
 
   const selectedPr = route.view === "review" ? route.prNumber : null;
@@ -58,6 +68,9 @@ function AppShell() {
           backgroundSize: "256px 256px",
         }}
       />
+
+      {/* Update banner */}
+      <UpdateBanner />
 
       {/* Accent bar */}
       <div
@@ -120,6 +133,12 @@ function AppShell() {
       {route.view === "releases" && <ReleasesView />}
 
       {route.view === "settings" && <SettingsView />}
+
+      {/* Keyboard shortcuts dialog */}
+      <KeyboardShortcutsDialog
+        open={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
     </div>
   );
 }

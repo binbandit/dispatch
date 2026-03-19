@@ -44,7 +44,7 @@ async function completeOpenAI(args: AiCompletionArgs): Promise<string> {
     body: JSON.stringify({
       model: args.model,
       messages: args.messages,
-      max_tokens: args.maxTokens ?? 1024,
+      max_completion_tokens: args.maxTokens ?? 1024,
     }),
   });
 

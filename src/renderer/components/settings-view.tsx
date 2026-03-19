@@ -16,6 +16,8 @@ const PREF_KEYS = [
   "checksPollInterval",
   "aiProvider",
   "aiModel",
+  "analytics-opted-in",
+  "crash-reports-opted-in",
   "aiApiKey",
   "aiBaseUrl",
 ];
@@ -181,6 +183,49 @@ export function SettingsView() {
                 </div>
               </>
             )}
+          </div>
+        </section>
+
+        {/* Analytics & Privacy */}
+        <section className="mt-8">
+          <h2 className="text-text-primary text-sm font-semibold">Privacy</h2>
+          <p className="text-text-tertiary mt-0.5 text-xs">
+            All data stays on your machine. These optional settings help improve Dispatch.
+          </p>
+          <div className="mt-3 flex flex-col gap-3">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={prefs["analytics-opted-in"] === "true"}
+                onChange={(e) =>
+                  savePref("analytics-opted-in", e.target.checked ? "true" : "false")
+                }
+                className="accent-primary mt-0.5"
+              />
+              <div>
+                <span className="text-text-secondary text-xs">Send anonymous usage data</span>
+                <p className="text-text-ghost mt-0.5 text-[10px]">
+                  We track which features are used, not what you review. No code, file paths, or PR
+                  content.
+                </p>
+              </div>
+            </label>
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={prefs["crash-reports-opted-in"] === "true"}
+                onChange={(e) =>
+                  savePref("crash-reports-opted-in", e.target.checked ? "true" : "false")
+                }
+                className="accent-primary mt-0.5"
+              />
+              <div>
+                <span className="text-text-secondary text-xs">Send anonymous crash reports</span>
+                <p className="text-text-ghost mt-0.5 text-[10px]">
+                  Only error stack traces. No code or personal data.
+                </p>
+              </div>
+            </label>
           </div>
         </section>
 

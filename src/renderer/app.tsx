@@ -7,6 +7,7 @@ import { EnvCheck } from "./components/env-check";
 import { Onboarding } from "./components/onboarding";
 import { SplashScreen } from "./components/splash-screen";
 import { ipc } from "./lib/ipc";
+import { initPostHog } from "./lib/posthog";
 import { queryClient } from "./lib/query-client";
 import { WorkspaceProvider } from "./lib/workspace-context";
 
@@ -149,6 +150,8 @@ function AppScreen({
     }
     case "ready": {
       const cwd = activeWorkspace ?? workspaces[0]?.path ?? "";
+      // Initialize PostHog analytics (opt-in only)
+      initPostHog().catch(() => {});
       return (
         <WorkspaceProvider cwd={cwd}>
           <AppLayout />
