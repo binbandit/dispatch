@@ -67,9 +67,15 @@ export function initDatabase(): Database.Database {
   return db;
 }
 
+/**
+ * Get the database instance.
+ * Lazy-initializes if not yet created (handles race conditions where
+ * the renderer fires IPC before app.whenReady completes, or after
+ * GPU/network process crashes trigger a renderer reload).
+ */
 export function getDatabase(): Database.Database {
   if (!db) {
-    throw new Error("Database not initialized. Call initDatabase() first.");
+    return initDatabase();
   }
   return db;
 }

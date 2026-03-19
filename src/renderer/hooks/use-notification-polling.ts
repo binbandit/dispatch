@@ -53,7 +53,11 @@ export function useNotificationPolling(): void {
     // Check for new review requests
     for (const pr of reviewQuery.data) {
       if (!previousReviewPrs.current.has(pr.number)) {
-        sendNotification("Review requested", `#${pr.number} ${pr.title} by ${pr.author.login}`, "review");
+        sendNotification(
+          "Review requested",
+          `#${pr.number} ${pr.title} by ${pr.author.login}`,
+          "review",
+        );
       }
     }
 

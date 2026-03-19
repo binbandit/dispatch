@@ -195,21 +195,32 @@ const PR_LIST_FIELDS = [
 
 export async function listPrs(
   cwd: string,
-  filter: "reviewRequested" | "authored" = "reviewRequested",
+  filter: "reviewRequested" | "authored" | "all" = "reviewRequested",
 ): Promise<GhPrListItem[]> {
-  const args =
-    filter === "reviewRequested"
-      ? [
-          "pr",
-          "list",
-          "--search",
-          "review-requested:@me",
-          "--json",
-          PR_LIST_FIELDS,
-          "--limit",
-          "50",
-        ]
-      : ["pr", "list", "--author", "@me", "--json", PR_LIST_FIELDS, "--limit", "50"];
+  let args: string[];
+  switch (filter) {
+    case "reviewRequested": {
+      args = [
+        "pr",
+        "list",
+        "--search",
+        "review-requested:@me",
+        "--json",
+        PR_LIST_FIELDS,
+        "--limit",
+        "200",
+      ];
+      break;
+    }
+    case "authored": {
+      args = ["pr", "list", "--author", "@me", "--json", PR_LIST_FIELDS, "--limit", "200"];
+      break;
+    }
+    case "all": {
+      args = ["pr", "list", "--json", PR_LIST_FIELDS, "--limit", "200"];
+      break;
+    }
+  }
   const { stdout } = await execFile("gh", args, { cwd });
   return parseJsonOutput<GhPrListItem[]>(stdout);
 }

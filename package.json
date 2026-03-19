@@ -51,5 +51,55 @@
     "vite-plugin-electron": "^0.29.1",
     "vite-plugin-electron-renderer": "^0.14.6",
     "vitest": "^4.1.0"
+  },
+  "build": {
+    "appId": "dev.dispatch.app",
+    "productName": "Dispatch",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "resources/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": "resources",
+        "filter": [
+          "*.png",
+          "*.icns",
+          "*.ico"
+        ]
+      }
+    ],
+    "mac": {
+      "icon": "resources/icon.icns",
+      "category": "public.app-category.developer-tools",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "darkModeSupport": true
+    },
+    "win": {
+      "icon": "resources/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "icon": "resources/icon-256.png",
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Development"
+    },
+    "dmg": {
+      "title": "Dispatch",
+      "backgroundColor": "#08080a"
+    }
   }
 }

@@ -63,7 +63,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
   const [activeFilter, setActiveFilter] = useState<FilterTab>("review");
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Real data queries with 30s polling
+  // Data queries with 30s polling — each tab has its own query
   const reviewQuery = useQuery({
     queryKey: ["pr", "list", cwd, "reviewRequested"],
     queryFn: () => ipc("pr.list", { cwd, filter: "reviewRequested" }),
@@ -76,29 +76,30 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
     refetchInterval: 30_000,
   });
 
+  const allQuery = useQuery({
+    queryKey: ["pr", "list", cwd, "all"],
+    queryFn: () => ipc("pr.list", { cwd, filter: "all" }),
+    refetchInterval: 30_000,
+  });
+
   const reviewPrs = reviewQuery.data ?? [];
   const authorPrs = authorQuery.data ?? [];
+  const allPrs = allQuery.data ?? [];
 
   // Filter by active tab + search
   const filteredPrs = useMemo(() => {
     let prs: GhPrListItem[];
     switch (activeFilter) {
-      case "review":
+      case "review": {
         prs = reviewPrs;
         break;
-      case "mine":
+      }
+      case "mine": {
         prs = authorPrs;
         break;
+      }
       case "all": {
-        // Merge and dedupe by PR number
-        const seen = new Set<number>();
-        prs = [];
-        for (const pr of [...reviewPrs, ...authorPrs]) {
-          if (!seen.has(pr.number)) {
-            seen.add(pr.number);
-            prs.push(pr);
-          }
-        }
+        prs = allPrs;
         break;
       }
     }
@@ -113,7 +114,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
         String(pr.number).includes(q) ||
         pr.author.login.toLowerCase().includes(q),
     );
-  }, [reviewPrs, authorPrs, activeFilter, searchQuery]);
+  }, [reviewPrs, authorPrs, allPrs, activeFilter, searchQuery]);
 
   // Keyboard navigation
   const handleKeyDown = useCallback(
@@ -154,18 +155,15 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
     };
   }, [handleKeyDown]);
 
-  const isLoading = reviewQuery.isLoading || authorQuery.isLoading;
+  const isLoading =
+    (activeFilter === "review" && reviewQuery.isLoading) ||
+    (activeFilter === "mine" && authorQuery.isLoading) ||
+    (activeFilter === "all" && allQuery.isLoading);
 
   // Tab counts
   const reviewCount = reviewPrs.length;
   const mineCount = authorPrs.length;
-  const allCount = useMemo(() => {
-    const seen = new Set<number>();
-    for (const pr of [...reviewPrs, ...authorPrs]) {
-      seen.add(pr.number);
-    }
-    return seen.size;
-  }, [reviewPrs, authorPrs]);
+  const allCount = allPrs.length;
 
   return (
     <aside className="border-border bg-bg-surface flex h-full w-[260px] shrink-0 flex-col border-r">

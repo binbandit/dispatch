@@ -203,7 +203,7 @@ export interface IpcApi {
   "workspace.pickFolder": { args: void; result: string | null };
 
   "pr.list": {
-    args: { cwd: string; filter: "reviewRequested" | "authored" };
+    args: { cwd: string; filter: "reviewRequested" | "authored" | "all" };
     result: GhPrListItem[];
   };
   "pr.detail": { args: { cwd: string; prNumber: number }; result: GhPrDetail };
