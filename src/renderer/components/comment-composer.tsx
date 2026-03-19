@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { useMutation } from "@tanstack/react-query";
+import { CornerDownLeft } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
@@ -9,10 +10,10 @@ import { queryClient } from "../lib/query-client";
 import { useWorkspace } from "../lib/workspace-context";
 
 /**
- * Comment composer — inline textarea for creating new review comments.
+ * Comment composer — inline card for creating new review comments.
  *
- * Triggered when user clicks a line's gutter in the diff viewer.
- * - Cmd+Enter to submit, Escape to cancel
+ * Renders inside a `<td colSpan={3}>` in the diff table.
+ * - Cmd/Ctrl+Enter to submit, Escape to cancel
  */
 
 interface CommentComposerProps {
@@ -70,20 +71,23 @@ export function CommentComposer({ prNumber, filePath, line, onClose }: CommentCo
     }
   }
 
+  const isMac = navigator.platform.includes("Mac");
+  const modKey = isMac ? "⌘" : "Ctrl";
+
   return (
-    <div className="border-border bg-bg-raised my-1 mr-3 ml-[68px] rounded-md border p-3">
+    <div className="border-border bg-bg-surface mx-3 my-1.5 max-w-xl overflow-hidden rounded-lg border shadow-sm">
       <textarea
         ref={textareaRef}
         value={body}
         onChange={(e) => setBody(e.target.value)}
         onKeyDown={handleKeyDown}
         placeholder="Leave a comment..."
-        rows={3}
-        className="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-primary w-full resize-none rounded-md border px-3 py-2 text-xs focus:outline-none"
+        rows={4}
+        className="text-text-primary placeholder:text-text-tertiary bg-bg-root w-full resize-none border-none px-3 py-2.5 font-sans text-xs leading-relaxed focus:outline-none"
       />
-      <div className="mt-2 flex items-center justify-between">
+      <div className="border-border flex items-center justify-between border-t px-3 py-2">
         <span className="text-text-ghost text-[10px]">
-          {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to submit · Escape to cancel
+          {modKey}+Enter to submit · Esc to cancel
         </span>
         <div className="flex items-center gap-1.5">
           <Button
@@ -96,21 +100,31 @@ export function CommentComposer({ prNumber, filePath, line, onClose }: CommentCo
           </Button>
           <Button
             size="sm"
-            className="bg-primary text-primary-foreground hover:bg-accent-hover gap-1"
+            className={`gap-1 ${
+              body.trim()
+                ? "bg-primary text-bg-root hover:bg-accent-hover"
+                : "bg-bg-raised text-text-tertiary"
+            }`}
             onClick={handleSubmit}
             disabled={!body.trim() || createMutation.isPending}
           >
-            {createMutation.isPending && <Spinner className="h-3 w-3" />}
-            Add comment
+            {createMutation.isPending ? (
+              <Spinner className="h-3 w-3" />
+            ) : (
+              <CornerDownLeft size={11} />
+            )}
+            Comment
           </Button>
         </div>
       </div>
       {createMutation.isError && (
-        <p className="text-destructive mt-1 text-[11px]">
-          {String(
-            (createMutation.error as unknown as Error)?.message ?? "Failed to create comment",
-          )}
-        </p>
+        <div className="border-border border-t px-3 py-1.5">
+          <p className="text-destructive text-[11px]">
+            {String(
+              (createMutation.error as unknown as Error)?.message ?? "Failed to create comment",
+            )}
+          </p>
+        </div>
       )}
     </div>
   );

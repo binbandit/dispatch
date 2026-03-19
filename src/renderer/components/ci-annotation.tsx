@@ -3,11 +3,8 @@ import { AlertCircle, AlertTriangle, Info } from "lucide-react";
 /**
  * CI annotation inline in the diff — DISPATCH-DESIGN-SYSTEM.md § 8.6
  *
- * The flagship feature: CI errors appear at the exact line that caused them.
- *
- * - Background: --danger-muted (or --warning-muted)
- * - Left border: 2px solid --danger
- * - Padding: 8px 12px 8px 68px (aligned with code)
+ * Renders inside a `<td colSpan={3}>` in the diff table.
+ * CI errors appear at the exact line that caused them.
  */
 
 export interface Annotation {
@@ -50,7 +47,7 @@ const LEVEL_STYLES: Record<
 
 export function CiAnnotation({ annotations }: CiAnnotationProps) {
   return (
-    <div className="flex flex-col gap-px">
+    <div className="mx-3 my-1.5 flex max-w-xl flex-col gap-px overflow-hidden rounded-lg">
       {annotations.map((annotation, i) => {
         const style = LEVEL_STYLES[annotation.level] ?? LEVEL_STYLES.notice!;
         if (!style) {
@@ -61,7 +58,7 @@ export function CiAnnotation({ annotations }: CiAnnotationProps) {
         return (
           <div
             key={`${annotation.checkName}-${annotation.startLine}-${i}`}
-            className={`flex items-start gap-2 border-l-2 py-2 pr-3 pl-[68px] ${style.bg} ${style.border}`}
+            className={`flex items-start gap-2 border-l-2 px-3 py-2 ${style.bg} ${style.border}`}
           >
             <Icon
               size={14}

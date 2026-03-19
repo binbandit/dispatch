@@ -346,7 +346,7 @@ function PrItem({
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full items-start gap-2 border-l-2 px-3 py-2 text-left transition-colors ${
+      className={`flex w-full cursor-pointer items-start gap-2 border-l-2 px-3 py-2 text-left transition-colors ${
         isActive
           ? "border-l-primary bg-accent-muted"
           : isFocused

@@ -3,7 +3,7 @@ import type { Annotation } from "./ci-annotation";
 import type { ReviewComment } from "./inline-comment";
 import type { Highlighter } from "shiki";
 
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { Plus } from "lucide-react";
 import { useMemo, useRef } from "react";
 
 import { computeWordDiff } from "../lib/diff-parser";
@@ -13,15 +13,15 @@ import { CommentComposer } from "./comment-composer";
 import { InlineComment } from "./inline-comment";
 
 /**
- * Virtualized diff viewer — DISPATCH-DESIGN-SYSTEM.md § 8.6
+ * Table-based diff viewer — inspired by Better Hub's column layout.
  *
- * Renders a parsed DiffFile with:
- * - Syntax highlighting (Shiki WASM)
- * - Word-level diff highlights
- * - Blame-on-hover
- * - Inline PR comments
- * - CI annotations
- * - Comment composer
+ * Columns:
+ *  1. Color bar (3px) — green/red indicator, sticky left
+ *  2. Line number (40px) — contains the absolute-positioned "+" button, sticky
+ *  3. Code content (flex) — marker + syntax-highlighted code
+ *
+ * Comment composer, inline comments, and CI annotations render as full-width
+ * <tr> rows with colSpan={3}, naturally aligned by the table.
  */
 
 interface DiffViewerProps {
@@ -37,24 +37,24 @@ interface DiffViewerProps {
 }
 
 // ---------------------------------------------------------------------------
-// Virtual row model
+// Flat row model
 // ---------------------------------------------------------------------------
 
 type FlatLine = DiffLine & { pairIndex: number | null };
 
-type VirtualRow =
+type FlatRow =
   | { kind: "line"; key: string; line: FlatLine }
   | { kind: "comment"; key: string; comments: ReviewComment[] }
   | { kind: "annotation"; key: string; annotations: Annotation[] }
   | { kind: "composer"; key: string; line: number };
 
-function buildVirtualRows(
+function buildRows(
   file: DiffFile,
   comments: Map<string, ReviewComment[]>,
   annotations: Map<string, Annotation[]>,
   composerLine: number | null,
-): VirtualRow[] {
-  const rows: VirtualRow[] = [];
+): FlatRow[] {
+  const rows: FlatRow[] = [];
   const filePath = file.newPath || file.oldPath;
 
   let hunkIndex = 0;
@@ -84,11 +84,11 @@ function buildVirtualRows(
 
       const lineNum = line.newLineNumber ?? line.oldLineNumber;
       const lineKey = `${line.type}-${line.oldLineNumber ?? "x"}-${line.newLineNumber ?? "x"}`;
-
       rows.push({ kind: "line", key: lineKey, line: { ...line, pairIndex } });
 
       if (lineNum) {
         const posKey = `${filePath}:${lineNum}`;
+
         const lineAnnotations = annotations.get(posKey);
         if (lineAnnotations && lineAnnotations.length > 0) {
           rows.push({ kind: "annotation", key: `ann-${posKey}`, annotations: lineAnnotations });
@@ -110,10 +110,9 @@ function buildVirtualRows(
   return rows;
 }
 
-const LINE_HEIGHT = 20;
-const COMMENT_HEIGHT = 80;
-const ANNOTATION_HEIGHT = 50;
-const COMPOSER_HEIGHT = 130;
+// ---------------------------------------------------------------------------
+// DiffViewer
+// ---------------------------------------------------------------------------
 
 export function DiffViewer({
   file,
@@ -130,31 +129,9 @@ export function DiffViewer({
   const { hoveredLine, anchorRect, onLineEnter, onLineLeave } = useBlameHover();
 
   const rows = useMemo(
-    () => buildVirtualRows(file, comments, annotations, activeComposer?.line ?? null),
+    () => buildRows(file, comments, annotations, activeComposer?.line ?? null),
     [file, comments, annotations, activeComposer],
   );
-
-  const virtualizer = useVirtualizer({
-    count: rows.length,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: (index) => {
-      const row = rows[index];
-      if (!row) {
-        return LINE_HEIGHT;
-      }
-      switch (row.kind) {
-        case "line":
-          return LINE_HEIGHT;
-        case "comment":
-          return COMMENT_HEIGHT;
-        case "annotation":
-          return ANNOTATION_HEIGHT;
-        case "composer":
-          return COMPOSER_HEIGHT;
-      }
-    },
-    overscan: 20,
-  });
 
   if (rows.length === 0) {
     return (
@@ -171,55 +148,80 @@ export function DiffViewer({
       ref={scrollRef}
       className="bg-bg-root flex-1 overflow-auto"
     >
-      <div
-        style={{
-          height: virtualizer.getTotalSize(),
-          position: "relative",
-          width: "100%",
-        }}
-      >
-        {virtualizer.getVirtualItems().map((item) => {
-          const row = rows[item.index]!;
-
-          return (
-            <div
-              key={row.key}
-              data-index={item.index}
-              ref={virtualizer.measureElement}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                transform: `translateY(${item.start}px)`,
-                minHeight: item.size,
-              }}
-            >
-              {row.kind === "line" && (
-                <DiffRow
+      <table className="w-full border-collapse font-mono text-[12.5px] leading-5">
+        <colgroup>
+          <col className="w-[3px]" />
+          <col className="w-10" />
+          <col />
+        </colgroup>
+        <tbody>
+          {rows.map((row) => {
+            if (row.kind === "line") {
+              return (
+                <DiffLineRow
+                  key={row.key}
                   line={row.line}
-                  rows={rows}
+                  allRows={rows}
                   highlighter={highlighter ?? null}
                   language={language ?? "text"}
                   onLineEnter={onLineEnter}
                   onLineLeave={onLineLeave}
                   onGutterClick={onGutterClick}
+                  isComposerActive={
+                    activeComposer?.line === (row.line.newLineNumber ?? row.line.oldLineNumber)
+                  }
                 />
-              )}
-              {row.kind === "comment" && <InlineComment comments={row.comments} />}
-              {row.kind === "annotation" && <CiAnnotation annotations={row.annotations} />}
-              {row.kind === "composer" && prNumber && onCloseComposer && (
-                <CommentComposer
-                  prNumber={prNumber}
-                  filePath={filePath}
-                  line={row.line}
-                  onClose={onCloseComposer}
-                />
-              )}
-            </div>
-          );
-        })}
-      </div>
+              );
+            }
+
+            if (row.kind === "comment") {
+              return (
+                <tr key={row.key}>
+                  <td
+                    colSpan={3}
+                    className="p-0"
+                  >
+                    <InlineComment comments={row.comments} />
+                  </td>
+                </tr>
+              );
+            }
+
+            if (row.kind === "annotation") {
+              return (
+                <tr key={row.key}>
+                  <td
+                    colSpan={3}
+                    className="p-0"
+                  >
+                    <CiAnnotation annotations={row.annotations} />
+                  </td>
+                </tr>
+              );
+            }
+
+            if (row.kind === "composer" && prNumber && onCloseComposer) {
+              return (
+                <tr key={row.key}>
+                  <td
+                    colSpan={3}
+                    className="p-0"
+                  >
+                    <CommentComposer
+                      prNumber={prNumber}
+                      filePath={filePath}
+                      line={row.line}
+                      onClose={onCloseComposer}
+                    />
+                  </td>
+                </tr>
+              );
+            }
+
+            return null;
+          })}
+        </tbody>
+      </table>
 
       <BlamePopover
         file={filePath}
@@ -232,36 +234,44 @@ export function DiffViewer({
 }
 
 // ---------------------------------------------------------------------------
-// Row renderer
+// DiffLineRow — a single <tr> in the diff table
 // ---------------------------------------------------------------------------
 
-function DiffRow({
+function DiffLineRow({
   line,
-  rows,
+  allRows,
   highlighter,
   language,
   onLineEnter,
   onLineLeave,
   onGutterClick,
+  isComposerActive,
 }: {
   line: FlatLine;
-  rows: VirtualRow[];
+  allRows: FlatRow[];
   highlighter: Highlighter | null;
   language: string;
   onLineEnter: (lineNumber: number, rect: { top: number; left: number }) => void;
   onLineLeave: () => void;
   onGutterClick?: (line: number) => void;
+  isComposerActive?: boolean;
 }) {
+  // Hunk headers span the full row
   if (line.type === "hunk-header") {
     return (
-      <div className="border-border-subtle bg-diff-hunk-bg text-info sticky top-0 z-[1] flex h-5 items-center border-y px-3 font-mono text-[11px]">
-        {line.content}
-      </div>
+      <tr>
+        <td
+          colSpan={3}
+          className="border-border-subtle bg-diff-hunk-bg text-info sticky top-0 z-[1] h-5 border-y px-3 text-[11px]"
+        >
+          {line.content}
+        </td>
+      </tr>
     );
   }
 
   // Word diff pairing
-  const pairRow = line.pairIndex !== null ? rows[line.pairIndex] : null;
+  const pairRow = line.pairIndex !== null ? allRows[line.pairIndex] : null;
   const pair = pairRow?.kind === "line" ? pairRow.line : null;
   const wordDiff =
     pair &&
@@ -279,22 +289,25 @@ function DiffRow({
       : wordDiff.newSegments
     : null;
 
-  // Syntax highlighting (skip if word diff is active — same as GitHub)
+  // Syntax highlighting (skip if word diff is active)
   const tokens =
     !hasWordDiff && highlighter && language !== "text"
       ? safeTokenize(highlighter, line.content, language)
       : null;
 
   const lineNum = line.newLineNumber ?? line.oldLineNumber;
+  const isCommentable = !!line.newLineNumber;
+
+  // Row background
+  const rowBg =
+    line.type === "add" ? "bg-diff-add-bg" : line.type === "del" ? "bg-diff-del-bg" : "";
+
+  // Color bar on left edge
+  const barColor = line.type === "add" ? "bg-success" : line.type === "del" ? "bg-destructive" : "";
 
   return (
-    // biome-ignore lint: hover events for blame popover are intentional
-    <div
-      role="row"
-      className={`flex h-5 items-center text-[12.5px] leading-5 hover:brightness-110 ${
-        line.type === "add" ? "bg-diff-add-bg" : line.type === "del" ? "bg-diff-del-bg" : ""
-      }`}
-      style={{ tabSize: 4 }}
+    <tr
+      className={`group/line ${rowBg} transition-[filter] duration-75 hover:brightness-110`}
       onMouseEnter={(e) => {
         if (line.newLineNumber && line.type !== "del") {
           const rect = e.currentTarget.getBoundingClientRect();
@@ -303,53 +316,76 @@ function DiffRow({
       }}
       onMouseLeave={onLineLeave}
     >
-      {/* Gutter: old line number */}
-      <button
-        type="button"
-        className="text-text-ghost hover:text-text-tertiary inline-flex h-full w-[26px] shrink-0 cursor-pointer items-center justify-end border-none bg-transparent pr-1 font-mono text-[11px] select-none"
-        onClick={() => lineNum && onGutterClick?.(lineNum)}
-        tabIndex={-1}
-      >
-        {line.type !== "add" ? line.oldLineNumber : ""}
-      </button>
+      {/* Column 1: Color bar */}
+      <td className={`sticky left-0 z-[1] w-[3px] p-0 ${barColor}`} />
 
-      {/* Gutter: new line number */}
-      <button
-        type="button"
-        className="text-text-ghost hover:text-text-tertiary inline-flex h-full w-[26px] shrink-0 cursor-pointer items-center justify-end border-none bg-transparent pr-1 font-mono text-[11px] select-none"
-        onClick={() => lineNum && onGutterClick?.(lineNum)}
-        tabIndex={-1}
-      >
-        {line.type !== "del" ? line.newLineNumber : ""}
-      </button>
-
-      {/* Marker */}
-      <span
-        className={`inline-flex h-full w-4 shrink-0 items-center justify-center font-mono text-[11px] font-semibold select-none ${
+      {/* Column 2: Line number + add-comment button */}
+      <td
+        className={`text-text-ghost sticky left-[3px] z-[1] w-10 border-r p-0 pr-2 text-right text-[11px] select-none ${
           line.type === "add"
-            ? "text-success"
+            ? "border-r-success/10 bg-[rgba(61,214,140,0.04)]"
             : line.type === "del"
-              ? "text-destructive"
-              : "text-transparent"
+              ? "border-r-destructive/10 bg-[rgba(239,100,97,0.04)]"
+              : "border-r-border/40 bg-bg-root"
         }`}
       >
-        {line.type === "add" ? "+" : line.type === "del" ? "-" : " "}
-      </span>
+        <div className="relative flex h-5 items-center justify-end">
+          {/* The "+" button — hidden by default, shown on row hover via group */}
+          {isCommentable && !isComposerActive && (
+            <button
+              type="button"
+              onClick={() => lineNum && onGutterClick?.(lineNum)}
+              className="bg-primary text-bg-root absolute top-1/2 left-0.5 flex h-4 w-4 -translate-y-1/2 cursor-pointer items-center justify-center rounded-sm opacity-0 shadow-sm transition-opacity group-hover/line:opacity-100 hover:scale-110"
+              tabIndex={-1}
+              aria-label={`Comment on line ${lineNum}`}
+            >
+              <Plus
+                size={12}
+                strokeWidth={2.5}
+              />
+            </button>
+          )}
+          {/* Line number text */}
+          <span className="leading-5">
+            {line.type !== "del" ? line.newLineNumber : line.oldLineNumber}
+          </span>
+        </div>
+      </td>
 
-      {/* Code content */}
-      <span className="text-text-primary flex-1 overflow-x-auto px-1 pr-3 font-mono whitespace-pre">
-        {wordSegments ? (
-          <WordDiffContent
-            segments={wordSegments}
-            type={line.type}
-          />
-        ) : tokens ? (
-          <SyntaxContent tokens={tokens} />
-        ) : (
-          line.content
-        )}
-      </span>
-    </div>
+      {/* Column 3: Marker + code content */}
+      <td className="p-0">
+        <div className="flex h-5 items-center">
+          {/* +/- marker */}
+          <span
+            className={`inline-flex w-5 shrink-0 items-center justify-center text-[11px] font-semibold select-none ${
+              line.type === "add"
+                ? "text-success/50"
+                : line.type === "del"
+                  ? "text-destructive/50"
+                  : "text-transparent"
+            }`}
+          >
+            {line.type === "add" ? "+" : line.type === "del" ? "-" : " "}
+          </span>
+          {/* Code */}
+          <span
+            className="text-text-primary flex-1 overflow-x-auto pr-3 pl-1 whitespace-pre"
+            style={{ tabSize: 4 }}
+          >
+            {wordSegments ? (
+              <WordDiffContent
+                segments={wordSegments}
+                type={line.type}
+              />
+            ) : tokens ? (
+              <SyntaxContent tokens={tokens} />
+            ) : (
+              line.content
+            )}
+          </span>
+        </div>
+      </td>
+    </tr>
   );
 }
 
@@ -415,7 +451,7 @@ function WordDiffContent({
           return (
             <span
               key={`${i}-${seg.text.slice(0, 5)}`}
-              className={`rounded-xs px-px ${
+              className={`-mx-px rounded-[2px] px-px ${
                 type === "add" ? "bg-diff-add-word" : "bg-diff-del-word"
               }`}
             >

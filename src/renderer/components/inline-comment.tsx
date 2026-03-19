@@ -3,9 +3,8 @@ import { relativeTime } from "@/shared/format";
 /**
  * Inline comment display — renders existing PR review comments in the diff.
  *
- * - Background: --bg-raised, Border: 1px solid --border
- * - Left border: 2px solid --accent
- * - Padding: 8px 12px, aligned with code column (68px left margin)
+ * Renders inside a `<td colSpan={3}>` in the diff table as a card.
+ * Matches the comment composer's visual treatment (card with margin).
  */
 
 export interface ReviewComment {
@@ -13,7 +12,7 @@ export interface ReviewComment {
   body: string;
   path: string;
   line: number | null;
-  user: { login: string };
+  user: { login: string; avatar_url?: string };
   created_at: string;
   in_reply_to_id?: number;
 }
@@ -23,16 +22,17 @@ interface InlineCommentProps {
 }
 
 export function InlineComment({ comments }: InlineCommentProps) {
-  // Group into threads: find root comments and their replies
+  // Group into threads: root comments and their replies
   const roots = comments.filter((c) => !c.in_reply_to_id);
   const replies = comments.filter((c) => !!c.in_reply_to_id);
 
   return (
-    <div className="border-border border-l-primary bg-bg-raised my-1 mr-3 ml-[68px] rounded-md border border-l-2">
-      {roots.map((root) => {
+    <div className="border-border bg-bg-surface/60 mx-3 my-1.5 max-w-xl overflow-hidden rounded-lg border shadow-sm">
+      {roots.map((root, i) => {
         const threadReplies = replies.filter((r) => r.in_reply_to_id === root.id);
         return (
           <div key={root.id}>
+            {i > 0 && <div className="border-border border-t" />}
             <CommentBody comment={root} />
             {threadReplies.map((reply) => (
               <div
@@ -50,22 +50,32 @@ export function InlineComment({ comments }: InlineCommentProps) {
 }
 
 function CommentBody({ comment }: { comment: ReviewComment }) {
+  const initial = comment.user.login[0]?.toUpperCase() ?? "?";
+
   return (
-    <div className="px-3 py-2">
+    <div className="px-3 py-2.5">
       <div className="flex items-center gap-2">
         {/* Avatar */}
-        <div
-          className="text-bg-root flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold"
-          style={{ background: "linear-gradient(135deg, var(--primary), #7c5a2a)" }}
-        >
-          {comment.user.login[0]?.toUpperCase() ?? "?"}
-        </div>
+        {comment.user.avatar_url ? (
+          <img
+            src={`${comment.user.avatar_url}&s=32`}
+            alt={comment.user.login}
+            className="border-border-strong h-5 w-5 shrink-0 rounded-full border object-cover"
+          />
+        ) : (
+          <div
+            className="text-bg-root flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold"
+            style={{ background: "linear-gradient(135deg, var(--primary), #7c5a2a)" }}
+          >
+            {initial}
+          </div>
+        )}
         <span className="text-text-primary text-[11px] font-medium">{comment.user.login}</span>
         <span className="text-text-tertiary font-mono text-[10px]">
           {relativeTime(new Date(comment.created_at))}
         </span>
       </div>
-      <p className="text-text-secondary mt-1 text-xs leading-relaxed whitespace-pre-wrap">
+      <p className="text-text-secondary mt-1.5 text-xs leading-relaxed whitespace-pre-wrap">
         {comment.body}
       </p>
     </div>
