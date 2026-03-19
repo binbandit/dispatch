@@ -31,7 +31,7 @@ import {
   MessageSquare,
   Rows2,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { useSyntaxHighlighter } from "../hooks/use-syntax-highlight";
@@ -593,6 +593,7 @@ function GeneralCommentComposer({ prNumber }: { prNumber: number }) {
   const { cwd } = useWorkspace();
   const [body, setBody] = useState("");
   const [expanded, setExpanded] = useState(false);
+  const composerRef = useRef<HTMLDivElement>(null);
 
   const commentMutation = useMutation({
     mutationFn: (args: { cwd: string; prNumber: number; body: string }) => ipc("pr.comment", args),
@@ -616,7 +617,13 @@ function GeneralCommentComposer({ prNumber }: { prNumber: number }) {
       <div className="border-border border-t px-4 py-3">
         <button
           type="button"
-          onClick={() => setExpanded(true)}
+          onClick={() => {
+            setExpanded(true);
+            // Scroll the composer into view after it renders
+            requestAnimationFrame(() => {
+              composerRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+            });
+          }}
           className="border-border bg-bg-root text-text-tertiary hover:border-primary/40 w-full cursor-pointer rounded-md border px-3 py-2 text-left text-xs"
         >
           Leave a comment...
@@ -628,7 +635,10 @@ function GeneralCommentComposer({ prNumber }: { prNumber: number }) {
   const isMac = navigator.platform.includes("Mac");
 
   return (
-    <div className="border-border border-t px-4 py-3">
+    <div
+      ref={composerRef}
+      className="border-border border-t px-4 py-3"
+    >
       <MentionTextarea
         value={body}
         onChange={setBody}
