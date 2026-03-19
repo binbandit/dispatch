@@ -313,6 +313,16 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               <ApproveButton
                 cwd={cwd}
                 prNumber={prNumber}
+                currentUserReview={
+                  currentUser
+                    ? (pr.reviews
+                        .filter((r) => r.author.login === currentUser)
+                        .sort(
+                          (a, b) =>
+                            new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
+                        )[0]?.state ?? null)
+                    : null
+                }
               />
               <RequestChangesButton
                 cwd={cwd}
@@ -999,8 +1009,18 @@ const LGTM_GIFS = [
   "https://media.giphy.com/media/3ohzdIuqJoo8QdKlnW/giphy.gif",
 ];
 
-function ApproveButton({ cwd, prNumber }: { cwd: string; prNumber: number }) {
+function ApproveButton({
+  cwd,
+  prNumber,
+  currentUserReview,
+}: {
+  cwd: string;
+  prNumber: number;
+  /** The current user's most recent review state, or null if they haven't reviewed */
+  currentUserReview: string | null;
+}) {
   const [body, setBody] = useState("");
+  const alreadyApproved = currentUserReview === "APPROVED";
 
   const reviewMutation = useMutation({
     mutationFn: (args: {
@@ -1033,6 +1053,19 @@ function ApproveButton({ cwd, prNumber }: { cwd: string; prNumber: number }) {
       const prefix = prev.trim() ? `${prev.trim()}\n\n` : "";
       return `${prefix}![LGTM](${gif})`;
     });
+  }
+
+  if (alreadyApproved) {
+    return (
+      <Button
+        size="sm"
+        variant="outline"
+        className="border-success/30 text-success gap-1.5 opacity-60"
+        disabled
+      >
+        ✓ Approved
+      </Button>
+    );
   }
 
   return (
