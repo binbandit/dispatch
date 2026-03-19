@@ -166,7 +166,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
   const allCount = allPrs.length;
 
   return (
-    <aside className="border-border bg-bg-surface flex h-full w-[260px] shrink-0 flex-col border-r">
+    <aside className="border-border bg-bg-surface flex h-full flex-col">
       {/* Header */}
       <div className="px-3 pt-3 pb-2">
         <h2 className="text-text-secondary text-[11px] font-semibold tracking-[0.06em] uppercase">

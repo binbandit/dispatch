@@ -1,6 +1,7 @@
 import type { ErrorInfo, ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Component, useCallback, useState } from "react";
 
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
@@ -67,24 +68,31 @@ function AppShell() {
 
       {/* View content */}
       {route.view === "review" && (
-        <div className="flex flex-1 overflow-hidden">
-          <div
-            className="h-full shrink-0 overflow-hidden transition-[width]"
-            style={{
-              width: sidebarCollapsed ? 0 : 260,
-              transitionDuration: "400ms",
-              transitionTimingFunction: "var(--ease-out)",
-            }}
-          >
-            <PrInbox
-              selectedPr={selectedPr}
-              onSelectPr={(pr) => navigate({ view: "review", prNumber: pr })}
-            />
-          </div>
-          <main className="flex flex-1 flex-col overflow-hidden">
-            <PrDetailView prNumber={selectedPr} />
-          </main>
-        </div>
+        <ResizablePanelGroup
+          orientation="horizontal"
+          className="flex-1"
+        >
+          {!sidebarCollapsed && (
+            <>
+              <ResizablePanel
+                defaultSize="20%"
+                minSize="12%"
+                maxSize="35%"
+              >
+                <PrInbox
+                  selectedPr={selectedPr}
+                  onSelectPr={(pr) => navigate({ view: "review", prNumber: pr })}
+                />
+              </ResizablePanel>
+              <ResizableHandle />
+            </>
+          )}
+          <ResizablePanel>
+            <main className="flex h-full flex-col overflow-hidden">
+              <PrDetailView prNumber={selectedPr} />
+            </main>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       )}
 
       {route.view === "workflows" && <WorkflowsDashboard />}
