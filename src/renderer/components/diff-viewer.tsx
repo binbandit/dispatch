@@ -719,26 +719,16 @@ function VirtualizedUnifiedDiff({
   }, [rows, searchQuery]);
 
   const virtualItems = virtualizer.getVirtualItems();
-  const totalHeight = virtualizer.getTotalSize();
-
-  // Padding for before/after visible items
-  const paddingTop = virtualItems.length > 0 ? (virtualItems[0]?.start ?? 0) : 0;
-  const paddingBottom =
-    virtualItems.length > 0 ? totalHeight - (virtualItems[virtualItems.length - 1]?.end ?? 0) : 0;
 
   return (
-    <table className="w-full border-collapse font-mono text-[12.5px] leading-5">
-      <colgroup>
-        <col className="w-[3px]" />
-        <col className="w-10" />
-        <col />
-      </colgroup>
-      <tbody>
-        {paddingTop > 0 && (
-          <tr>
-            <td style={{ height: paddingTop, padding: 0 }} />
-          </tr>
-        )}
+    <div
+      className="relative w-full font-mono text-[12.5px] leading-5"
+      style={{ height: virtualizer.getTotalSize(), contain: "strict", overflowAnchor: "none" }}
+    >
+      <div
+        className="absolute top-0 left-0 w-full"
+        style={{ transform: `translateY(${virtualItems[0]?.start ?? 0}px)` }}
+      >
         {virtualItems.map((virtualRow) => {
           const row = rows[virtualRow.index]!;
 
@@ -753,6 +743,8 @@ function VirtualizedUnifiedDiff({
             return (
               <DiffLineRow
                 key={row.key}
+                dataIndex={virtualRow.index}
+                measureRef={virtualizer.measureElement}
                 line={row.line}
                 allRows={rows}
                 highlighter={highlighter}
@@ -780,61 +772,53 @@ function VirtualizedUnifiedDiff({
 
           if (row.kind === "comment") {
             return (
-              <tr key={row.key}>
-                <td
-                  colSpan={3}
-                  className="p-0"
-                >
-                  <InlineComment
-                    comments={row.comments}
-                    prNumber={prNumber}
-                  />
-                </td>
-              </tr>
+              <div
+                key={row.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+              >
+                <InlineComment
+                  comments={row.comments}
+                  prNumber={prNumber}
+                />
+              </div>
             );
           }
 
           if (row.kind === "annotation") {
             return (
-              <tr key={row.key}>
-                <td
-                  colSpan={3}
-                  className="p-0"
-                >
-                  <CiAnnotation annotations={row.annotations} />
-                </td>
-              </tr>
+              <div
+                key={row.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+              >
+                <CiAnnotation annotations={row.annotations} />
+              </div>
             );
           }
 
           if (row.kind === "composer" && prNumber && onCloseComposer) {
             return (
-              <tr key={row.key}>
-                <td
-                  colSpan={3}
-                  className="p-0"
-                >
-                  <CommentComposer
-                    prNumber={prNumber}
-                    filePath={filePath}
-                    line={row.endLine}
-                    startLine={row.startLine !== row.endLine ? row.startLine : undefined}
-                    onClose={onCloseComposer}
-                  />
-                </td>
-              </tr>
+              <div
+                key={row.key}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+              >
+                <CommentComposer
+                  prNumber={prNumber}
+                  filePath={filePath}
+                  line={row.endLine}
+                  startLine={row.startLine !== row.endLine ? row.startLine : undefined}
+                  onClose={onCloseComposer}
+                />
+              </div>
             );
           }
 
           return null;
         })}
-        {paddingBottom > 0 && (
-          <tr>
-            <td style={{ height: paddingBottom, padding: 0 }} />
-          </tr>
-        )}
-      </tbody>
-    </table>
+      </div>
+    </div>
   );
 }
 
@@ -855,6 +839,8 @@ function DiffLineRow({
   searchMatchOffset,
   activeSearchIndex,
   activeSearchRef,
+  dataIndex,
+  measureRef,
 }: {
   line: FlatLine;
   allRows: FlatRow[];
@@ -872,17 +858,18 @@ function DiffLineRow({
   searchMatchOffset: number;
   activeSearchIndex: number;
   activeSearchRef: React.RefObject<HTMLSpanElement | null>;
+  dataIndex?: number;
+  measureRef?: (node: Element | null) => void;
 }) {
   if (line.type === "hunk-header") {
     return (
-      <tr>
-        <td
-          colSpan={3}
-          className="border-border-subtle bg-diff-hunk-bg text-info h-5 border-y px-3 text-[11px]"
-        >
-          {line.content}
-        </td>
-      </tr>
+      <div
+        data-index={dataIndex}
+        ref={measureRef}
+        className="border-border-subtle bg-diff-hunk-bg text-info flex h-5 items-center border-y px-3 text-[11px]"
+      >
+        {line.content}
+      </div>
     );
   }
 
@@ -930,8 +917,10 @@ function DiffLineRow({
         : "";
 
   return (
-    <tr
-      className={`group/line ${rowBg} transition-[filter] duration-75 ${
+    <div
+      data-index={dataIndex}
+      ref={measureRef}
+      className={`group/line flex ${rowBg} transition-[filter] duration-75 ${
         !isSelected && !isDragging ? "hover:brightness-110" : ""
       }`}
       onMouseEnter={(e) => {
@@ -945,9 +934,11 @@ function DiffLineRow({
       }}
       onMouseLeave={onLineLeave}
     >
-      <td className={`sticky left-0 z-[1] w-[3px] p-0 ${barColor}`} />
-      <td
-        className={`sticky left-[3px] z-[1] w-10 border-r p-0 pr-2 text-right text-[11px] select-none ${
+      {/* Color bar */}
+      <div className={`sticky left-0 z-[1] w-[3px] shrink-0 ${barColor}`} />
+      {/* Line number gutter */}
+      <div
+        className={`sticky left-[3px] z-[1] w-10 shrink-0 border-r pr-2 text-right text-[11px] select-none ${
           isSelected
             ? "border-r-text-secondary/20 text-text-secondary bg-[rgba(155,149,144,0.04)]"
             : line.type === "add"
@@ -986,47 +977,46 @@ function DiffLineRow({
             {line.type !== "del" ? line.newLineNumber : line.oldLineNumber}
           </span>
         </div>
-      </td>
-      <td className="p-0">
-        <div className="flex h-5 items-center">
-          <span
-            className={`inline-flex w-5 shrink-0 items-center justify-center text-[11px] font-semibold select-none ${
-              line.type === "add"
-                ? "text-success/50"
-                : line.type === "del"
-                  ? "text-destructive/50"
-                  : "text-transparent"
-            }`}
-          >
-            {line.type === "add" ? "+" : line.type === "del" ? "-" : " "}
-          </span>
-          <span
-            className="text-text-primary flex-1 overflow-x-auto pr-3 pl-1 whitespace-pre"
-            style={{ tabSize: 4 }}
-          >
-            {wordSegments ? (
-              <WordDiffContent
-                segments={wordSegments}
-                type={line.type}
-              />
-            ) : searchQuery ? (
-              <SearchHighlightedContent
-                text={line.content}
-                tokens={tokens}
-                query={searchQuery}
-                matchOffset={searchMatchOffset}
-                activeIndex={activeSearchIndex}
-                activeRef={activeSearchRef}
-              />
-            ) : tokens ? (
-              <SyntaxContent tokens={tokens} />
-            ) : (
-              line.content
-            )}
-          </span>
-        </div>
-      </td>
-    </tr>
+      </div>
+      {/* Code content */}
+      <div className="flex h-5 min-w-0 flex-1 items-center">
+        <span
+          className={`inline-flex w-5 shrink-0 items-center justify-center text-[11px] font-semibold select-none ${
+            line.type === "add"
+              ? "text-success/50"
+              : line.type === "del"
+                ? "text-destructive/50"
+                : "text-transparent"
+          }`}
+        >
+          {line.type === "add" ? "+" : line.type === "del" ? "-" : " "}
+        </span>
+        <span
+          className="text-text-primary flex-1 overflow-x-auto pr-3 pl-1 whitespace-pre"
+          style={{ tabSize: 4 }}
+        >
+          {wordSegments ? (
+            <WordDiffContent
+              segments={wordSegments}
+              type={line.type}
+            />
+          ) : searchQuery ? (
+            <SearchHighlightedContent
+              text={line.content}
+              tokens={tokens}
+              query={searchQuery}
+              matchOffset={searchMatchOffset}
+              activeIndex={activeSearchIndex}
+              activeRef={activeSearchRef}
+            />
+          ) : tokens ? (
+            <SyntaxContent tokens={tokens} />
+          ) : (
+            line.content
+          )}
+        </span>
+      </div>
+    </div>
   );
 }
 
