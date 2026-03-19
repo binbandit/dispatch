@@ -1,26 +1,4 @@
-import type Database from "better-sqlite3";
-
 import { getDatabase } from "./database";
-
-// ---------------------------------------------------------------------------
-// PR Cache
-// ---------------------------------------------------------------------------
-
-export function cachePrList(repo: string, prNumber: number, data: string): void {
-  const db = getDatabase();
-  db.prepare(`
-    INSERT INTO pr_cache (repo, number, data, fetched_at)
-    VALUES (?, ?, ?, datetime('now'))
-    ON CONFLICT(repo, number) DO UPDATE SET data = excluded.data, fetched_at = excluded.fetched_at
-  `).run(repo, prNumber, data);
-}
-
-export function getCachedPrList(repo: string): Array<{ number: number; data: string }> {
-  const db = getDatabase();
-  return db
-    .prepare("SELECT number, data FROM pr_cache WHERE repo = ? ORDER BY number DESC")
-    .all(repo) as Array<{ number: number; data: string }>;
-}
 
 // ---------------------------------------------------------------------------
 // Review State (Incremental Diff)
@@ -126,16 +104,4 @@ export function getActiveWorkspace(): string | null {
 
 export function setActiveWorkspace(path: string): void {
   setPreference("activeWorkspace", path);
-}
-
-// ---------------------------------------------------------------------------
-// Utilities
-// ---------------------------------------------------------------------------
-
-/**
- * Convenience: run an operation in a transaction.
- */
-export function transaction<T>(fn: (db: Database.Database) => T): T {
-  const db = getDatabase();
-  return db.transaction(fn)(db);
 }
