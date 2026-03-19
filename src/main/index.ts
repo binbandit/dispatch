@@ -63,15 +63,37 @@ function createWindow(): BrowserWindow {
 let tray: Tray | null = null;
 
 function setupTray(): void {
-  // Use the proper tray template icon (macOS renders it as a mask)
-  const trayIconPath = join(__dirname, "../resources/trayTemplate.png");
-  const icon = nativeImage.createFromPath(trayIconPath);
-  icon.setTemplateImage(true);
-  tray = new Tray(icon);
-  tray.setToolTip("Dispatch");
+  try {
+    const icon = nativeImage.createFromPath(join(__dirname, "../resources/trayTemplate.png"));
+
+    if (icon.isEmpty()) {
+      // eslint-disable-next-line no-console
+      console.warn("Tray icon loaded but is empty — check resources/trayTemplate.png");
+      return;
+    }
+
+    // On macOS, template images auto-tint to match the menu bar (dark/light)
+    if (process.platform === "darwin") {
+      icon.setTemplateImage(true);
+    }
+
+    tray = new Tray(icon);
+    tray.setToolTip("Dispatch");
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Failed to set up tray icon:", error);
+  }
 }
 
 app.whenReady().then(() => {
+  // Set dock icon on macOS (required for dev mode — production uses the .icns in the app bundle)
+  if (process.platform === "darwin") {
+    const dockIcon = nativeImage.createFromPath(join(__dirname, "../resources/dock-icon.png"));
+    if (!dockIcon.isEmpty()) {
+      app.dock?.setIcon(dockIcon);
+    }
+  }
+
   // Initialize infrastructure
   try {
     initDatabase();

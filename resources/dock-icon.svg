@@ -1,0 +1,9 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- macOS dock icon with proper inset padding (~12% on each side) -->
+  <!-- Canvas: 512x512, icon area: 390x390 centered at 256,256 -->
+  <!-- Rect: y=61..451, center y=256 -->
+  <!-- Arrow: tip y=148, stem end y=364, midpoint y=256, optical center ~y=248 -->
+  <rect x="61" y="61" width="390" height="390" rx="88" fill="#d4883a"/>
+  <path d="M178 288 L256 176 L334 288" stroke="#08080a" stroke-width="27" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <line x1="256" y1="176" x2="256" y2="368" stroke="#08080a" stroke-width="27" stroke-linecap="round"/>
+</svg>

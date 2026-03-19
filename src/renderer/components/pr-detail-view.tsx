@@ -13,6 +13,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  Dices,
   ExternalLink,
   GitMerge,
   MessageSquare,
@@ -232,66 +233,71 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const totalDeletions = pr.files.reduce((sum, f) => sum + f.deletions, 0);
   const isAuthor = currentUser !== null && pr.author.login === currentUser;
 
+  // Derive repo "owner/repo" from the PR URL for #123 linkification
+  const repoSlug = pr.url.match(/github\.com\/([^/]+\/[^/]+)/)?.[1] ?? "";
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
-      {/* PR Header (§ 8.5) */}
-      <div className="border-border bg-bg-surface flex items-center gap-3 border-b px-5 py-3">
-        {/* Author avatar */}
-        <GitHubAvatar
-          login={pr.author.login}
-          size={28}
-          className="border-border-strong border-[1.5px]"
-        />
-        <div className="min-w-0 flex-1">
-          <h1 className="text-text-primary text-base font-semibold tracking-[-0.02em]">
-            {pr.title} <span className="text-text-tertiary font-normal">#{pr.number}</span>
-          </h1>
-          <div className="text-text-secondary mt-0.5 flex items-center gap-1.5 text-xs">
-            <Badge
-              variant="outline"
-              className="border-border bg-bg-raised text-accent-text rounded-sm font-mono text-[11px]"
-            >
-              {pr.headRefName}
-            </Badge>
-            <span className="text-text-tertiary">→</span>
-            <span className="text-text-tertiary font-mono text-[11px]">{pr.baseRefName}</span>
-            <span className="text-text-ghost">·</span>
-            <span>{pr.author.login}</span>
-            {isAuthor && (
+      {/* PR Header */}
+      <div className="border-border bg-bg-surface border-b px-5 py-3">
+        {/* Top row: title + metadata */}
+        <div className="flex items-start gap-3">
+          <GitHubAvatar
+            login={pr.author.login}
+            size={28}
+            className="border-border-strong mt-0.5 border-[1.5px]"
+          />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-text-primary text-[15px] font-semibold tracking-[-0.02em]">
+              {pr.title} <span className="text-text-tertiary font-normal">#{pr.number}</span>
+            </h1>
+            <div className="text-text-secondary mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
               <Badge
                 variant="outline"
-                className="border-primary/30 text-primary text-[9px]"
+                className="border-border bg-bg-raised text-accent-text rounded-sm font-mono text-[11px]"
               >
-                You
+                {pr.headRefName}
               </Badge>
-            )}
-            <span className="text-text-ghost">·</span>
-            <span>{relativeTime(new Date(pr.updatedAt))}</span>
-            <span className="text-text-ghost">·</span>
-            <span className="text-success font-mono text-[11px]">+{totalAdditions}</span>
-            <span className="text-destructive font-mono text-[11px]">-{totalDeletions}</span>
-            {pr.isDraft && (
-              <Badge
-                variant="outline"
-                className="border-warning/30 text-warning text-[9px]"
-              >
-                Draft
-              </Badge>
-            )}
+              <span className="text-text-tertiary">→</span>
+              <span className="text-text-tertiary font-mono text-[11px]">{pr.baseRefName}</span>
+              <span className="text-text-ghost">·</span>
+              <span>{pr.author.login}</span>
+              {isAuthor && (
+                <Badge
+                  variant="outline"
+                  className="border-primary/30 text-primary text-[9px]"
+                >
+                  You
+                </Badge>
+              )}
+              <span className="text-text-ghost">·</span>
+              <span>{relativeTime(new Date(pr.updatedAt))}</span>
+              <span className="text-text-ghost">·</span>
+              <span className="text-success font-mono text-[11px]">+{totalAdditions}</span>
+              <span className="text-destructive font-mono text-[11px]">-{totalDeletions}</span>
+              {pr.isDraft && (
+                <Badge
+                  variant="outline"
+                  className="border-warning/30 text-warning text-[9px]"
+                >
+                  Draft
+                </Badge>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-1.5">
-          {/* Open on GitHub */}
+          {/* External link */}
           <Button
             size="sm"
             variant="ghost"
-            className="text-text-tertiary hover:text-text-primary gap-1"
+            className="text-text-tertiary hover:text-text-primary shrink-0"
             onClick={() => globalThis.open(pr.url, "_blank")}
           >
             <ExternalLink size={13} />
           </Button>
+        </div>
 
-          {/* Review actions — only for reviewers, not the author */}
+        {/* Action bar: review actions + merge — separate row with breathing room */}
+        <div className="mt-2.5 flex items-center gap-2 pl-[40px]">
           {!isAuthor && (
             <>
               <ApproveButton
@@ -302,6 +308,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
                 cwd={cwd}
                 prNumber={prNumber}
               />
+              <div className="bg-border mx-0.5 h-4 w-px" />
             </>
           )}
           <MergeButton
@@ -391,6 +398,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
                 pr={pr}
                 comments={commentsQuery.data ?? []}
                 isAuthor={isAuthor}
+                repo={repoSlug}
               />
             )}
             {activeTab === "files" && (
@@ -431,6 +439,7 @@ function OverviewTab({
   pr,
   comments,
   isAuthor,
+  repo,
 }: {
   pr: {
     body: string;
@@ -442,6 +451,7 @@ function OverviewTab({
   };
   comments: Array<{ id: number; body: string; user: { login: string }; created_at: string }>;
   isAuthor: boolean;
+  repo: string;
 }) {
   // General (non-inline) comments — those without a path/line
   const generalComments = comments.filter((c) => !("path" in c) || !(c as { line?: unknown }).line);
@@ -458,7 +468,10 @@ function OverviewTab({
           <span className="text-text-primary text-[11px] font-medium">{pr.author.login}</span>
           <span className="text-text-ghost text-[10px]">authored</span>
         </div>
-        <MarkdownBody content={pr.body} />
+        <MarkdownBody
+          content={pr.body}
+          repo={repo}
+        />
       </div>
 
       {/* Review summary */}
@@ -560,12 +573,14 @@ function ReviewStateBadge({ state }: { state: string }) {
     state === "APPROVED"
       ? { text: "Approved", color: "border-success/30 text-success" }
       : state === "CHANGES_REQUESTED"
-        ? { text: "Changes", color: "border-destructive/30 text-destructive" }
+        ? { text: "Changes Requested", color: "border-destructive/30 text-destructive" }
         : state === "COMMENTED"
           ? { text: "Commented", color: "border-border text-text-tertiary" }
           : state === "DISMISSED"
             ? { text: "Dismissed", color: "border-border text-text-ghost" }
-            : { text: state, color: "border-border text-text-tertiary" };
+            : state === "PENDING"
+              ? { text: "Pending", color: "border-warning/30 text-warning" }
+              : { text: state, color: "border-border text-text-tertiary" };
 
   return (
     <Badge
@@ -763,11 +778,24 @@ function ReviewsList({
     return <div className="text-text-tertiary px-3 py-4 text-center text-xs">No reviews yet</div>;
   }
 
+  // Dedupe: show only the most recent review per user
+  const latestByUser = new Map<
+    string,
+    { author: { login: string }; state: string; submittedAt: string }
+  >();
+  for (const review of reviews) {
+    const existing = latestByUser.get(review.author.login);
+    if (!existing || new Date(review.submittedAt) > new Date(existing.submittedAt)) {
+      latestByUser.set(review.author.login, review);
+    }
+  }
+  const uniqueReviews = [...latestByUser.values()];
+
   return (
     <div className="flex flex-col gap-1 p-2">
-      {reviews.map((review, i) => (
+      {uniqueReviews.map((review) => (
         <div
-          key={`${review.author.login}-${review.submittedAt}-${i}`}
+          key={review.author.login}
           className="flex items-center gap-2 rounded-md px-2 py-1.5"
         >
           <GitHubAvatar
@@ -776,6 +804,9 @@ function ReviewsList({
           />
           <div className="min-w-0 flex-1">
             <span className="text-text-primary text-xs font-medium">{review.author.login}</span>
+            <span className="text-text-ghost ml-1.5 font-mono text-[10px]">
+              {relativeTime(new Date(review.submittedAt))}
+            </span>
           </div>
           <ReviewStateBadge state={review.state} />
         </div>
@@ -942,10 +973,26 @@ function MergeButton({
 }
 
 // ---------------------------------------------------------------------------
-// Approve button
+// Approve button with expandable message + LGTM gif
 // ---------------------------------------------------------------------------
 
+const LGTM_GIFS = [
+  "https://media.giphy.com/media/111ebonMs90YLu/giphy.gif",
+  "https://media.giphy.com/media/3o7TKF1fSIs1R19B8k/giphy.gif",
+  "https://media.giphy.com/media/l0MYt5jPR6QX5APm0/giphy.gif",
+  "https://media.giphy.com/media/3oEjHV0z8S7WM4MwnK/giphy.gif",
+  "https://media.giphy.com/media/xT0xeJpnrWC3XWblEk/giphy.gif",
+  "https://media.giphy.com/media/26u4lOMA8JKSnL9Uk/giphy.gif",
+  "https://media.giphy.com/media/3o7abB06u9bNzA8lu8/giphy.gif",
+  "https://media.giphy.com/media/XreQmk7ETCak0/giphy.gif",
+  "https://media.giphy.com/media/l3q2XhfQ8oCkm1Ts4/giphy.gif",
+  "https://media.giphy.com/media/3ohzdIuqJoo8QdKlnW/giphy.gif",
+];
+
 function ApproveButton({ cwd, prNumber }: { cwd: string; prNumber: number }) {
+  const [open, setOpen] = useState(false);
+  const [body, setBody] = useState("");
+
   const reviewMutation = useMutation({
     mutationFn: (args: {
       cwd: string;
@@ -953,10 +1000,11 @@ function ApproveButton({ cwd, prNumber }: { cwd: string; prNumber: number }) {
       event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
       body?: string;
     }) => ipc("pr.submitReview", args),
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
-      const desc = variables.event === "APPROVE" ? "You approved this PR." : "Review submitted.";
-      toastManager.add({ title: "Review submitted", description: desc, type: "success" });
+      toastManager.add({ title: "PR approved", type: "success" });
+      setOpen(false);
+      setBody("");
     },
     onError: (err) => {
       toastManager.add({
@@ -967,19 +1015,100 @@ function ApproveButton({ cwd, prNumber }: { cwd: string; prNumber: number }) {
     },
   });
 
+  function handleApprove(message?: string) {
+    reviewMutation.mutate({
+      cwd,
+      prNumber,
+      event: "APPROVE",
+      body: message || undefined,
+    });
+  }
+
+  function insertLgtmGif() {
+    const gif = LGTM_GIFS[Math.floor(Math.random() * LGTM_GIFS.length)];
+    setBody((prev) => {
+      const prefix = prev.trim() ? `${prev.trim()}\n\n` : "";
+      return `${prefix}![LGTM](${gif})`;
+    });
+  }
+
   return (
-    <Button
-      size="sm"
-      variant="outline"
-      className="border-success/30 text-success hover:bg-success-muted gap-1.5"
-      disabled={reviewMutation.isPending}
-      onClick={() => {
-        reviewMutation.mutate({ cwd, prNumber, event: "APPROVE" });
-      }}
-    >
-      {reviewMutation.isPending ? <Spinner className="h-3 w-3" /> : "✓"}
-      Approve
-    </Button>
+    <div className="relative">
+      <div className="flex">
+        {/* Quick approve (no message) */}
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-success/30 text-success hover:bg-success-muted gap-1.5 rounded-r-none"
+          disabled={reviewMutation.isPending}
+          onClick={() => handleApprove()}
+        >
+          {reviewMutation.isPending ? <Spinner className="h-3 w-3" /> : "✓"}
+          Approve
+        </Button>
+        {/* Expand for message */}
+        <Button
+          size="sm"
+          variant="outline"
+          className="border-success/30 text-success hover:bg-success-muted rounded-l-none border-l-0 px-1.5"
+          onClick={() => setOpen(!open)}
+          disabled={reviewMutation.isPending}
+        >
+          <ChevronDown size={11} />
+        </Button>
+      </div>
+      {open && (
+        <div className="border-border bg-bg-elevated absolute top-full right-0 z-20 mt-1 w-80 rounded-md border p-3 shadow-lg">
+          <textarea
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+            placeholder="Leave a comment with your approval (optional)..."
+            rows={3}
+            className="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-success w-full resize-none rounded-md border px-3 py-2 text-xs focus:outline-none"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                e.preventDefault();
+                handleApprove(body.trim());
+              }
+              if (e.key === "Escape") {
+                setOpen(false);
+              }
+            }}
+          />
+          <div className="mt-2 flex items-center justify-between">
+            <button
+              type="button"
+              onClick={insertLgtmGif}
+              className="text-text-tertiary hover:text-text-primary flex cursor-pointer items-center gap-1 text-[11px]"
+              title="Insert random LGTM gif"
+            >
+              <Dices size={13} />
+              LGTM gif
+            </button>
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setOpen(false);
+                  setBody("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="bg-success hover:bg-success/90 text-bg-root"
+                disabled={reviewMutation.isPending}
+                onClick={() => handleApprove(body.trim())}
+              >
+                {reviewMutation.isPending ? <Spinner className="h-3 w-3" /> : "✓ Approve"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
