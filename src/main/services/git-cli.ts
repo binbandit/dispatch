@@ -24,11 +24,18 @@ export async function blame(args: {
   line: number;
   ref: string;
 }): Promise<BlameLine> {
-  const { stdout } = await execFile(
-    "git",
-    ["blame", "-L", `${args.line},${args.line}`, args.ref, "--porcelain", "--", args.file],
-    { cwd: args.cwd },
-  );
+  let stdout: string;
+  try {
+    const result = await execFile(
+      "git",
+      ["blame", "-L", `${args.line},${args.line}`, args.ref, "--porcelain", "--", args.file],
+      { cwd: args.cwd },
+    );
+    stdout = result.stdout;
+  } catch {
+    // Line out of range, file doesn't exist at ref, etc.
+    return { sha: "", author: "", date: "", summary: "" };
+  }
 
   const lines = stdout.split("\n");
   const sha = lines[0]?.split(" ")[0] ?? "";
