@@ -254,6 +254,10 @@ export interface IpcApi {
       isPr: boolean;
     }>;
   };
+  "pr.replyToComment": {
+    args: { cwd: string; prNumber: number; commentId: number; body: string };
+    result: void;
+  };
   "pr.resolveThread": { args: { cwd: string; threadId: string }; result: void };
   "pr.unresolveThread": { args: { cwd: string; threadId: string }; result: void };
   "pr.submitReview": {

@@ -83,6 +83,9 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
     await ghCli.mergePr(args.cwd, args.prNumber, args.strategy);
   },
   "pr.comments": async (args) => ghCli.getPrReviewComments(args.cwd, args.prNumber),
+  "pr.replyToComment": async (args) => {
+    await ghCli.replyToReviewComment(args.cwd, args.prNumber, args.commentId, args.body);
+  },
   "pr.comment": async (args) => {
     await ghCli.createPrComment(args.cwd, args.prNumber, args.body);
   },

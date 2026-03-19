@@ -344,6 +344,28 @@ export async function getPrReviewComments(
   return parseJsonOutput<GhReviewComment[]>(stdout);
 }
 
+export async function replyToReviewComment(
+  cwd: string,
+  prNumber: number,
+  commentId: number,
+  body: string,
+): Promise<void> {
+  await execFile(
+    "gh",
+    [
+      "api",
+      `repos/{owner}/{repo}/pulls/${prNumber}/comments`,
+      "-X",
+      "POST",
+      "-f",
+      `body=${body}`,
+      "-F",
+      `in_reply_to=${commentId}`,
+    ],
+    { cwd, timeout: 15_000 },
+  );
+}
+
 export async function createPrComment(cwd: string, prNumber: number, body: string): Promise<void> {
   await execFile("gh", ["pr", "comment", String(prNumber), "--body", body], {
     cwd,

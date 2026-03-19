@@ -3,22 +3,37 @@ import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { relativeTime } from "@/shared/format";
 import { useMutation } from "@tanstack/react-query";
-import { Check, CheckCircle2, Circle, ChevronDown, ChevronRight } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  ChevronRight,
+  Circle,
+  Copy,
+  ExternalLink,
+  MessageSquare,
+  Reply,
+} from "lucide-react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
 import { queryClient } from "../lib/query-client";
 import { useWorkspace } from "../lib/workspace-context";
+import { GitHubAvatar } from "./github-avatar";
 import { MarkdownBody } from "./markdown-body";
+import { MentionTextarea } from "./mention-textarea";
 
 /**
- * Inline comment display — renders existing PR review comments in the diff.
+ * Inline comment display — renders PR review comments in the diff.
  *
  * Features:
  * - Thread grouping (root + replies)
+ * - Collapsible threads (fold long conversations)
+ * - Reply to thread
  * - Bot comment collapsing
- * - Suggestion block rendering with diff display
- * - Thread resolution (resolve/unresolve via GraphQL)
+ * - Suggestion block rendering
+ * - Thread resolution
+ * - Right-click context menu (copy link, reply, copy text)
  */
 
 export interface ReviewComment {
@@ -34,9 +49,10 @@ export interface ReviewComment {
 
 interface InlineCommentProps {
   comments: ReviewComment[];
+  prNumber?: number;
 }
 
-// Known bot suffixes/patterns
+// Known bot patterns
 const BOT_PATTERNS = [
   /\[bot\]$/i,
   /-bot$/i,
@@ -51,45 +67,188 @@ function isBot(login: string): boolean {
   return BOT_PATTERNS.some((p) => p.test(login));
 }
 
-export function InlineComment({ comments }: InlineCommentProps) {
+export function InlineComment({ comments, prNumber }: InlineCommentProps) {
   const roots = comments.filter((c) => !c.in_reply_to_id);
   const replies = comments.filter((c) => !!c.in_reply_to_id);
 
-  // Separate bot and human comments
   const botRoots = roots.filter((c) => isBot(c.user.login));
   const humanRoots = roots.filter((c) => !isBot(c.user.login));
 
   return (
     <div className="border-border bg-bg-surface/60 mx-3 my-1.5 max-w-xl overflow-hidden rounded-lg border shadow-sm">
-      {/* Human comments */}
       {humanRoots.map((root, i) => {
         const threadReplies = replies.filter((r) => r.in_reply_to_id === root.id);
         return (
-          <div key={root.id}>
-            {i > 0 && <div className="border-border border-t" />}
-            <CommentBody
-              comment={root}
-              isRoot
-            />
-            {threadReplies.map((reply) => (
-              <div
-                key={reply.id}
-                className="border-border-subtle border-t"
-              >
-                <CommentBody comment={reply} />
-              </div>
-            ))}
-          </div>
+          <CommentThread
+            key={root.id}
+            root={root}
+            replies={threadReplies}
+            prNumber={prNumber}
+            showBorder={i > 0}
+          />
         );
       })}
 
-      {/* Bot comments — collapsed by default */}
       {botRoots.length > 0 && (
         <>
           {humanRoots.length > 0 && <div className="border-border border-t" />}
           <BotCommentGroup comments={botRoots} />
         </>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Comment thread (root + replies, collapsible, with reply input)
+// ---------------------------------------------------------------------------
+
+function CommentThread({
+  root,
+  replies,
+  prNumber,
+  showBorder,
+}: {
+  root: ReviewComment;
+  replies: ReviewComment[];
+  prNumber?: number;
+  showBorder: boolean;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [showReply, setShowReply] = useState(false);
+  const totalCount = 1 + replies.length;
+
+  return (
+    <div>
+      {showBorder && <div className="border-border border-t" />}
+
+      {/* Collapse bar — shows when thread has replies */}
+      {replies.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setCollapsed(!collapsed)}
+          className="text-text-ghost hover:bg-bg-raised flex w-full cursor-pointer items-center gap-1.5 px-3 py-1 text-[10px]"
+        >
+          {collapsed ? <ChevronRight size={10} /> : <ChevronDown size={10} />}
+          {collapsed ? `${totalCount} comments (collapsed)` : `${totalCount} comments`}
+        </button>
+      )}
+
+      {!collapsed && (
+        <>
+          <CommentBody
+            comment={root}
+            isRoot
+            onReply={() => setShowReply(true)}
+          />
+          {replies.map((reply) => (
+            <div
+              key={reply.id}
+              className="border-border-subtle border-t"
+            >
+              <CommentBody
+                comment={reply}
+                onReply={() => setShowReply(true)}
+              />
+            </div>
+          ))}
+        </>
+      )}
+
+      {/* Reply input */}
+      {showReply && prNumber && (
+        <div className="border-border border-t">
+          <ReplyComposer
+            prNumber={prNumber}
+            commentId={root.id}
+            onClose={() => setShowReply(false)}
+          />
+        </div>
+      )}
+
+      {/* Quick reply button (when not already replying) */}
+      {!showReply && !collapsed && prNumber && (
+        <div className="border-border border-t px-3 py-1.5">
+          <button
+            type="button"
+            onClick={() => setShowReply(true)}
+            className="text-text-tertiary hover:text-text-primary flex cursor-pointer items-center gap-1 text-[10px]"
+          >
+            <Reply size={10} />
+            Reply
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Reply composer
+// ---------------------------------------------------------------------------
+
+function ReplyComposer({
+  prNumber,
+  commentId,
+  onClose,
+}: {
+  prNumber: number;
+  commentId: number;
+  onClose: () => void;
+}) {
+  const { cwd } = useWorkspace();
+  const [body, setBody] = useState("");
+
+  const replyMutation = useMutation({
+    mutationFn: (args: { cwd: string; prNumber: number; commentId: number; body: string }) =>
+      ipc("pr.replyToComment", args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr", "comments"] });
+      toastManager.add({ title: "Reply added", type: "success" });
+      setBody("");
+      onClose();
+    },
+    onError: (err: Error) => {
+      toastManager.add({ title: "Reply failed", description: err.message, type: "error" });
+    },
+  });
+
+  return (
+    <div className="px-3 py-2">
+      <MentionTextarea
+        value={body}
+        onChange={setBody}
+        placeholder="Write a reply..."
+        rows={2}
+        prNumber={prNumber}
+        autoFocus
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && body.trim()) {
+            e.preventDefault();
+            replyMutation.mutate({ cwd, prNumber, commentId, body: body.trim() });
+          }
+          if (e.key === "Escape") {
+            onClose();
+          }
+        }}
+      />
+      <div className="mt-1.5 flex items-center justify-end gap-1.5">
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={onClose}
+        >
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          className="bg-primary text-primary-foreground hover:bg-accent-hover"
+          disabled={!body.trim() || replyMutation.isPending}
+          onClick={() => replyMutation.mutate({ cwd, prNumber, commentId, body: body.trim() })}
+        >
+          {replyMutation.isPending ? <Spinner className="h-3 w-3" /> : "Reply"}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -181,34 +340,144 @@ function ThreadResolveButton({ comment }: { comment: ReviewComment }) {
 }
 
 // ---------------------------------------------------------------------------
-// Single comment body
+// Context menu
 // ---------------------------------------------------------------------------
 
-function CommentBody({ comment, isRoot }: { comment: ReviewComment; isRoot?: boolean }) {
-  const initial = comment.user.login[0]?.toUpperCase() ?? "?";
-  const isBotUser = isBot(comment.user.login);
+function CommentContextMenu({
+  comment,
+  position,
+  onClose,
+}: {
+  comment: ReviewComment;
+  position: { x: number; y: number };
+  onClose: () => void;
+}) {
+  const menuRef = useRef<HTMLDivElement>(null);
 
-  // Parse suggestion blocks
+  // Close on click outside
+  const handleClick = useCallback(
+    (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    },
+    [onClose],
+  );
+
+  const handleEscape = useCallback(
+    (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    },
+    [onClose],
+  );
+
+  // Register global listeners
+  useState(() => {
+    document.addEventListener("click", handleClick);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("click", handleClick);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  });
+
+  return (
+    <div
+      ref={menuRef}
+      className="border-border bg-bg-elevated fixed z-50 rounded-md border p-1 shadow-lg"
+      style={{ left: position.x, top: position.y }}
+    >
+      <ContextMenuItem
+        icon={<Copy size={12} />}
+        label="Copy text"
+        onClick={() => {
+          navigator.clipboard.writeText(comment.body);
+          toastManager.add({ title: "Copied", type: "success" });
+          onClose();
+        }}
+      />
+      <ContextMenuItem
+        icon={<ExternalLink size={12} />}
+        label="Copy link"
+        onClick={() => {
+          // GitHub review comment URL pattern
+          const url = `https://github.com/${comment.path}#discussion_r${comment.id}`;
+          navigator.clipboard.writeText(url);
+          toastManager.add({ title: "Link copied", type: "success" });
+          onClose();
+        }}
+      />
+      <ContextMenuItem
+        icon={<MessageSquare size={12} />}
+        label="Quote reply"
+        onClick={() => {
+          const quoted = comment.body
+            .split("\n")
+            .map((l) => `> ${l}`)
+            .join("\n");
+          navigator.clipboard.writeText(`${quoted}\n\n`);
+          toastManager.add({ title: "Quote copied", type: "success" });
+          onClose();
+        }}
+      />
+    </div>
+  );
+}
+
+function ContextMenuItem({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-text-secondary hover:bg-bg-raised hover:text-text-primary flex w-full cursor-pointer items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs"
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Single comment body with context menu
+// ---------------------------------------------------------------------------
+
+function CommentBody({
+  comment,
+  isRoot,
+  onReply,
+}: {
+  comment: ReviewComment;
+  isRoot?: boolean;
+  onReply?: () => void;
+}) {
+  const isBotUser = isBot(comment.user.login);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
   const { bodyParts, suggestions } = useMemo(() => parseSuggestions(comment.body), [comment.body]);
 
   return (
-    <div className={`px-3 py-2.5 ${isBotUser ? "opacity-70" : ""}`}>
+    <div
+      className={`px-3 py-2.5 ${isBotUser ? "opacity-70" : ""}`}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setContextMenu({ x: e.clientX, y: e.clientY });
+      }}
+    >
       <div className="flex items-center gap-2">
-        {/* Avatar */}
-        {comment.user.avatar_url ? (
-          <img
-            src={`${comment.user.avatar_url}&s=32`}
-            alt={comment.user.login}
-            className="border-border-strong h-5 w-5 shrink-0 rounded-full border object-cover"
-          />
-        ) : (
-          <div
-            className="text-bg-root flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold"
-            style={{ background: "linear-gradient(135deg, var(--primary), #7c5a2a)" }}
-          >
-            {initial}
-          </div>
-        )}
+        <GitHubAvatar
+          login={comment.user.login}
+          size={20}
+        />
         <span className="text-text-primary text-[11px] font-medium">{comment.user.login}</span>
         {isBotUser && (
           <span className="bg-bg-raised text-text-ghost rounded-sm px-1 text-[9px]">bot</span>
@@ -216,15 +485,21 @@ function CommentBody({ comment, isRoot }: { comment: ReviewComment; isRoot?: boo
         <span className="text-text-tertiary font-mono text-[10px]">
           {relativeTime(new Date(comment.created_at))}
         </span>
-        {/* Thread resolve button — only on root comments */}
-        {isRoot && (
-          <div className="ml-auto">
-            <ThreadResolveButton comment={comment} />
-          </div>
-        )}
+        <div className="ml-auto flex items-center gap-1">
+          {onReply && (
+            <button
+              type="button"
+              onClick={onReply}
+              className="text-text-ghost hover:text-text-primary cursor-pointer rounded-sm p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:opacity-100"
+              title="Reply"
+            >
+              <Reply size={12} />
+            </button>
+          )}
+          {isRoot && <ThreadResolveButton comment={comment} />}
+        </div>
       </div>
 
-      {/* Comment body with suggestion blocks */}
       <div className="mt-1.5">
         {bodyParts.map((part, i) => {
           if (part.type === "text") {
@@ -250,6 +525,15 @@ function CommentBody({ comment, isRoot }: { comment: ReviewComment; isRoot?: boo
           />
         )}
       </div>
+
+      {/* Context menu */}
+      {contextMenu && (
+        <CommentContextMenu
+          comment={comment}
+          position={contextMenu}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   );
 }
