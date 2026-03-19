@@ -256,11 +256,22 @@ export async function getPrDiff(cwd: string, prNumber: number): Promise<string> 
  *   state → status, bucket → conclusion, link → detailsUrl
  */
 export async function getPrChecks(cwd: string, prNumber: number): Promise<GhCheckRun[]> {
-  const { stdout } = await execFile(
-    "gh",
-    ["pr", "checks", String(prNumber), "--json", "name,state,bucket,link,startedAt,completedAt"],
-    { cwd },
-  );
+  let stdout: string;
+  try {
+    const result = await execFile(
+      "gh",
+      ["pr", "checks", String(prNumber), "--json", "name,state,bucket,link,startedAt,completedAt"],
+      { cwd },
+    );
+    stdout = result.stdout;
+  } catch (err) {
+    // "no checks reported on the 'branch' branch" — not an error, just empty
+    const msg = String((err as Error)?.message ?? "");
+    if (msg.includes("no checks reported")) {
+      return [];
+    }
+    throw err;
+  }
 
   const raw = parseJsonOutput<
     Array<{

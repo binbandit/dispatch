@@ -320,15 +320,15 @@ function TreeNodeRow({
         <button
           type="button"
           onClick={() => onToggle(node.path)}
-          className="group hover:bg-bg-raised flex w-full cursor-pointer items-center gap-1 py-1 pr-2 text-left transition-colors"
+          className="group hover:bg-bg-raised relative flex w-full cursor-pointer items-center gap-1 py-1 pr-2 text-left transition-colors"
           style={{ paddingLeft }}
         >
           {/* Indent guides */}
           {Array.from({ length: depth }, (_, i) => (
             <span
               key={i}
-              className="bg-border/40 absolute w-px"
-              style={{ left: i * 16 + 16, top: 0, bottom: 0 }}
+              className="bg-border/60 absolute top-0 bottom-0 w-px"
+              style={{ left: i * 16 + 16 }}
             />
           ))}
 
@@ -387,15 +387,15 @@ function TreeNodeRow({
       {Array.from({ length: depth }, (_, i) => (
         <span
           key={i}
-          className="bg-border/40 absolute w-px"
-          style={{ left: i * 16 + 16, top: 0, bottom: 0 }}
+          className="bg-border/60 absolute top-0 bottom-0 w-px"
+          style={{ left: i * 16 + 16 }}
         />
       ))}
 
       <button
         type="button"
         onClick={() => node.fileIndex !== undefined && onSelectFile(node.fileIndex)}
-        className={`group flex w-full cursor-pointer items-center gap-1.5 py-[3px] pr-2 text-left transition-colors ${
+        className={`group relative flex w-full cursor-pointer items-center gap-1.5 py-[3px] pr-2 text-left transition-colors ${
           isActive ? "bg-accent-muted" : "hover:bg-bg-raised"
         }`}
         style={{ paddingLeft: paddingLeft + 15 }}
