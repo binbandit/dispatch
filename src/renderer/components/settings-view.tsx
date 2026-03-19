@@ -10,7 +10,15 @@ import { queryClient } from "../lib/query-client";
  * Keys: mergeStrategy, prPollInterval, checksPollInterval
  */
 
-const PREF_KEYS = ["mergeStrategy", "prPollInterval", "checksPollInterval"];
+const PREF_KEYS = [
+  "mergeStrategy",
+  "prPollInterval",
+  "checksPollInterval",
+  "aiProvider",
+  "aiModel",
+  "aiApiKey",
+  "aiBaseUrl",
+];
 
 export function SettingsView() {
   // Load saved preferences
@@ -106,6 +114,73 @@ export function SettingsView() {
                 className="border-border bg-bg-root text-text-primary focus:border-primary w-20 rounded-md border px-2 py-1 text-right font-mono text-xs focus:outline-none"
               />
             </div>
+          </div>
+        </section>
+
+        {/* AI provider */}
+        <section className="mt-8">
+          <h2 className="text-text-primary text-sm font-semibold">AI Provider</h2>
+          <p className="text-text-tertiary mt-0.5 text-xs">
+            Configure an AI provider for code explanations and PR summaries.
+          </p>
+          <div className="mt-3 flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <span className="text-text-secondary text-xs">Provider</span>
+              <select
+                value={prefs.aiProvider ?? "none"}
+                onChange={(e) => savePref("aiProvider", e.target.value)}
+                className="border-border bg-bg-root text-text-primary focus:border-primary w-36 rounded-md border px-2 py-1 text-xs focus:outline-none"
+              >
+                <option value="none">None</option>
+                <option value="openai">OpenAI</option>
+                <option value="anthropic">Anthropic</option>
+                <option value="ollama">Ollama (local)</option>
+              </select>
+            </div>
+            {prefs.aiProvider && prefs.aiProvider !== "none" && (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-text-secondary text-xs">Model</span>
+                  <input
+                    type="text"
+                    value={prefs.aiModel ?? ""}
+                    onChange={(e) => savePref("aiModel", e.target.value)}
+                    placeholder={
+                      prefs.aiProvider === "openai"
+                        ? "gpt-4o"
+                        : prefs.aiProvider === "anthropic"
+                          ? "claude-sonnet-4-20250514"
+                          : "llama3.1"
+                    }
+                    className="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-primary w-36 rounded-md border px-2 py-1 font-mono text-xs focus:outline-none"
+                  />
+                </div>
+                {prefs.aiProvider !== "ollama" && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-text-secondary text-xs">API Key</span>
+                    <input
+                      type="password"
+                      value={prefs.aiApiKey ?? ""}
+                      onChange={(e) => savePref("aiApiKey", e.target.value)}
+                      placeholder="sk-..."
+                      className="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-primary w-36 rounded-md border px-2 py-1 font-mono text-xs focus:outline-none"
+                    />
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-text-secondary text-xs">Base URL</span>
+                  <input
+                    type="text"
+                    value={prefs.aiBaseUrl ?? ""}
+                    onChange={(e) => savePref("aiBaseUrl", e.target.value)}
+                    placeholder={
+                      prefs.aiProvider === "ollama" ? "http://localhost:11434" : "Default"
+                    }
+                    className="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-primary w-36 rounded-md border px-2 py-1 font-mono text-xs focus:outline-none"
+                  />
+                </div>
+              </>
+            )}
           </div>
         </section>
 

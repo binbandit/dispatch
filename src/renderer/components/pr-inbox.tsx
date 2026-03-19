@@ -1,7 +1,6 @@
 import type { GhPrListItem } from "@/shared/ipc";
 
 import { Kbd } from "@/components/ui/kbd";
-import { Spinner } from "@/components/ui/spinner";
 import { clamp, relativeTime } from "@/shared/format";
 import { useQuery } from "@tanstack/react-query";
 import { Inbox, Search } from "lucide-react";
@@ -11,6 +10,7 @@ import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { ipc } from "../lib/ipc";
 import { useWorkspace } from "../lib/workspace-context";
 import { GitHubAvatar } from "./github-avatar";
+import { PrInboxSkeleton } from "./loading-skeletons";
 
 /**
  * PR Inbox sidebar — DISPATCH-DESIGN-SYSTEM.md § 8.4
@@ -238,8 +238,8 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
 
       {/* Loading state */}
       {isLoading && (
-        <div className="flex flex-1 items-center justify-center">
-          <Spinner className="text-primary h-4 w-4" />
+        <div className="flex-1 overflow-y-auto">
+          <PrInboxSkeleton />
         </div>
       )}
 

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/menu";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  BarChart3,
   Check,
   ChevronDown,
   ExternalLink,
@@ -19,6 +20,7 @@ import {
   GitPullRequest,
   Keyboard,
   LogOut,
+  Tag,
   RefreshCw,
   Settings,
   Users,
@@ -30,6 +32,7 @@ import { queryClient } from "../lib/query-client";
 import { useRouter } from "../lib/router";
 import { useWorkspace } from "../lib/workspace-context";
 import { DispatchLogo } from "./dispatch-logo";
+import { NotificationCenter } from "./notification-center";
 
 /**
  * Navbar — DISPATCH-DESIGN-SYSTEM.md § 8.1
@@ -82,6 +85,18 @@ export function Navbar({ selectedPr }: { selectedPr?: number | null }) {
           active={route.view === "workflows"}
           onClick={() => navigate({ view: "workflows" })}
         />
+        <NavTab
+          label="Metrics"
+          icon={<BarChart3 size={14} />}
+          active={route.view === "metrics"}
+          onClick={() => navigate({ view: "metrics" })}
+        />
+        <NavTab
+          label="Releases"
+          icon={<Tag size={14} />}
+          active={route.view === "releases"}
+          onClick={() => navigate({ view: "releases" })}
+        />
         {route.view === "review" && selectedPr && (
           <>
             <span className="text-text-ghost mx-1 text-[11px]">/</span>
@@ -101,6 +116,8 @@ export function Navbar({ selectedPr }: { selectedPr?: number | null }) {
         <WorkspaceSwitcher />
 
         <div className="bg-border mx-1 h-4 w-px" />
+
+        <NotificationCenter />
 
         <IconButton
           icon={<Settings size={15} />}

@@ -21,6 +21,7 @@ import { useMemo, useState } from "react";
 import { ipc } from "../lib/ipc";
 import { queryClient } from "../lib/query-client";
 import { useWorkspace } from "../lib/workspace-context";
+import { WorkflowRunsSkeleton } from "./loading-skeletons";
 import { RunComparison } from "./run-comparison";
 import { RunDetail } from "./run-detail";
 
@@ -203,11 +204,7 @@ export function WorkflowsDashboard() {
           minSize="30%"
         >
           <div className="h-full overflow-y-auto">
-            {runsQuery.isLoading && (
-              <div className="flex items-center justify-center py-12">
-                <Spinner className="text-primary h-5 w-5" />
-              </div>
-            )}
+            {runsQuery.isLoading && <WorkflowRunsSkeleton />}
 
             {!runsQuery.isLoading && filteredRuns.length === 0 && (
               <div className="flex flex-col items-center justify-center gap-2 py-12">

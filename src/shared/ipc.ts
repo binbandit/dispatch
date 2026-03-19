@@ -309,6 +309,107 @@ export interface IpcApi {
     args: { repo: string; prNumber: number; filePath: string; viewed: boolean };
     result: void;
   };
+
+  // Multi-repo (3.1)
+  "pr.listAll": {
+    args: { filter: "reviewRequested" | "authored" | "all" };
+    result: Array<GhPrListItem & { workspace: string; workspacePath: string }>;
+  };
+
+  // Metrics (3.2)
+  "metrics.prCycleTime": {
+    args: { cwd: string; since: string };
+    result: Array<{
+      prNumber: number;
+      title: string;
+      author: string;
+      createdAt: string;
+      mergedAt: string | null;
+      firstReviewAt: string | null;
+      timeToFirstReview: number | null;
+      timeToMerge: number | null;
+      additions: number;
+      deletions: number;
+    }>;
+  };
+  "metrics.reviewLoad": {
+    args: { cwd: string; since: string };
+    result: Array<{
+      reviewer: string;
+      reviewCount: number;
+      avgResponseTime: number;
+    }>;
+  };
+
+  // AI (3.3)
+  "ai.complete": {
+    args: {
+      provider: "openai" | "anthropic" | "ollama";
+      model: string;
+      apiKey: string;
+      baseUrl?: string;
+      messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
+      maxTokens?: number;
+    };
+    result: string;
+  };
+
+  // Releases (3.4)
+  "releases.list": {
+    args: { cwd: string; limit?: number };
+    result: Array<{
+      tagName: string;
+      name: string;
+      body: string;
+      isDraft: boolean;
+      isPrerelease: boolean;
+      createdAt: string;
+      author: { login: string };
+    }>;
+  };
+  "releases.create": {
+    args: {
+      cwd: string;
+      tagName: string;
+      name: string;
+      body: string;
+      isDraft: boolean;
+      isPrerelease: boolean;
+      target: string;
+    };
+    result: { url: string };
+  };
+  "releases.generateChangelog": {
+    args: { cwd: string; sinceTag: string };
+    result: string;
+  };
+
+  // Notifications (3.5)
+  "notifications.list": {
+    args: { limit?: number };
+    result: Array<{
+      id: number;
+      type: "review" | "ci-fail" | "approve" | "merge";
+      title: string;
+      body: string;
+      prNumber: number;
+      workspace: string;
+      read: boolean;
+      createdAt: string;
+    }>;
+  };
+  "notifications.markRead": { args: { id: number }; result: void };
+  "notifications.markAllRead": { args: void; result: void };
+  "notifications.insert": {
+    args: {
+      type: "review" | "ci-fail" | "approve" | "merge";
+      title: string;
+      body: string;
+      prNumber: number;
+      workspace: string;
+    };
+    result: void;
+  };
 }
 
 export type IpcMethod = keyof IpcApi;

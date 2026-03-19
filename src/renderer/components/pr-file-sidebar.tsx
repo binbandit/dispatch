@@ -1,6 +1,5 @@
 import type { DiffFile } from "../lib/diff-parser";
 
-import { Spinner } from "@/components/ui/spinner";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { useMemo } from "react";
@@ -10,6 +9,7 @@ import { useFileNav } from "../lib/file-nav-context";
 import { ipc } from "../lib/ipc";
 import { useWorkspace } from "../lib/workspace-context";
 import { FileTree } from "./file-tree";
+import { FileTreeSkeleton } from "./loading-skeletons";
 
 /**
  * PR file sidebar — replaces the PR inbox when a PR is selected.
@@ -87,9 +87,7 @@ export function PrFileSidebar({ prNumber, onBack, prTitle }: PrFileSidebarProps)
 
       {/* File tree */}
       {diffQuery.isLoading ? (
-        <div className="flex flex-1 items-center justify-center">
-          <Spinner className="text-primary h-4 w-4" />
-        </div>
+        <FileTreeSkeleton />
       ) : (
         <div className="flex-1 overflow-y-auto p-2">
           <FileTree

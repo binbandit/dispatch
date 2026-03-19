@@ -105,3 +105,67 @@ export function getActiveWorkspace(): string | null {
 export function setActiveWorkspace(path: string): void {
   setPreference("activeWorkspace", path);
 }
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+type NotificationType = "review" | "ci-fail" | "approve" | "merge";
+
+export function getNotifications(limit = 50): Array<{
+  id: number;
+  type: NotificationType;
+  title: string;
+  body: string;
+  prNumber: number;
+  workspace: string;
+  read: boolean;
+  createdAt: string;
+}> {
+  const db = getDatabase();
+  const rows = db
+    .prepare("SELECT * FROM notifications ORDER BY created_at DESC LIMIT ?")
+    .all(limit) as Array<{
+    id: number;
+    type: string;
+    title: string;
+    body: string;
+    pr_number: number | null;
+    workspace: string | null;
+    read: number;
+    created_at: string;
+  }>;
+  return rows.map((r) => ({
+    id: r.id,
+    type: r.type as NotificationType,
+    title: r.title,
+    body: r.body,
+    prNumber: r.pr_number ?? 0,
+    workspace: r.workspace ?? "",
+    read: r.read === 1,
+    createdAt: r.created_at,
+  }));
+}
+
+export function insertNotification(args: {
+  type: string;
+  title: string;
+  body: string;
+  prNumber: number;
+  workspace: string;
+}): void {
+  const db = getDatabase();
+  db.prepare(
+    "INSERT INTO notifications (type, title, body, pr_number, workspace) VALUES (?, ?, ?, ?, ?)",
+  ).run(args.type, args.title, args.body, args.prNumber, args.workspace);
+}
+
+export function markNotificationRead(id: number): void {
+  const db = getDatabase();
+  db.prepare("UPDATE notifications SET read = 1 WHERE id = ?").run(id);
+}
+
+export function markAllNotificationsRead(): void {
+  const db = getDatabase();
+  db.prepare("UPDATE notifications SET read = 1 WHERE read = 0").run();
+}

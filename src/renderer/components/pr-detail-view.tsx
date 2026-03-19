@@ -44,6 +44,7 @@ import { useWorkspace } from "../lib/workspace-context";
 import { ChecksPanel } from "./checks-panel";
 import { DiffViewer } from "./diff-viewer";
 import { GitHubAvatar } from "./github-avatar";
+import { PrDetailSkeleton } from "./loading-skeletons";
 import { MarkdownBody } from "./markdown-body";
 import { MentionTextarea } from "./mention-textarea";
 
@@ -268,11 +269,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
 
   // Loading
   if (detailQuery.isLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center">
-        <Spinner className="text-primary h-5 w-5" />
-      </div>
-    );
+    return <PrDetailSkeleton />;
   }
 
   if (detailQuery.isError || !detailQuery.data) {

@@ -12,6 +12,8 @@ import { createContext, useCallback, useContext, useRef, useState } from "react"
 export type Route =
   | { view: "review"; prNumber: number | null }
   | { view: "workflows" }
+  | { view: "metrics" }
+  | { view: "releases" }
   | { view: "settings" };
 
 interface RouterContextValue {

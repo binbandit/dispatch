@@ -8,10 +8,12 @@ import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { useNotificationPolling } from "../hooks/use-notification-polling";
 import { FileNavProvider } from "../lib/file-nav-context";
 import { RouterProvider, useRouter } from "../lib/router";
+import { MetricsView } from "./metrics-view";
 import { Navbar } from "./navbar";
 import { PrDetailView } from "./pr-detail-view";
 import { PrFileSidebar } from "./pr-file-sidebar";
 import { PrInbox } from "./pr-inbox";
+import { ReleasesView } from "./releases-view";
 import { SettingsView } from "./settings-view";
 import { WorkflowsDashboard } from "./workflows-dashboard";
 
@@ -112,6 +114,10 @@ function AppShell() {
       )}
 
       {route.view === "workflows" && <WorkflowsDashboard />}
+
+      {route.view === "metrics" && <MetricsView />}
+
+      {route.view === "releases" && <ReleasesView />}
 
       {route.view === "settings" && <SettingsView />}
     </div>

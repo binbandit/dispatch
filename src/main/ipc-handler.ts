@@ -4,6 +4,7 @@ import { BrowserWindow, dialog, ipcMain } from "electron";
 
 import { IPC_CHANNEL } from "../shared/ipc";
 import * as repo from "./db/repository";
+import * as ai from "./services/ai";
 import * as ghCli from "./services/gh-cli";
 import * as gitCli from "./services/git-cli";
 import { whichVersion } from "./services/shell";
@@ -144,6 +145,36 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   "review.viewedFiles": async (args) => repo.getViewedFiles(args.repo, args.prNumber),
   "review.setFileViewed": async (args) => {
     repo.setFileViewed(args.repo, args.prNumber, args.filePath, args.viewed);
+  },
+
+  // Multi-repo (3.1)
+  "pr.listAll": async (args) => {
+    const workspaces = repo.getWorkspaces();
+    return ghCli.listAllPrs(workspaces, args.filter);
+  },
+
+  // Metrics (3.2)
+  "metrics.prCycleTime": async (args) => ghCli.getPrCycleTime(args.cwd, args.since),
+  "metrics.reviewLoad": async (args) => ghCli.getReviewLoad(args.cwd, args.since),
+
+  // AI (3.3)
+  "ai.complete": async (args) => ai.complete(args),
+
+  // Releases (3.4)
+  "releases.list": async (args) => ghCli.listReleases(args.cwd, args.limit),
+  "releases.create": async (args) => ghCli.createRelease(args),
+  "releases.generateChangelog": async (args) => ghCli.generateChangelog(args.cwd, args.sinceTag),
+
+  // Notifications (3.5)
+  "notifications.list": async (args) => repo.getNotifications(args.limit),
+  "notifications.markRead": async (args) => {
+    repo.markNotificationRead(args.id);
+  },
+  "notifications.markAllRead": async () => {
+    repo.markAllNotificationsRead();
+  },
+  "notifications.insert": async (args) => {
+    repo.insertNotification(args);
   },
 };
 

@@ -729,3 +729,244 @@ export async function getWorkflowYaml(cwd: string, workflowId: string): Promise<
   });
   return stdout;
 }
+
+// ---------------------------------------------------------------------------
+// Multi-repo (3.1)
+// ---------------------------------------------------------------------------
+
+export async function listAllPrs(
+  workspaces: Array<{ path: string; name: string }>,
+  filter: "reviewRequested" | "authored" | "all",
+): Promise<Array<GhPrListItem & { workspace: string; workspacePath: string }>> {
+  const results = await Promise.allSettled(
+    workspaces.map(async (ws) => {
+      const prs = await listPrs(ws.path, filter);
+      return prs.map((pr) => ({ ...pr, workspace: ws.name, workspacePath: ws.path }));
+    }),
+  );
+
+  return results
+    .filter(
+      (
+        r,
+      ): r is PromiseFulfilledResult<
+        Array<GhPrListItem & { workspace: string; workspacePath: string }>
+      > => r.status === "fulfilled",
+    )
+    .flatMap((r) => r.value);
+}
+
+// ---------------------------------------------------------------------------
+// Metrics (3.2)
+// ---------------------------------------------------------------------------
+
+export async function getPrCycleTime(
+  cwd: string,
+  since: string,
+): Promise<
+  Array<{
+    prNumber: number;
+    title: string;
+    author: string;
+    createdAt: string;
+    mergedAt: string | null;
+    firstReviewAt: string | null;
+    timeToFirstReview: number | null;
+    timeToMerge: number | null;
+    additions: number;
+    deletions: number;
+  }>
+> {
+  const { stdout } = await execFile(
+    "gh",
+    [
+      "pr",
+      "list",
+      "--state",
+      "merged",
+      "--json",
+      "number,title,author,createdAt,mergedAt,additions,deletions,reviews",
+      "--limit",
+      "100",
+    ],
+    { cwd, timeout: 30_000 },
+  );
+
+  const prs = parseJsonOutput<
+    Array<{
+      number: number;
+      title: string;
+      author: { login: string };
+      createdAt: string;
+      mergedAt: string | null;
+      additions: number;
+      deletions: number;
+      reviews: Array<{ submittedAt: string }>;
+    }>
+  >(stdout);
+
+  const sinceDate = new Date(since);
+
+  return prs
+    .filter((pr) => new Date(pr.createdAt) >= sinceDate)
+    .map((pr) => {
+      const firstReview = pr.reviews
+        .map((r) => new Date(r.submittedAt))
+        .sort((a, b) => a.getTime() - b.getTime())[0];
+
+      const createdMs = new Date(pr.createdAt).getTime();
+      const mergedMs = pr.mergedAt ? new Date(pr.mergedAt).getTime() : null;
+      const firstReviewMs = firstReview ? firstReview.getTime() : null;
+
+      return {
+        prNumber: pr.number,
+        title: pr.title,
+        author: pr.author.login,
+        createdAt: pr.createdAt,
+        mergedAt: pr.mergedAt,
+        firstReviewAt: firstReview?.toISOString() ?? null,
+        timeToFirstReview: firstReviewMs ? Math.round((firstReviewMs - createdMs) / 60_000) : null,
+        timeToMerge: mergedMs ? Math.round((mergedMs - createdMs) / 60_000) : null,
+        additions: pr.additions,
+        deletions: pr.deletions,
+      };
+    });
+}
+
+export async function getReviewLoad(
+  cwd: string,
+  since: string,
+): Promise<Array<{ reviewer: string; reviewCount: number; avgResponseTime: number }>> {
+  const { stdout } = await execFile(
+    "gh",
+    ["pr", "list", "--state", "all", "--json", "number,createdAt,reviews", "--limit", "100"],
+    { cwd, timeout: 30_000 },
+  );
+
+  const prs = parseJsonOutput<
+    Array<{
+      number: number;
+      createdAt: string;
+      reviews: Array<{ author: { login: string }; submittedAt: string }>;
+    }>
+  >(stdout);
+
+  const sinceDate = new Date(since);
+  const reviewerMap = new Map<string, { count: number; totalResponseMs: number }>();
+
+  for (const pr of prs) {
+    if (new Date(pr.createdAt) < sinceDate) {
+      continue;
+    }
+    const prCreated = new Date(pr.createdAt).getTime();
+    for (const review of pr.reviews) {
+      const reviewer = review.author.login;
+      const existing = reviewerMap.get(reviewer) ?? { count: 0, totalResponseMs: 0 };
+      existing.count++;
+      existing.totalResponseMs += new Date(review.submittedAt).getTime() - prCreated;
+      reviewerMap.set(reviewer, existing);
+    }
+  }
+
+  return [...reviewerMap.entries()]
+    .map(([reviewer, data]) => ({
+      reviewer,
+      reviewCount: data.count,
+      avgResponseTime: Math.round(data.totalResponseMs / data.count / 60_000),
+    }))
+    .sort((a, b) => b.reviewCount - a.reviewCount);
+}
+
+// ---------------------------------------------------------------------------
+// Releases (3.4)
+// ---------------------------------------------------------------------------
+
+export async function listReleases(
+  cwd: string,
+  limit = 20,
+): Promise<
+  Array<{
+    tagName: string;
+    name: string;
+    body: string;
+    isDraft: boolean;
+    isPrerelease: boolean;
+    createdAt: string;
+    author: { login: string };
+  }>
+> {
+  const { stdout } = await execFile(
+    "gh",
+    [
+      "release",
+      "list",
+      "--json",
+      "tagName,name,body,isDraft,isPrerelease,createdAt,author",
+      "--limit",
+      String(limit),
+    ],
+    { cwd, timeout: 15_000 },
+  );
+  return parseJsonOutput(stdout);
+}
+
+export async function createRelease(args: {
+  cwd: string;
+  tagName: string;
+  name: string;
+  body: string;
+  isDraft: boolean;
+  isPrerelease: boolean;
+  target: string;
+}): Promise<{ url: string }> {
+  const ghArgs = [
+    "release",
+    "create",
+    args.tagName,
+    "--title",
+    args.name,
+    "--notes",
+    args.body,
+    "--target",
+    args.target,
+  ];
+  if (args.isDraft) {
+    ghArgs.push("--draft");
+  }
+  if (args.isPrerelease) {
+    ghArgs.push("--prerelease");
+  }
+  const { stdout } = await execFile("gh", ghArgs, { cwd: args.cwd, timeout: 30_000 });
+  return { url: stdout.trim() };
+}
+
+export async function generateChangelog(cwd: string, sinceTag: string): Promise<string> {
+  // Get merged PRs since the tag
+  const { stdout: tagDate } = await execFile(
+    "gh",
+    ["release", "view", sinceTag, "--json", "createdAt", "--jq", ".createdAt"],
+    { cwd, timeout: 10_000 },
+  );
+
+  const { stdout } = await execFile(
+    "gh",
+    ["pr", "list", "--state", "merged", "--json", "number,title,author,mergedAt", "--limit", "100"],
+    { cwd, timeout: 15_000 },
+  );
+
+  const prs =
+    parseJsonOutput<
+      Array<{ number: number; title: string; author: { login: string }; mergedAt: string }>
+    >(stdout);
+
+  const since = new Date(tagDate.trim());
+  const relevantPrs = prs
+    .filter((pr) => new Date(pr.mergedAt) > since)
+    .sort((a, b) => new Date(a.mergedAt).getTime() - new Date(b.mergedAt).getTime());
+
+  if (relevantPrs.length === 0) {
+    return "No changes since last release.";
+  }
+
+  return relevantPrs.map((pr) => `- ${pr.title} (#${pr.number}) @${pr.author.login}`).join("\n");
+}
