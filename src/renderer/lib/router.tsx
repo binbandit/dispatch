@@ -1,11 +1,12 @@
 import type { ReactNode } from "react";
 
-import { createContext, useCallback, useContext, useState } from "react";
+import { createContext, useCallback, useContext, useRef, useState } from "react";
 
 /**
  * Simple state-based client-side router.
  *
- * No external dependency — just React context + state.
+ * Tracks the previous non-settings route so the settings icon
+ * can toggle back to where you came from.
  */
 
 export type Route =
@@ -16,21 +17,47 @@ export type Route =
 interface RouterContextValue {
   route: Route;
   navigate: (route: Route) => void;
+  /** Navigate to settings, or back to the previous view if already on settings. */
+  toggleSettings: () => void;
 }
 
 const RouterContext = createContext<RouterContextValue>({
   route: { view: "review", prNumber: null },
   navigate: () => {},
+  toggleSettings: () => {},
 });
 
 export function RouterProvider({ children }: { children: ReactNode }) {
   const [route, setRoute] = useState<Route>({ view: "review", prNumber: null });
+  const previousRoute = useRef<Route>({ view: "review", prNumber: null });
 
   const navigate = useCallback((next: Route) => {
-    setRoute(next);
+    setRoute((current) => {
+      // Remember the last non-settings route
+      if (current.view !== "settings") {
+        previousRoute.current = current;
+      }
+      return next;
+    });
   }, []);
 
-  return <RouterContext.Provider value={{ route, navigate }}>{children}</RouterContext.Provider>;
+  const toggleSettings = useCallback(() => {
+    setRoute((current) => {
+      if (current.view === "settings") {
+        // Go back to previous view
+        return previousRoute.current;
+      }
+      // Going to settings — save current route
+      previousRoute.current = current;
+      return { view: "settings" };
+    });
+  }, []);
+
+  return (
+    <RouterContext.Provider value={{ route, navigate, toggleSettings }}>
+      {children}
+    </RouterContext.Provider>
+  );
 }
 
 export function useRouter() {

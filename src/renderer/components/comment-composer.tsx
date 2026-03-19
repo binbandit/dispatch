@@ -20,10 +20,17 @@ interface CommentComposerProps {
   prNumber: number;
   filePath: string;
   line: number;
+  startLine?: number;
   onClose: () => void;
 }
 
-export function CommentComposer({ prNumber, filePath, line, onClose }: CommentComposerProps) {
+export function CommentComposer({
+  prNumber,
+  filePath,
+  line,
+  startLine,
+  onClose,
+}: CommentComposerProps) {
   const { cwd } = useWorkspace();
   const [body, setBody] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -76,6 +83,11 @@ export function CommentComposer({ prNumber, filePath, line, onClose }: CommentCo
 
   return (
     <div className="border-border bg-bg-surface mx-3 my-1.5 max-w-xl overflow-hidden rounded-lg border shadow-sm">
+      {startLine && startLine !== line && (
+        <div className="bg-bg-raised border-border text-text-tertiary border-b px-3 py-1.5 font-mono text-[10px]">
+          Lines {startLine}–{line}
+        </div>
+      )}
       <textarea
         ref={textareaRef}
         value={body}

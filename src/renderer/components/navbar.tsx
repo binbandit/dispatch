@@ -38,7 +38,7 @@ import { DispatchLogo } from "./dispatch-logo";
  * Workspace switcher + user menu in the right area
  */
 export function Navbar({ selectedPr }: { selectedPr?: number | null }) {
-  const { route, navigate } = useRouter();
+  const { route, navigate, toggleSettings } = useRouter();
 
   // Fetch authenticated GitHub user for avatar
   const userQuery = useQuery({
@@ -104,7 +104,7 @@ export function Navbar({ selectedPr }: { selectedPr?: number | null }) {
 
         <IconButton
           icon={<Settings size={15} />}
-          onClick={() => navigate({ view: "settings" })}
+          onClick={toggleSettings}
           active={route.view === "settings"}
           title="Settings"
         />
@@ -377,9 +377,12 @@ function WorkspaceSwitcher() {
             ipc("workspace.pickFolder")
               .then((result) => {
                 if (result) {
-                  return ipc("workspace.add", { path: result }).then(() => {
-                    queryClient.invalidateQueries({ queryKey: ["workspace"] });
-                  });
+                  return ipc("workspace.add", { path: result }).then(() =>
+                    ipc("workspace.setActive", { path: result }).then(() => {
+                      queryClient.invalidateQueries();
+                      globalThis.location.reload();
+                    }),
+                  );
                 }
               })
               .catch(() => {

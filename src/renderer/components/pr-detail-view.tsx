@@ -1,5 +1,6 @@
 import type { DiffFile } from "../lib/diff-parser";
 import type { Annotation } from "./ci-annotation";
+import type { CommentRange } from "./diff-viewer";
 import type { ReviewComment } from "./inline-comment";
 
 import { Badge } from "@/components/ui/badge";
@@ -60,7 +61,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     "overview",
   );
   const [diffMode, setDiffMode] = useState<"all" | "since-review">("all");
-  const [activeComposer, setActiveComposer] = useState<{ line: number } | null>(null);
+  const [activeComposer, setActiveComposer] = useState<CommentRange | null>(null);
 
   const highlighter = useSyntaxHighlighter();
 
@@ -344,7 +345,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               annotations={annotationsMap}
               prNumber={prNumber}
               activeComposer={activeComposer}
-              onGutterClick={(line) => setActiveComposer({ line })}
+              onCommentRange={setActiveComposer}
               onCloseComposer={() => setActiveComposer(null)}
             />
           ) : (

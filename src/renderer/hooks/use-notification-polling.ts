@@ -53,7 +53,7 @@ export function useNotificationPolling(): void {
     // Check for new review requests
     for (const pr of reviewQuery.data) {
       if (!previousReviewPrs.current.has(pr.number)) {
-        sendNotification("New review request", `#${pr.number} ${pr.title} by ${pr.author.login}`);
+        sendNotification("Review requested", `#${pr.number} ${pr.title} by ${pr.author.login}`, "review");
       }
     }
 
@@ -68,12 +68,12 @@ export function useNotificationPolling(): void {
       const prevFailing = prev.statusCheckRollup.some((c) => c.conclusion === "failure");
       const nowFailing = pr.statusCheckRollup.some((c) => c.conclusion === "failure");
       if (nowFailing && !prevFailing) {
-        sendNotification("CI failed", `#${pr.number} ${pr.title}`);
+        sendNotification("CI failed", `#${pr.number} ${pr.title}`, "ci-fail");
       }
 
       // Approved
       if (pr.reviewDecision === "APPROVED" && prev.reviewDecision !== "APPROVED") {
-        sendNotification("PR approved", `#${pr.number} ${pr.title}`);
+        sendNotification("PR approved", `#${pr.number} ${pr.title}`, "approve");
       }
     }
 

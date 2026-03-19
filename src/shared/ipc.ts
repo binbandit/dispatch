@@ -171,6 +171,12 @@ export interface GhAccount {
   gitProtocol: string;
 }
 
+export interface RepoInfo {
+  nameWithOwner: string;
+  isFork: boolean;
+  parent: string | null; // "owner/name" of upstream repo, or null
+}
+
 export interface EnvStatus {
   ghVersion: string | null;
   gitVersion: string | null;
@@ -186,6 +192,8 @@ export interface IpcApi {
   "env.user": { args: void; result: GhUser | null };
   "env.accounts": { args: void; result: GhAccount[] };
   "env.switchAccount": { args: { host: string; login: string }; result: void };
+
+  "repo.info": { args: { cwd: string }; result: RepoInfo };
 
   "workspace.list": { args: void; result: Workspace[] };
   "workspace.add": { args: { path: string }; result: { path: string; name: string } };

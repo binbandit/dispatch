@@ -27,6 +27,7 @@ const WINDOW_CONFIG: BrowserWindowConstructorOptions = {
   titleBarStyle: "hiddenInset",
   trafficLightPosition: { x: 16, y: 14 },
   backgroundColor: "#08080a",
+  icon: join(__dirname, "../resources/icon-256.png"),
   webPreferences: {
     preload: join(__dirname, "preload.js"),
     contextIsolation: true,
@@ -62,10 +63,10 @@ function createWindow(): BrowserWindow {
 let tray: Tray | null = null;
 
 function setupTray(): void {
-  // 16x16 copper-tinted icon as a simple data URL
-  const icon = nativeImage.createFromDataURL(
-    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAWklEQVQ4T2P8z8DwHwMNACMDAwMjNQwYZGb8/88A1UENLzAykmIAvS0g2gCaewGnF4hxMU29QIwBNPcCIxkG0DwOGBkYaOsFogygpReINoDmgURzA2juBSINAACXizARd37XYAAAAABJRU5ErkJggg==",
-  );
+  // Use the proper tray template icon (macOS renders it as a mask)
+  const trayIconPath = join(__dirname, "../resources/trayTemplate.png");
+  const icon = nativeImage.createFromPath(trayIconPath);
+  icon.setTemplateImage(true);
   tray = new Tray(icon);
   tray.setToolTip("Dispatch");
 }

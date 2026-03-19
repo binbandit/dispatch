@@ -81,6 +81,34 @@ export async function switchAccount(host: string, login: string): Promise<void> 
   });
 }
 
+// ---------------------------------------------------------------------------
+// Repo info (fork detection)
+// ---------------------------------------------------------------------------
+
+export interface RepoInfo {
+  nameWithOwner: string;
+  isFork: boolean;
+  parent: string | null;
+}
+
+export async function getRepoInfo(cwd: string): Promise<RepoInfo> {
+  const { stdout } = await execFile(
+    "gh",
+    ["repo", "view", "--json", "nameWithOwner,isFork,parent"],
+    { cwd, timeout: 10_000 },
+  );
+  const data = parseJsonOutput<{
+    nameWithOwner: string;
+    isFork: boolean;
+    parent: { owner: { login: string }; name: string } | null;
+  }>(stdout);
+  return {
+    nameWithOwner: data.nameWithOwner,
+    isFork: data.isFork,
+    parent: data.parent ? `${data.parent.owner.login}/${data.parent.name}` : null,
+  };
+}
+
 export async function isGhAuthenticated(): Promise<boolean> {
   try {
     await execFile("gh", ["auth", "status"], { timeout: 10_000 });

@@ -26,6 +26,8 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
     return { ghVersion, gitVersion, ghAuth };
   },
   "env.user": async () => ghCli.getAuthenticatedUser(),
+
+  "repo.info": async (args) => ghCli.getRepoInfo(args.cwd),
   "env.accounts": async () => ghCli.listAccounts(),
   "env.switchAccount": async (args) => {
     await ghCli.switchAccount(args.host, args.login);
