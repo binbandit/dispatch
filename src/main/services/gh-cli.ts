@@ -409,6 +409,39 @@ export async function getPrContributors(cwd: string, prNumber: number): Promise<
 // Issues + PRs list (for # autocomplete)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// User search (for @ mention — search all of GitHub)
+// ---------------------------------------------------------------------------
+
+export async function searchUsers(
+  cwd: string,
+  query: string,
+): Promise<Array<{ login: string; name: string | null }>> {
+  if (!query || query.length < 2) {
+    return [];
+  }
+  try {
+    const { stdout } = await execFile(
+      "gh",
+      [
+        "api",
+        `search/users?q=${encodeURIComponent(query)}&per_page=8`,
+        "--jq",
+        ".items[] | {login: .login, name: .name}",
+      ],
+      { cwd, timeout: 8_000 },
+    );
+    // gh --jq outputs one JSON object per line (not an array)
+    const lines = stdout.trim().split("\n").filter(Boolean);
+    return lines.map((line) => {
+      const parsed = JSON.parse(line) as { login: string; name: string | null };
+      return parsed;
+    });
+  } catch {
+    return [];
+  }
+}
+
 export async function listIssuesAndPrs(
   cwd: string,
   limit = 50,

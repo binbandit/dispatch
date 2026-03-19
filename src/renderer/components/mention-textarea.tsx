@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { GitPullRequest, MessageCircle } from "lucide-react";
+import { GitPullRequest, Loader2, MessageCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
@@ -77,6 +77,28 @@ export function MentionTextarea({
   const contributors = contributorsQuery.data ?? [];
   const issues = issuesQuery.data ?? [];
 
+  // Debounced search query for GitHub user search
+  const [debouncedUserQuery, setDebouncedUserQuery] = useState("");
+  useEffect(() => {
+    if (trigger?.kind !== "user" || trigger.query.length < 2) {
+      setDebouncedUserQuery("");
+      return;
+    }
+    const timer = setTimeout(() => {
+      setDebouncedUserQuery(trigger.query);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [trigger?.kind, trigger?.query]);
+
+  // GitHub user search (fires when local results are sparse)
+  const userSearchQuery = useQuery({
+    queryKey: ["pr", "searchUsers", cwd, debouncedUserQuery],
+    queryFn: () => ipc("pr.searchUsers", { cwd, query: debouncedUserQuery }),
+    enabled: debouncedUserQuery.length >= 2,
+    staleTime: 60_000,
+  });
+  const searchedUsers = userSearchQuery.data ?? [];
+
   // Build suggestions based on trigger
   const suggestions = useMemo(() => {
     if (!trigger) {
@@ -85,9 +107,9 @@ export function MentionTextarea({
     const q = trigger.query.toLowerCase();
 
     if (trigger.kind === "user") {
-      return contributors
+      // Local results first (contributors, PR participants)
+      const localResults = contributors
         .filter((login) => login.toLowerCase().includes(q))
-        .slice(0, 8)
         .map(
           (login): Suggestion => ({
             kind: "user",
@@ -96,6 +118,22 @@ export function MentionTextarea({
             login,
           }),
         );
+
+      // Merge in GitHub search results (dedupe)
+      const seen = new Set(localResults.map((s) => s.label.toLowerCase()));
+      const remoteResults = searchedUsers
+        .filter((u) => !seen.has(u.login.toLowerCase()))
+        .map(
+          (u): Suggestion => ({
+            kind: "user",
+            label: u.login,
+            detail: u.name ?? undefined,
+            insertText: `@${u.login} `,
+            login: u.login,
+          }),
+        );
+
+      return [...localResults, ...remoteResults].slice(0, 10);
     }
 
     // # trigger — issues and PRs
@@ -112,7 +150,7 @@ export function MentionTextarea({
           isPr: item.isPr,
         }),
       );
-  }, [trigger, contributors, issues]);
+  }, [trigger, contributors, issues, searchedUsers]);
 
   // Reset selection when suggestions change
   useEffect(() => {
@@ -203,7 +241,8 @@ export function MentionTextarea({
     [trigger, suggestions, selectedIndex, insertSuggestion, externalOnKeyDown],
   );
 
-  const showDropdown = trigger !== null && suggestions.length > 0;
+  const showDropdown = trigger !== null && (suggestions.length > 0 || userSearchQuery.isFetching);
+  const isSearching = trigger?.kind === "user" && userSearchQuery.isFetching;
 
   return (
     <div className="relative">
@@ -249,6 +288,11 @@ export function MentionTextarea({
                     size={16}
                   />
                   <span className="text-text-primary font-medium">{suggestion.label}</span>
+                  {suggestion.detail && (
+                    <span className="text-text-tertiary truncate text-[10px]">
+                      {suggestion.detail}
+                    </span>
+                  )}
                 </>
               ) : (
                 <>
@@ -286,6 +330,21 @@ export function MentionTextarea({
               )}
             </button>
           ))}
+          {isSearching && (
+            <div className="text-text-ghost flex items-center gap-2 px-2 py-1.5 text-[10px]">
+              <Loader2
+                size={11}
+                className="animate-spin"
+              />
+              Searching GitHub...
+            </div>
+          )}
+          {trigger?.kind === "user" &&
+            suggestions.length === 0 &&
+            !isSearching &&
+            trigger.query.length >= 2 && (
+              <div className="text-text-ghost px-2 py-1.5 text-[10px]">No users found</div>
+            )}
         </div>
       )}
     </div>

@@ -241,6 +241,10 @@ export interface IpcApi {
     args: { cwd: string; prNumber: number };
     result: string[];
   };
+  "pr.searchUsers": {
+    args: { cwd: string; query: string };
+    result: Array<{ login: string; name: string | null }>;
+  };
   "pr.issuesList": {
     args: { cwd: string; limit?: number };
     result: Array<{
