@@ -220,8 +220,22 @@ export interface IpcApi {
   "pr.detail": { args: { cwd: string; prNumber: number }; result: GhPrDetail };
   "pr.diff": { args: { cwd: string; prNumber: number }; result: string };
   "pr.merge": {
-    args: { cwd: string; prNumber: number; strategy: "merge" | "squash" | "rebase" };
+    args: {
+      cwd: string;
+      prNumber: number;
+      strategy: "merge" | "squash" | "rebase";
+      admin?: boolean;
+    };
     result: void;
+  };
+  "pr.mergeQueueStatus": {
+    args: { cwd: string; prNumber: number };
+    result: {
+      inQueue: boolean;
+      position: number | null;
+      state: string | null;
+      estimatedTimeToMerge: number | null;
+    } | null;
   };
   "pr.comments": { args: { cwd: string; prNumber: number }; result: GhReviewComment[] };
   "pr.createComment": {

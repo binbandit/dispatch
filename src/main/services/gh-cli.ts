@@ -337,10 +337,61 @@ export async function mergePr(
   cwd: string,
   prNumber: number,
   strategy: MergeStrategy,
+  admin = false,
 ): Promise<void> {
-  await execFile("gh", ["pr", "merge", String(prNumber), `--${strategy}`, "--delete-branch"], {
-    cwd,
-  });
+  const args = ["pr", "merge", String(prNumber), `--${strategy}`, "--delete-branch"];
+  if (admin) {
+    args.push("--admin");
+  }
+  await execFile("gh", args, { cwd });
+}
+
+export async function getMergeQueueStatus(
+  cwd: string,
+  prNumber: number,
+): Promise<{
+  inQueue: boolean;
+  position: number | null;
+  state: string | null;
+  estimatedTimeToMerge: number | null;
+} | null> {
+  try {
+    const { stdout } = await execFile(
+      "gh",
+      [
+        "api",
+        "graphql",
+        "-f",
+        `query=query { repository(owner: "{owner}", name: "{repo}") { pullRequest(number: ${prNumber}) { mergeQueueEntry { position state estimatedTimeToMerge } } } }`,
+      ],
+      { cwd, timeout: 10_000 },
+    );
+    const data = JSON.parse(stdout) as {
+      data?: {
+        repository?: {
+          pullRequest?: {
+            mergeQueueEntry: {
+              position: number;
+              state: string;
+              estimatedTimeToMerge: number | null;
+            } | null;
+          };
+        };
+      };
+    };
+    const entry = data.data?.repository?.pullRequest?.mergeQueueEntry;
+    if (!entry) {
+      return { inQueue: false, position: null, state: null, estimatedTimeToMerge: null };
+    }
+    return {
+      inQueue: true,
+      position: entry.position,
+      state: entry.state,
+      estimatedTimeToMerge: entry.estimatedTimeToMerge,
+    };
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------

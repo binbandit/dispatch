@@ -81,8 +81,9 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   "pr.detail": async (args) => ghCli.getPrDetail(args.cwd, args.prNumber),
   "pr.diff": async (args) => ghCli.getPrDiff(args.cwd, args.prNumber),
   "pr.merge": async (args) => {
-    await ghCli.mergePr(args.cwd, args.prNumber, args.strategy);
+    await ghCli.mergePr(args.cwd, args.prNumber, args.strategy, args.admin);
   },
+  "pr.mergeQueueStatus": async (args) => ghCli.getMergeQueueStatus(args.cwd, args.prNumber),
   "pr.comments": async (args) => ghCli.getPrReviewComments(args.cwd, args.prNumber),
   "pr.replyToComment": async (args) => {
     await ghCli.replyToReviewComment(args.cwd, args.prNumber, args.commentId, args.body);
