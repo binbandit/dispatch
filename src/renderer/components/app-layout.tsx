@@ -36,6 +36,7 @@ function AppShell() {
   const { route, navigate } = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [bannerVisible, setBannerVisible] = useState(false);
 
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed((v) => !v);
@@ -80,7 +81,7 @@ function AppShell() {
       />
 
       {/* Update banner */}
-      <UpdateBanner />
+      <UpdateBanner onVisibilityChange={setBannerVisible} />
 
       {/* Accent bar */}
       <div
@@ -92,7 +93,7 @@ function AppShell() {
       />
 
       {/* Navbar */}
-      <Navbar selectedPr={selectedPr} />
+      <Navbar selectedPr={selectedPr} bannerVisible={bannerVisible} />
 
       {/* View content */}
       {route.view === "review" && (

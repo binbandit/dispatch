@@ -41,7 +41,13 @@ import { NotificationCenter } from "./notification-center";
  * Route-aware tabs: Review | Workflows
  * Workspace switcher + user menu in the right area
  */
-export function Navbar({ selectedPr }: { selectedPr?: number | null }) {
+export function Navbar({
+  selectedPr,
+  bannerVisible,
+}: {
+  selectedPr?: number | null;
+  bannerVisible?: boolean;
+}) {
   const { route, navigate, toggleSettings } = useRouter();
 
   // Fetch authenticated GitHub user for avatar
@@ -56,7 +62,7 @@ export function Navbar({ selectedPr }: { selectedPr?: number | null }) {
   return (
     <header
       className="border-border bg-bg-surface flex h-10 shrink-0 items-center border-b pr-3"
-      style={{ WebkitAppRegion: "drag", paddingLeft: 92 } as React.CSSProperties}
+      style={{ WebkitAppRegion: "drag", paddingLeft: bannerVisible ? 16 : 92 } as React.CSSProperties}
     >
       {/* Logo */}
       <div
