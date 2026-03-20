@@ -6,11 +6,12 @@ import { toastManager } from "@/components/ui/toast";
 import { clamp, relativeTime } from "@/shared/format";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Check, Copy, GitMerge, Inbox, Search, XCircle } from "lucide-react";
+import { Check, Copy, ExternalLink, GitMerge, Inbox, Search, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { ipc } from "../lib/ipc";
+import { openExternal } from "../lib/open-external";
 import { getPrActivityKey, hasNewPrActivity, indexPrActivityStates } from "../lib/pr-activity";
 import { queryClient } from "../lib/query-client";
 import { useWorkspace } from "../lib/workspace-context";
@@ -585,6 +586,15 @@ function PrItem({
           Close
         </MenuItem>
         <MenuSeparator />
+        <MenuItem
+          className="text-text-secondary hover:bg-bg-raised hover:text-text-primary flex items-center gap-2 rounded-sm px-3 py-1.5 text-xs"
+          onClick={() => {
+            void openExternal(pr.url);
+          }}
+        >
+          <ExternalLink size={13} />
+          Open in Browser
+        </MenuItem>
         <MenuItem
           className="text-text-secondary hover:bg-bg-raised hover:text-text-primary flex items-center gap-2 rounded-sm px-3 py-1.5 text-xs"
           onClick={() => {
