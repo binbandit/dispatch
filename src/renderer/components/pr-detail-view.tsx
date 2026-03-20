@@ -636,7 +636,7 @@ function EditablePrTitle({
   if (isEditing) {
     return (
       <div className="space-y-1.5">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
           <div className="border-border bg-bg-raised focus-within:border-border-strong flex min-w-0 items-center gap-2 rounded-md border px-3 py-2 shadow-[var(--shadow-sm)] transition-[background-color,border-color,box-shadow] duration-[120ms] ease-out focus-within:shadow-[0_0_0_1px_rgba(212,136,58,0.18)]">
             <input
               ref={inputRef}
