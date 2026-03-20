@@ -74,6 +74,11 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   "env.accounts": async () => ghCli.listAccounts(),
   "env.switchAccount": async (args) => {
     await ghCli.switchAccount(args.host, args.login);
+    // Remember this account for the active workspace
+    const activeWs = repo.getActiveWorkspace();
+    if (activeWs) {
+      repo.setRepoAccount(activeWs, args.host, args.login);
+    }
   },
 
   // Workspace
@@ -93,6 +98,19 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   "workspace.active": async () => repo.getActiveWorkspace(),
   "workspace.setActive": async (args) => {
     repo.setActiveWorkspace(args.path);
+    // Auto-switch to the last-used GitHub account for this repo
+    const saved = repo.getRepoAccount(args.path);
+    if (saved) {
+      const accounts = await ghCli.listAccounts();
+      const active = accounts.find((a) => a.active);
+      if (active && (active.host !== saved.host || active.login !== saved.login)) {
+        // Only switch if the saved account is still authenticated
+        const stillValid = accounts.some((a) => a.host === saved.host && a.login === saved.login);
+        if (stillValid) {
+          await ghCli.switchAccount(saved.host, saved.login);
+        }
+      }
+    }
   },
   "workspace.pickFolder": async () => {
     const win = BrowserWindow.getFocusedWindow();

@@ -151,6 +151,26 @@ export function setActiveWorkspace(path: string): void {
 }
 
 // ---------------------------------------------------------------------------
+// Repo Accounts (per-repo GitHub account memory)
+// ---------------------------------------------------------------------------
+
+export function getRepoAccount(path: string): { host: string; login: string } | null {
+  const db = getDatabase();
+  const row = db.prepare("SELECT host, login FROM repo_accounts WHERE path = ?").get(path) as
+    | { host: string; login: string }
+    | undefined;
+  return row ?? null;
+}
+
+export function setRepoAccount(path: string, host: string, login: string): void {
+  const db = getDatabase();
+  db.prepare(`
+    INSERT INTO repo_accounts (path, host, login) VALUES (?, ?, ?)
+    ON CONFLICT(path) DO UPDATE SET host = excluded.host, login = excluded.login
+  `).run(path, host, login);
+}
+
+// ---------------------------------------------------------------------------
 // Notifications
 // ---------------------------------------------------------------------------
 

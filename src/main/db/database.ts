@@ -82,6 +82,12 @@ export function initDatabase(): Database.Database {
       name          TEXT    NOT NULL,
       added_at      TEXT    NOT NULL DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS repo_accounts (
+      path          TEXT    PRIMARY KEY,
+      host          TEXT    NOT NULL,
+      login         TEXT    NOT NULL
+    );
   `);
 
   return db;
