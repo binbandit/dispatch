@@ -29,7 +29,63 @@ interface ResolvedAiCompletionArgs extends AiCompletionArgs {
   apiKey: string;
 }
 
-export async function complete(args: AiCompletionArgs): Promise<string> {
+interface ProviderEndpointConfig {
+  defaultOrigin: string;
+  requiredBasePath: string;
+  endpointPath: string;
+}
+
+const PROVIDER_ENDPOINT_CONFIG: Record<AiProvider, ProviderEndpointConfig> = {
+  openai: {
+    defaultOrigin: "https://api.openai.com",
+    requiredBasePath: "/v1",
+    endpointPath: "/chat/completions",
+  },
+  anthropic: {
+    defaultOrigin: "https://api.anthropic.com",
+    requiredBasePath: "/v1",
+    endpointPath: "/messages",
+  },
+  ollama: {
+    defaultOrigin: "http://localhost:11434",
+    requiredBasePath: "/api",
+    endpointPath: "/chat",
+  },
+};
+
+function trimTrailingSlashes(value: string): string {
+  return value.replace(/\/+$/u, "");
+}
+
+function normalizePathname(pathname: string): string {
+  const normalizedPathname = trimTrailingSlashes(pathname);
+  return normalizedPathname.length > 0 ? normalizedPathname : "/";
+}
+
+export function resolveProviderEndpointUrl(provider: AiProvider, baseUrl?: string): string {
+  const { defaultOrigin, requiredBasePath, endpointPath } = PROVIDER_ENDPOINT_CONFIG[provider];
+  const rawBaseUrl = baseUrl?.trim().length ? baseUrl.trim() : defaultOrigin;
+  const parsedBaseUrl = new URL(rawBaseUrl);
+  const pathname = normalizePathname(parsedBaseUrl.pathname);
+  const fullEndpointPath = `${requiredBasePath}${endpointPath}`;
+
+  if (pathname.endsWith(fullEndpointPath) || pathname.endsWith(endpointPath)) {
+    parsedBaseUrl.pathname = pathname;
+    return parsedBaseUrl.toString();
+  }
+
+  const basePath =
+    pathname === "/"
+      ? requiredBasePath
+      : pathname.endsWith(requiredBasePath)
+        ? pathname
+        : `${pathname}${requiredBasePath}`;
+
+  parsedBaseUrl.pathname = `${basePath}${endpointPath}`;
+  return parsedBaseUrl.toString();
+}
+
+export function complete(args: AiCompletionArgs): Promise<string> {
   const config = getAiConfigWithSecrets({
     provider: args.provider,
     model: args.model,
@@ -75,8 +131,7 @@ export async function complete(args: AiCompletionArgs): Promise<string> {
 }
 
 async function completeOpenAI(args: ResolvedAiCompletionArgs): Promise<string> {
-  const baseUrl = args.baseUrl || "https://api.openai.com/v1";
-  const response = await fetch(`${baseUrl}/chat/completions`, {
+  const response = await fetch(resolveProviderEndpointUrl("openai", args.baseUrl), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -101,13 +156,11 @@ async function completeOpenAI(args: ResolvedAiCompletionArgs): Promise<string> {
 }
 
 async function completeAnthropic(args: ResolvedAiCompletionArgs): Promise<string> {
-  const baseUrl = args.baseUrl || "https://api.anthropic.com/v1";
-
   // Anthropic uses a system prompt separately from messages
   const systemMsg = args.messages.find((m) => m.role === "system");
   const otherMsgs = args.messages.filter((m) => m.role !== "system");
 
-  const response = await fetch(`${baseUrl}/messages`, {
+  const response = await fetch(resolveProviderEndpointUrl("anthropic", args.baseUrl), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -134,8 +187,7 @@ async function completeAnthropic(args: ResolvedAiCompletionArgs): Promise<string
 }
 
 async function completeOllama(args: ResolvedAiCompletionArgs): Promise<string> {
-  const baseUrl = args.baseUrl || "http://localhost:11434";
-  const response = await fetch(`${baseUrl}/api/chat`, {
+  const response = await fetch(resolveProviderEndpointUrl("ollama", args.baseUrl), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

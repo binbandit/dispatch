@@ -22,6 +22,23 @@ const PREF_KEYS = [
   "aiBaseUrl",
 ];
 
+function getDefaultAiBaseUrl(provider: string): string {
+  switch (provider) {
+    case "openai": {
+      return "https://api.openai.com/v1";
+    }
+    case "anthropic": {
+      return "https://api.anthropic.com/v1";
+    }
+    case "ollama": {
+      return "http://localhost:11434";
+    }
+    default: {
+      return "Default";
+    }
+  }
+}
+
 export function SettingsView() {
   // Load saved preferences
   const prefsQuery = useQuery({
@@ -194,13 +211,15 @@ export function SettingsView() {
                     type="text"
                     value={prefs.aiBaseUrl ?? ""}
                     onChange={(e) => savePref("aiBaseUrl", e.target.value)}
-                    placeholder={
-                      aiConfig?.baseUrl ??
-                      (effectiveAiProvider === "ollama" ? "http://localhost:11434" : "Default")
-                    }
+                    placeholder={aiConfig?.baseUrl ?? getDefaultAiBaseUrl(effectiveAiProvider)}
                     className="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-primary w-36 rounded-md border px-2 py-1 font-mono text-xs focus:outline-none"
                   />
                 </div>
+                <p className="text-text-ghost -mt-1 text-[10px]">
+                  OpenAI-compatible deployments can use a custom base URL such as{" "}
+                  <span className="font-mono">https://gateway.example.com/v1</span> or a
+                  fully-qualified endpoint.
+                </p>
               </>
             )}
           </div>
