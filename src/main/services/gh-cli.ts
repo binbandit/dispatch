@@ -198,7 +198,13 @@ const prListCache = new Map<string, CacheEntry<GhPrListItemCore[]>>();
 const prEnrichmentCache = new Map<string, CacheEntry<GhPrEnrichment[]>>();
 const prFullCache = new Map<string, CacheEntry<GhPrListItem[]>>();
 
+/** General-purpose cache for any JSON-serializable data. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const genericCache = new Map<string, CacheEntry<any>>();
+
 const CACHE_TTL_MS = 15_000;
+/** Longer TTL for data that changes infrequently (metrics, releases). */
+const CACHE_TTL_LONG_MS = 60_000;
 
 function cacheKey(cwd: string, filter: string): string {
   return `${cwd}::${filter}`;
@@ -213,8 +219,8 @@ function getCached<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null 
   return null;
 }
 
-function setCache<T>(cache: Map<string, CacheEntry<T>>, key: string, data: T): void {
-  cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+function setCache<T>(cache: Map<string, CacheEntry<T>>, key: string, data: T, ttl = CACHE_TTL_MS): void {
+  cache.set(key, { data, expiresAt: Date.now() + ttl });
 }
 
 // ---------------------------------------------------------------------------
@@ -658,21 +664,25 @@ export async function listIssuesAndPrs(
   cwd: string,
   limit = 50,
 ): Promise<Array<{ number: number; title: string; state: string; isPr: boolean }>> {
-  // Fetch recent issues (includes PRs on GitHub)
-  const { stdout } = await execFile(
-    "gh",
-    ["issue", "list", "--json", "number,title,state", "--limit", String(limit), "--state", "all"],
-    { cwd, timeout: 15_000 },
-  );
-  const issues = parseJsonOutput<Array<{ number: number; title: string; state: string }>>(stdout);
+  const key = `issuesPrs::${cwd}::${limit}`;
+  const cached = getCached(genericCache, key);
+  if (cached) return cached as Array<{ number: number; title: string; state: string; isPr: boolean }>;
 
-  // Also fetch PRs (since gh issue list may not include all PRs)
-  const { stdout: prOut } = await execFile(
-    "gh",
-    ["pr", "list", "--json", "number,title,state", "--limit", String(limit), "--state", "all"],
-    { cwd, timeout: 15_000 },
-  );
-  const prs = parseJsonOutput<Array<{ number: number; title: string; state: string }>>(prOut);
+  // Fetch issues and PRs in parallel (2 lightweight calls)
+  const [issueResult, prResult] = await Promise.all([
+    execFile(
+      "gh",
+      ["issue", "list", "--json", "number,title,state", "--limit", String(limit), "--state", "all"],
+      { cwd, timeout: 15_000 },
+    ),
+    execFile(
+      "gh",
+      ["pr", "list", "--json", "number,title,state", "--limit", String(limit), "--state", "all"],
+      { cwd, timeout: 15_000 },
+    ),
+  ]);
+  const issues = parseJsonOutput<Array<{ number: number; title: string; state: string }>>(issueResult.stdout);
+  const prs = parseJsonOutput<Array<{ number: number; title: string; state: string }>>(prResult.stdout);
 
   // Merge and dedupe
   const seen = new Set<number>();
@@ -692,6 +702,7 @@ export async function listIssuesAndPrs(
   }
 
   result.sort((a, b) => b.number - a.number);
+  setCache(genericCache, key, result);
   return result;
 }
 
@@ -844,12 +855,18 @@ export async function getCheckAnnotations(cwd: string, prNumber: number): Promis
 // ---------------------------------------------------------------------------
 
 export async function listWorkflows(cwd: string): Promise<GhWorkflow[]> {
+  const key = `workflows::${cwd}`;
+  const cached = getCached(genericCache, key);
+  if (cached) return cached as GhWorkflow[];
+
   const { stdout } = await execFile(
     "gh",
     ["workflow", "list", "--json", "id,name,state", "--limit", "50"],
     { cwd },
   );
-  return parseJsonOutput<GhWorkflow[]>(stdout);
+  const data = parseJsonOutput<GhWorkflow[]>(stdout);
+  setCache(genericCache, key, data);
+  return data;
 }
 
 export async function listWorkflowRuns(
@@ -857,19 +874,27 @@ export async function listWorkflowRuns(
   workflowId?: number,
   limit = 20,
 ): Promise<GhWorkflowRun[]> {
+  // Cap the limit to avoid oversized responses on frequent polls.
+  const effectiveLimit = Math.min(limit, 50);
+  const key = `workflowRuns::${cwd}::${workflowId ?? "all"}::${effectiveLimit}`;
+  const cached = getCached(genericCache, key);
+  if (cached) return cached as GhWorkflowRun[];
+
   const ghArgs = [
     "run",
     "list",
     "--json",
     "databaseId,displayTitle,name,status,conclusion,headBranch,createdAt,updatedAt,event,workflowName,attempt",
     "--limit",
-    String(limit),
+    String(effectiveLimit),
   ];
   if (workflowId) {
     ghArgs.push("--workflow", String(workflowId));
   }
   const { stdout } = await execFile("gh", ghArgs, { cwd });
-  return parseJsonOutput<GhWorkflowRun[]>(stdout);
+  const data = parseJsonOutput<GhWorkflowRun[]>(stdout);
+  setCache(genericCache, key, data);
+  return data;
 }
 
 export async function getWorkflowRunDetail(
@@ -1022,6 +1047,22 @@ export async function getPrCycleTime(
     deletions: number;
   }>
 > {
+  const key = `cycleTime::${cwd}::${since}`;
+  type CycleTimeResult = Array<{
+    prNumber: number;
+    title: string;
+    author: string;
+    createdAt: string;
+    mergedAt: string | null;
+    firstReviewAt: string | null;
+    timeToFirstReview: number | null;
+    timeToMerge: number | null;
+    additions: number;
+    deletions: number;
+  }>;
+  const cached = getCached(genericCache, key);
+  if (cached) return cached as CycleTimeResult;
+
   const { stdout } = await execFile(
     "gh",
     [
@@ -1032,7 +1073,7 @@ export async function getPrCycleTime(
       "--json",
       "number,title,author,createdAt,mergedAt,additions,deletions,reviews",
       "--limit",
-      "100",
+      "50",
     ],
     { cwd, timeout: 30_000 },
   );
@@ -1052,7 +1093,7 @@ export async function getPrCycleTime(
 
   const sinceDate = new Date(since);
 
-  return prs
+  const result = prs
     .filter((pr) => new Date(pr.createdAt) >= sinceDate)
     .map((pr) => {
       const firstReview = pr.reviews
@@ -1076,15 +1117,23 @@ export async function getPrCycleTime(
         deletions: pr.deletions,
       };
     });
+
+  setCache(genericCache, key, result, CACHE_TTL_LONG_MS);
+  return result;
 }
 
 export async function getReviewLoad(
   cwd: string,
   since: string,
 ): Promise<Array<{ reviewer: string; reviewCount: number; avgResponseTime: number }>> {
+  const key = `reviewLoad::${cwd}::${since}`;
+  type ReviewLoadResult = Array<{ reviewer: string; reviewCount: number; avgResponseTime: number }>;
+  const cached = getCached(genericCache, key);
+  if (cached) return cached as ReviewLoadResult;
+
   const { stdout } = await execFile(
     "gh",
-    ["pr", "list", "--state", "all", "--json", "number,createdAt,reviews", "--limit", "100"],
+    ["pr", "list", "--state", "all", "--json", "number,createdAt,reviews", "--limit", "50"],
     { cwd, timeout: 30_000 },
   );
 
@@ -1113,13 +1162,16 @@ export async function getReviewLoad(
     }
   }
 
-  return [...reviewerMap.entries()]
+  const result = [...reviewerMap.entries()]
     .map(([reviewer, data]) => ({
       reviewer,
       reviewCount: data.count,
       avgResponseTime: Math.round(data.totalResponseMs / data.count / 60_000),
     }))
     .sort((a, b) => b.reviewCount - a.reviewCount);
+
+  setCache(genericCache, key, result, CACHE_TTL_LONG_MS);
+  return result;
 }
 
 // ---------------------------------------------------------------------------
@@ -1156,6 +1208,19 @@ export async function listReleases(
     author: { login: string };
   }>
 > {
+  const key = `releases::${cwd}::${limit}`;
+  type ReleaseResult = Array<{
+    tagName: string;
+    name: string;
+    body: string;
+    isDraft: boolean;
+    isPrerelease: boolean;
+    createdAt: string;
+    author: { login: string };
+  }>;
+  const cached = getCached(genericCache, key);
+  if (cached) return cached as ReleaseResult;
+
   const upstreamArgs = await getUpstreamArgs(cwd);
   // gh release list only supports: createdAt, isDraft, isLatest, isPrerelease, name, publishedAt, tagName
   const { stdout } = await execFile(
@@ -1181,23 +1246,28 @@ export async function listReleases(
     }>
   >(stdout);
 
-  // Fetch body + author per release via gh release view
-  const detailed = await Promise.all(
-    releases.map(async (release) => {
-      try {
-        const { stdout: detail } = await execFile(
-          "gh",
-          [...upstreamArgs, "release", "view", release.tagName, "--json", "body,author"],
-          { cwd, timeout: 10_000 },
-        );
-        const data = parseJsonOutput<{ body: string; author: { login: string } }>(detail);
-        return { ...release, body: data.body ?? "", author: data.author ?? { login: "" } };
-      } catch {
-        return { ...release, body: "", author: { login: "" } };
-      }
-    }),
+  // Fetch body + author per release — concurrency-limited to avoid thundering herd.
+  const detailResults = await mapWithConcurrency(
+    releases,
+    MAX_CONCURRENT_GH_CALLS,
+    async (release) => {
+      const { stdout: detail } = await execFile(
+        "gh",
+        [...upstreamArgs, "release", "view", release.tagName, "--json", "body,author"],
+        { cwd, timeout: 10_000 },
+      );
+      const data = parseJsonOutput<{ body: string; author: { login: string } }>(detail);
+      return { ...release, body: data.body ?? "", author: data.author ?? { login: "" } };
+    },
   );
 
+  const detailed = detailResults.map((r, i) =>
+    r.status === "fulfilled"
+      ? r.value
+      : { ...releases[i]!, body: "", author: { login: "" } },
+  );
+
+  setCache(genericCache, key, detailed, CACHE_TTL_LONG_MS);
   return detailed;
 }
 
@@ -1241,7 +1311,7 @@ export async function generateChangelog(cwd: string, sinceTag: string): Promise<
 
   const { stdout } = await execFile(
     "gh",
-    ["pr", "list", "--state", "merged", "--json", "number,title,author,mergedAt", "--limit", "100"],
+    ["pr", "list", "--state", "merged", "--json", "number,title,author,mergedAt", "--limit", "50"],
     { cwd, timeout: 15_000 },
   );
 
