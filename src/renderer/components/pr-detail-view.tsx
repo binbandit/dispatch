@@ -38,6 +38,7 @@ import { useSyntaxHighlighter } from "../hooks/use-syntax-highlight";
 import { parseDiff } from "../lib/diff-parser";
 import { useFileNav } from "../lib/file-nav-context";
 import { ensureLanguage, inferLanguage } from "../lib/highlighter";
+import { openExternal } from "../lib/open-external";
 import { ipc } from "../lib/ipc";
 import { queryClient } from "../lib/query-client";
 import { useWorkspace } from "../lib/workspace-context";
@@ -351,7 +352,9 @@ function PrDetail({ prNumber }: { prNumber: number }) {
             size="sm"
             variant="ghost"
             className="text-text-tertiary hover:text-text-primary shrink-0"
-            onClick={() => globalThis.open(pr.url, "_blank")}
+            onClick={() => {
+              void openExternal(pr.url);
+            }}
           >
             <ExternalLink size={13} />
           </Button>

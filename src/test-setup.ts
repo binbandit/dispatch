@@ -10,7 +10,9 @@ vi.mock("./renderer/lib/ipc", () => ({
 Object.defineProperty(globalThis, "api", {
   value: {
     invoke: vi.fn(),
+    openExternal: vi.fn(),
     setBadgeCount: vi.fn(),
+    onNavigate: vi.fn(() => () => {}),
   },
   writable: true,
 });

@@ -1,10 +1,9 @@
-import type { IpcApi, IpcMethod } from "../shared/ipc";
-
 import { BrowserWindow, dialog, ipcMain } from "electron";
 
-import { IPC_CHANNEL } from "../shared/ipc";
+import { IPC_CHANNEL, type IpcApi, type IpcMethod } from "../shared/ipc";
 import * as repo from "./db/repository";
 import * as ai from "./services/ai";
+import { openExternalUrl } from "./services/external-links";
 import * as ghCli from "./services/gh-cli";
 import * as gitCli from "./services/git-cli";
 import { whichVersion } from "./services/shell";
@@ -28,6 +27,9 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
       result[key] = repo.getPreference(key);
     }
     return result;
+  },
+  "app.openExternal": async (args) => {
+    await openExternalUrl(args.url);
   },
 
   // Environment

@@ -4,6 +4,8 @@ import rehypeRaw from "rehype-raw";
 import remarkGemoji from "remark-gemoji";
 import remarkGfm from "remark-gfm";
 
+import { openExternal } from "../lib/open-external";
+
 /**
  * Render GitHub-flavored markdown (PR body, comments).
  *
@@ -81,8 +83,15 @@ export function MarkdownBody({ content, repo, className = "" }: MarkdownBodyProp
             return (
               <a
                 href={href}
-                target="_blank"
                 rel="noopener noreferrer"
+                onClick={(event) => {
+                  if (!href) {
+                    return;
+                  }
+
+                  event.preventDefault();
+                  void openExternal(href);
+                }}
                 {...rest}
               >
                 {children}

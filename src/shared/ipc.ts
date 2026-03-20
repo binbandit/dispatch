@@ -198,6 +198,7 @@ export interface IpcApi {
     args: { keys: string[] };
     result: Record<string, string | null>;
   };
+  "app.openExternal": { args: { url: string }; result: void };
 
   "env.check": { args: void; result: EnvStatus };
   "env.user": { args: void; result: GhUser | null };

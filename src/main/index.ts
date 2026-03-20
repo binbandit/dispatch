@@ -15,6 +15,7 @@ import {
 import { BADGE_COUNT_CHANNEL } from "../shared/ipc";
 import { closeDatabase, initDatabase } from "./db/database";
 import { registerIpcHandler } from "./ipc-handler";
+import { getExternalUrl, openExternalUrl } from "./services/external-links";
 import { type TrayState, startPolling, stopPolling } from "./services/tray-poller";
 
 // ---------------------------------------------------------------------------
@@ -45,8 +46,36 @@ const WINDOW_CONFIG: BrowserWindowConstructorOptions = {
 
 let isQuitting = false;
 
+function openExternalFromWindow(url: string): void {
+  void openExternalUrl(url).catch((error) => {
+    console.error("Failed to open external URL:", error);
+  });
+}
+
+function configureExternalNavigation(win: BrowserWindow): void {
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    const externalUrl = getExternalUrl(url);
+    if (externalUrl) {
+      openExternalFromWindow(externalUrl);
+    }
+
+    return { action: "deny" };
+  });
+
+  win.webContents.on("will-navigate", (event, url) => {
+    const externalUrl = getExternalUrl(url);
+    if (!externalUrl || url === win.webContents.getURL()) {
+      return;
+    }
+
+    event.preventDefault();
+    openExternalFromWindow(externalUrl);
+  });
+}
+
 function createWindow(): BrowserWindow {
   const win = new BrowserWindow(WINDOW_CONFIG);
+  configureExternalNavigation(win);
 
   // macOS: hide instead of quit on close (tray keeps running)
   win.on("close", (event) => {

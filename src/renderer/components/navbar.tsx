@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 
 import { ipc } from "../lib/ipc";
+import { openExternal } from "../lib/open-external";
 import { queryClient } from "../lib/query-client";
 import { useRouter } from "../lib/router";
 import { useWorkspace } from "../lib/workspace-context";
@@ -247,7 +248,7 @@ function UserMenu({
           <MenuItem
             onClick={() => {
               const repoUrl = `https://github.com/${cwd.split("/").slice(-2).join("/")}`;
-              globalThis.open(repoUrl, "_blank");
+              void openExternal(repoUrl);
             }}
           >
             <ExternalLink size={14} />
@@ -255,7 +256,7 @@ function UserMenu({
           </MenuItem>
           <MenuItem
             onClick={() => {
-              globalThis.open("https://github.com/settings/tokens", "_blank");
+              void openExternal("https://github.com/settings/tokens");
             }}
           >
             <Keyboard size={14} />
