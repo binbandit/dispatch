@@ -220,6 +220,10 @@ export interface IpcApi {
   };
   "pr.detail": { args: { cwd: string; prNumber: number }; result: GhPrDetail };
   "pr.diff": { args: { cwd: string; prNumber: number }; result: string };
+  "pr.updateTitle": {
+    args: { cwd: string; prNumber: number; title: string };
+    result: void;
+  };
   "pr.merge": {
     args: {
       cwd: string;

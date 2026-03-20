@@ -25,7 +25,7 @@ import { PrInboxSkeleton } from "./loading-skeletons";
 
 interface PrInboxProps {
   selectedPr: number | null;
-  onSelectPr: (pr: number, title?: string) => void;
+  onSelectPr: (pr: number) => void;
 }
 
 type FilterTab = "review" | "mine" | "all";
@@ -164,7 +164,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
       handler: () => {
         const pr = filteredPrs[focusIndex];
         if (pr) {
-          onSelectPr(pr.number, pr.title);
+          onSelectPr(pr.number);
         }
       },
     },
@@ -324,7 +324,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
                 if (multiRepo && prAny.workspacePath && prAny.workspacePath !== cwd) {
                   switchWorkspace(prAny.workspacePath);
                 }
-                onSelectPr(pr.number, pr.title);
+                onSelectPr(pr.number);
               }}
             />
           ))}

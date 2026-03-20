@@ -1,8 +1,6 @@
-import type { ErrorInfo, ReactNode } from "react";
-
 import { Button } from "@/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
-import { Component, useCallback, useEffect, useState } from "react";
+import { Component, type ErrorInfo, type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { useNotificationPolling } from "../hooks/use-notification-polling";
@@ -37,7 +35,6 @@ export function AppLayout() {
 function AppShell() {
   const { route, navigate } = useRouter();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [selectedPrTitle, setSelectedPrTitle] = useState("");
   const [showShortcuts, setShowShortcuts] = useState(false);
 
   const toggleSidebar = useCallback(() => {
@@ -56,11 +53,11 @@ function AppShell() {
 
   // Listen for tray menu navigation events
   useEffect(() => {
-    const cleanup = window.api.onNavigate((trayRoute) => {
+    const { api } = globalThis as typeof globalThis & { api: ElectronApi };
+    const cleanup = api.onNavigate((trayRoute) => {
       if (trayRoute.view === "settings") {
         navigate({ view: "settings" });
       } else if (trayRoute.view === "review" && trayRoute.prNumber) {
-        setSelectedPrTitle("");
         navigate({ view: "review", prNumber: trayRoute.prNumber });
       }
     });
@@ -114,14 +111,12 @@ function AppShell() {
                   {selectedPr ? (
                     <PrFileSidebar
                       prNumber={selectedPr}
-                      prTitle={selectedPrTitle}
                       onBack={() => navigate({ view: "review", prNumber: null })}
                     />
                   ) : (
                     <PrInbox
                       selectedPr={selectedPr}
-                      onSelectPr={(pr, title) => {
-                        setSelectedPrTitle(title ?? "");
+                      onSelectPr={(pr) => {
                         navigate({ view: "review", prNumber: pr });
                       }}
                     />
