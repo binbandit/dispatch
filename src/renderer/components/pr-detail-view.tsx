@@ -2,6 +2,7 @@ import type { DiffFile } from "../lib/diff-parser";
 import type { Annotation } from "./ci-annotation";
 import type { CommentRange, DiffMode } from "./diff-viewer";
 import type { ReviewComment } from "./inline-comment";
+import type { GhPrDetail } from "@/shared/ipc";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -15,11 +16,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
+  Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -29,10 +32,12 @@ import {
   FileCode,
   GitMerge,
   MessageSquare,
+  PencilLine,
   Rows2,
   XCircle,
+  X,
 } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { useSyntaxHighlighter } from "../hooks/use-syntax-highlight";
@@ -295,6 +300,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const totalAdditions = pr.files.reduce((sum, f) => sum + f.additions, 0);
   const totalDeletions = pr.files.reduce((sum, f) => sum + f.deletions, 0);
   const isAuthor = currentUser !== null && pr.author.login === currentUser;
+  const canEditTitle = isAuthor || canPush;
 
   // Derive repo "owner/repo" from the PR URL for #123 linkification
   const repoSlug = pr.url.match(/github\.com\/([^/]+\/[^/]+)/)?.[1] ?? "";
@@ -311,9 +317,12 @@ function PrDetail({ prNumber }: { prNumber: number }) {
             className="border-border-strong mt-0.5 border-[1.5px]"
           />
           <div className="min-w-0 flex-1">
-            <h1 className="text-text-primary text-[15px] font-semibold tracking-[-0.02em]">
-              {pr.title} <span className="text-text-tertiary font-normal">#{pr.number}</span>
-            </h1>
+            <EditablePrTitle
+              canEdit={canEditTitle}
+              cwd={cwd}
+              prNumber={pr.number}
+              title={pr.title}
+            />
             <div className="text-text-secondary mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs">
               <Badge
                 variant="outline"
@@ -493,6 +502,211 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         </aside>
       </div>
     </div>
+  );
+}
+
+function EditablePrTitle({
+  canEdit,
+  cwd,
+  prNumber,
+  title,
+}: {
+  canEdit: boolean;
+  cwd: string;
+  prNumber: number;
+  title: string;
+}) {
+  const [draftTitle, setDraftTitle] = useState(title);
+  const [isEditing, setIsEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditing) {
+      return;
+    }
+
+    setDraftTitle(title);
+  }, [isEditing, title]);
+
+  useEffect(() => {
+    if (!isEditing) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [isEditing]);
+
+  const updateTitleMutation = useMutation({
+    mutationFn: (nextTitle: string) => ipc("pr.updateTitle", { cwd, prNumber, title: nextTitle }),
+    onSuccess: (_data, nextTitle) => {
+      const updatedAt = new Date().toISOString();
+
+      queryClient.setQueryData<GhPrDetail | undefined>(["pr", "detail", cwd, prNumber], (old) =>
+        old ? { ...old, title: nextTitle, updatedAt } : old,
+      );
+
+      setDraftTitle(nextTitle);
+      setIsEditing(false);
+
+      void queryClient.invalidateQueries({ queryKey: ["pr", "detail", cwd, prNumber] });
+      void queryClient.invalidateQueries({ queryKey: ["pr", "list", cwd] });
+      void queryClient.invalidateQueries({ queryKey: ["pr", "listAll"] });
+
+      toastManager.add({ title: "Title updated", type: "success" });
+    },
+    onError: (error) => {
+      toastManager.add({
+        title: "Title update failed",
+        description: error instanceof Error ? error.message : String(error),
+        type: "error",
+      });
+    },
+  });
+
+  const beginEditing = useCallback(() => {
+    if (!canEdit || updateTitleMutation.isPending) {
+      return;
+    }
+
+    setDraftTitle(title);
+    setIsEditing(true);
+  }, [canEdit, title, updateTitleMutation.isPending]);
+
+  const cancelEditing = useCallback(() => {
+    if (updateTitleMutation.isPending) {
+      return;
+    }
+
+    setDraftTitle(title);
+    setIsEditing(false);
+  }, [title, updateTitleMutation.isPending]);
+
+  const saveTitle = useCallback(() => {
+    if (updateTitleMutation.isPending) {
+      return;
+    }
+
+    const nextTitle = draftTitle.trim();
+    if (!nextTitle) {
+      toastManager.add({
+        title: "Title required",
+        description: "Pull request titles cannot be empty.",
+        type: "error",
+      });
+      return;
+    }
+
+    if (nextTitle === title) {
+      setDraftTitle(title);
+      setIsEditing(false);
+      return;
+    }
+
+    updateTitleMutation.mutate(nextTitle);
+  }, [draftTitle, title, updateTitleMutation]);
+
+  if (isEditing) {
+    return (
+      <div className="space-y-1.5">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2">
+          <div className="border-border bg-bg-raised focus-within:border-border-strong flex min-w-0 items-center gap-2 rounded-md border px-3 py-2 shadow-[var(--shadow-sm)] transition-[background-color,border-color,box-shadow] duration-[120ms] ease-out focus-within:shadow-[0_0_0_1px_rgba(212,136,58,0.18)]">
+            <input
+              ref={inputRef}
+              type="text"
+              value={draftTitle}
+              disabled={updateTitleMutation.isPending}
+              onChange={(event) => setDraftTitle(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  saveTitle();
+                }
+
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  cancelEditing();
+                }
+              }}
+              className="text-text-primary placeholder:text-text-ghost min-w-0 flex-1 bg-transparent text-[16px] leading-[1.3] font-semibold tracking-[-0.02em] outline-none"
+              aria-label={`Edit title for pull request #${prNumber}`}
+            />
+            <span className="text-text-tertiary shrink-0 text-[16px] leading-[1.3] font-normal">
+              #{prNumber}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1">
+            <Button
+              size="icon-xs"
+              loading={updateTitleMutation.isPending}
+              onClick={saveTitle}
+              className="bg-primary text-primary-foreground hover:bg-accent-hover shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-glow)]"
+              aria-label={`Save title for pull request #${prNumber}`}
+              title="Save title"
+            >
+              <Check size={12} />
+            </Button>
+            <Button
+              size="icon-xs"
+              variant="ghost"
+              disabled={updateTitleMutation.isPending}
+              onClick={cancelEditing}
+              className="text-text-secondary hover:bg-bg-raised hover:text-text-primary"
+              aria-label={`Cancel editing title for pull request #${prNumber}`}
+              title="Cancel"
+            >
+              <X size={12} />
+            </Button>
+          </div>
+        </div>
+
+        <div className="text-text-tertiary flex flex-wrap items-center gap-x-2 gap-y-1 pl-0.5 text-[10px]">
+          <div className="flex items-center gap-1.5">
+            <Kbd className="border-border-strong bg-bg-raised text-text-secondary h-5 min-w-5 rounded-sm border px-1.5 font-mono text-[10px] font-medium shadow-[0_1px_0_var(--border)]">
+              Enter
+            </Kbd>
+            <span>save</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <Kbd className="border-border-strong bg-bg-raised text-text-secondary h-5 min-w-5 rounded-sm border px-1.5 font-mono text-[10px] font-medium shadow-[0_1px_0_var(--border)]">
+              Esc
+            </Kbd>
+            <span>cancel</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!canEdit) {
+    return (
+      <h1 className="text-text-primary text-[16px] leading-[1.3] font-semibold tracking-[-0.02em]">
+        {title} <span className="text-text-tertiary font-normal">#{prNumber}</span>
+      </h1>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={beginEditing}
+      className="group/title focus-visible:ring-primary/30 hover:bg-bg-raised/80 -mx-1 grid max-w-full cursor-pointer grid-cols-[minmax(0,1fr)_auto] items-start gap-2 rounded-md px-1 py-0.5 text-left transition-[background-color,color,box-shadow] duration-[120ms] ease-out outline-none focus-visible:ring-2"
+      aria-label={`Edit title for pull request #${prNumber}`}
+      title="Edit title"
+    >
+      <span className="text-text-primary min-w-0 text-[16px] leading-[1.3] font-semibold tracking-[-0.02em]">
+        {title} <span className="text-text-tertiary font-normal">#{prNumber}</span>
+      </span>
+      <span className="text-text-ghost border-border/0 bg-bg-raised/0 group-hover/title:border-border-strong group-hover/title:bg-bg-raised/90 group-hover/title:text-accent-text inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-mono text-[10px] font-medium transition-[background-color,border-color,color] duration-[120ms] ease-out">
+        <PencilLine size={12} />
+        Edit
+      </span>
+    </button>
   );
 }
 

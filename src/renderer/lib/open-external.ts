@@ -1,3 +1,3 @@
 export async function openExternal(url: string): Promise<void> {
-  await globalThis.api.openExternal(url);
+  await window.api.openExternal(url);
 }

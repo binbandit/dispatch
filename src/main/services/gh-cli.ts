@@ -244,6 +244,13 @@ export async function getPrDiff(cwd: string, prNumber: number): Promise<string> 
   return stdout;
 }
 
+export async function updatePrTitle(cwd: string, prNumber: number, title: string): Promise<void> {
+  await execFile("gh", ["pr", "edit", String(prNumber), "--title", title], {
+    cwd,
+    timeout: 15_000,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // CI/CD checks
 // ---------------------------------------------------------------------------

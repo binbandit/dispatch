@@ -1,10 +1,8 @@
-import type { DiffFile } from "../lib/diff-parser";
-
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { useMemo } from "react";
 
-import { parseDiff } from "../lib/diff-parser";
+import { parseDiff, type DiffFile } from "../lib/diff-parser";
 import { useFileNav } from "../lib/file-nav-context";
 import { ipc } from "../lib/ipc";
 import { useWorkspace } from "../lib/workspace-context";
@@ -21,10 +19,9 @@ import { FileTreeSkeleton } from "./loading-skeletons";
 interface PrFileSidebarProps {
   prNumber: number;
   onBack: () => void;
-  prTitle: string;
 }
 
-export function PrFileSidebar({ prNumber, onBack, prTitle }: PrFileSidebarProps) {
+export function PrFileSidebar({ prNumber, onBack }: PrFileSidebarProps) {
   const { cwd } = useWorkspace();
   const { currentFileIndex, setCurrentFileIndex } = useFileNav();
 
@@ -49,7 +46,15 @@ export function PrFileSidebar({ prNumber, onBack, prTitle }: PrFileSidebarProps)
     queryKey: ["review", "viewedFiles", repoName, prNumber],
     queryFn: () => ipc("review.viewedFiles", { repo: repoName, prNumber }),
   });
-  const viewedFiles = useMemo(() => new Set(viewedQuery.data ?? []), [viewedQuery.data]);
+  const viewedFiles = useMemo(() => new Set(viewedQuery.data), [viewedQuery.data]);
+
+  const detailQuery = useQuery({
+    queryKey: ["pr", "detail", cwd, prNumber],
+    queryFn: () => ipc("pr.detail", { cwd, prNumber }),
+    staleTime: 60_000,
+  });
+
+  const prTitle = detailQuery.data?.title ?? `Pull Request #${prNumber}`;
 
   // Comments for file badges
   const commentsQuery = useQuery({
