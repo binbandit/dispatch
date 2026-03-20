@@ -53,7 +53,7 @@ function AppContent() {
     if (splashAnimDone && dataLoadedOnce.current && !showApp) {
       setShowApp(true);
     }
-  }, [splashAnimDone, showApp]);
+  }, [splashAnimDone, dataReady, showApp]);
 
   const handleSplashComplete = useCallback(() => {
     setSplashAnimDone(true);
