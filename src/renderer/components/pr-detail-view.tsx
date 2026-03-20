@@ -1,6 +1,4 @@
-import type { DiffFile } from "../lib/diff-parser";
 import type { Annotation } from "./ci-annotation";
-import type { CommentRange, DiffMode } from "./diff-viewer";
 import type { ReviewComment } from "./inline-comment";
 import type { GhPrDetail } from "@/shared/ipc";
 
@@ -41,7 +39,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { useSyntaxHighlighter } from "../hooks/use-syntax-highlight";
-import { parseDiff } from "../lib/diff-parser";
+import { getDiffFilePath, parseDiff, type DiffFile } from "../lib/diff-parser";
 import { useFileNav } from "../lib/file-nav-context";
 import { ensureLanguage, inferLanguage } from "../lib/highlighter";
 import { ipc } from "../lib/ipc";
@@ -50,7 +48,7 @@ import { queryClient } from "../lib/query-client";
 import { useWorkspace } from "../lib/workspace-context";
 import { AiReviewSummary } from "./ai-review-summary";
 import { ChecksPanel } from "./checks-panel";
-import { DiffViewer } from "./diff-viewer";
+import { DiffViewer, type CommentRange, type DiffMode } from "./diff-viewer";
 import { GitHubAvatar } from "./github-avatar";
 import { PrDetailSkeleton } from "./loading-skeletons";
 import { MarkdownBody } from "./markdown-body";
@@ -219,7 +217,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   }, [annotationsQuery.data]);
 
   const currentFile = files[currentFileIndex] ?? null;
-  const currentFilePath = currentFile?.newPath || currentFile?.oldPath || "";
+  const currentFilePath = currentFile ? getDiffFilePath(currentFile) : "";
   const currentLanguage = inferLanguage(currentFilePath);
 
   // Ensure the language is loaded for the current file (lazy-load non-core langs)
@@ -253,7 +251,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       if (reviewerComments.length > 0) {
         const firstComment = reviewerComments[0]!;
         // Find the file index for this comment
-        const fileIndex = files.findIndex((f) => (f.newPath || f.oldPath) === firstComment.path);
+        const fileIndex = files.findIndex((f) => getDiffFilePath(f) === firstComment.path);
         if (fileIndex >= 0) {
           setCurrentFileIndex(fileIndex);
           // The diff viewer will show the inline comment automatically
@@ -436,7 +434,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
             <DiffViewer
               file={currentFile}
               highlighter={highlighter}
-              language={inferLanguage(currentFile.newPath || currentFile.oldPath)}
+              language={inferLanguage(getDiffFilePath(currentFile))}
               comments={commentsMap}
               annotations={annotationsMap}
               prNumber={prNumber}
@@ -1058,7 +1056,7 @@ function DiffToolbar({
   showFullFile: boolean;
   onShowFullFileChange: (show: boolean) => void;
 }) {
-  const filePath = currentFile?.newPath ?? currentFile?.oldPath ?? "";
+  const filePath = currentFile ? getDiffFilePath(currentFile) : "";
   const fileName = filePath.split("/").pop() ?? "";
   const dirPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/") + 1) : "";
 

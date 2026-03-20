@@ -32,6 +32,8 @@ export type Segment = {
   type: "equal" | "change";
 };
 
+const DIFF_NULL_PATH = "/dev/null";
+
 /**
  * Parse a unified diff string into structured data.
  */
@@ -222,8 +224,8 @@ function parseFileSection(section: string): DiffFile | null {
 function parseDiffPath(raw: string): string {
   const trimmed = raw.trim();
 
-  if (trimmed === "/dev/null") {
-    return "/dev/null";
+  if (trimmed === DIFF_NULL_PATH) {
+    return DIFF_NULL_PATH;
   }
 
   // Strip "a/" or "b/" prefix
@@ -232,6 +234,20 @@ function parseDiffPath(raw: string): string {
   }
 
   return trimmed;
+}
+
+/**
+ * Returns the real file path for a diff file, ignoring the /dev/null sentinel
+ * used for added and deleted files in unified diffs.
+ */
+export function getDiffFilePath(file: Pick<DiffFile, "oldPath" | "newPath">): string {
+  if (file.newPath && file.newPath !== DIFF_NULL_PATH) {
+    return file.newPath;
+  }
+  if (file.oldPath && file.oldPath !== DIFF_NULL_PATH) {
+    return file.oldPath;
+  }
+  return file.newPath || file.oldPath;
 }
 
 /**
@@ -270,10 +286,10 @@ function parseHunkHeader(line: string): DiffHunk | null {
  * Determine the status of a diff file based on its paths.
  */
 function resolveStatus(oldPath: string, newPath: string): DiffFileStatus {
-  if (oldPath === "/dev/null") {
+  if (oldPath === DIFF_NULL_PATH) {
     return "added";
   }
-  if (newPath === "/dev/null") {
+  if (newPath === DIFF_NULL_PATH) {
     return "deleted";
   }
   if (oldPath !== newPath) {

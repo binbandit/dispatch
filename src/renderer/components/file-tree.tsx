@@ -1,5 +1,3 @@
-import type { DiffFile } from "../lib/diff-parser";
-
 import {
   Check,
   ChevronRight,
@@ -11,6 +9,8 @@ import {
   Square,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+
+import { getDiffFilePath, type DiffFile } from "../lib/diff-parser";
 
 /**
  * Hierarchical file tree — inspired by Better Hub's diff-file-tree.
@@ -76,7 +76,7 @@ function buildTree(files: DiffFile[]): TreeNode[] {
 
   for (let i = 0; i < files.length; i++) {
     const file = files[i]!;
-    const filePath = file.newPath || file.oldPath;
+    const filePath = getDiffFilePath(file);
     const parts = filePath.split("/");
     const name = parts[parts.length - 1] ?? filePath;
 
@@ -217,7 +217,7 @@ export function FileTree({
     }
   }, [tree]);
 
-  const viewedCount = files.filter((f) => viewedFiles.has(f.newPath || f.oldPath)).length;
+  const viewedCount = files.filter((f) => viewedFiles.has(getDiffFilePath(f))).length;
 
   function toggleExpand(path: string) {
     setExpandedPaths((prev) => {
@@ -235,7 +235,7 @@ export function FileTree({
   function selectFile(index: number) {
     const file = files[index];
     if (file) {
-      const filePath = file.newPath || file.oldPath;
+      const filePath = getDiffFilePath(file);
       const parts = filePath.split("/");
       if (parts.length > 1) {
         setExpandedPaths((prev) => {

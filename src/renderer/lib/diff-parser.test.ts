@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { computeWordDiff, parseDiff } from "./diff-parser";
+import { computeWordDiff, getDiffFilePath, parseDiff } from "./diff-parser";
 
 describe("parseDiff", () => {
   it("parses a simple modification", () => {
@@ -335,6 +335,26 @@ index abc1234..def5678 100644
     expect(hunk.oldCount).toBe(1);
     expect(hunk.newStart).toBe(1);
     expect(hunk.newCount).toBe(1);
+  });
+});
+
+describe("getDiffFilePath", () => {
+  it("prefers the new path for added files", () => {
+    expect(getDiffFilePath({ oldPath: "/dev/null", newPath: "src/new-file.ts" })).toBe(
+      "src/new-file.ts",
+    );
+  });
+
+  it("prefers the old path for deleted files", () => {
+    expect(getDiffFilePath({ oldPath: "src/old-file.ts", newPath: "/dev/null" })).toBe(
+      "src/old-file.ts",
+    );
+  });
+
+  it("prefers the new path when both paths exist", () => {
+    expect(getDiffFilePath({ oldPath: "src/old-name.ts", newPath: "src/new-name.ts" })).toBe(
+      "src/new-name.ts",
+    );
   });
 });
 

@@ -1,16 +1,19 @@
-import type { DiffFile, DiffLine, Segment } from "../lib/diff-parser";
-import type { Annotation } from "./ci-annotation";
-import type { ReviewComment } from "./inline-comment";
 import type { Highlighter } from "shiki";
 
 import { ChevronDown, ChevronUp, Plus, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { computeWordDiff } from "../lib/diff-parser";
+import {
+  computeWordDiff,
+  getDiffFilePath,
+  type DiffFile,
+  type DiffLine,
+  type Segment,
+} from "../lib/diff-parser";
 import { BlamePopover, useBlameHover } from "./blame-popover";
-import { CiAnnotation } from "./ci-annotation";
+import { CiAnnotation, type Annotation } from "./ci-annotation";
 import { CommentComposer } from "./comment-composer";
-import { InlineComment } from "./inline-comment";
+import { InlineComment, type ReviewComment } from "./inline-comment";
 
 /**
  * Table-based diff viewer with:
@@ -61,7 +64,7 @@ function buildRows(
   composerRange: CommentRange | null,
 ): FlatRow[] {
   const rows: FlatRow[] = [];
-  const filePath = file.newPath || file.oldPath;
+  const filePath = getDiffFilePath(file);
 
   let hunkIndex = 0;
   for (const hunk of file.hunks) {
@@ -318,7 +321,7 @@ export function DiffViewer({
     );
   }
 
-  const filePath = file.newPath || file.oldPath;
+  const filePath = getDiffFilePath(file);
   const isDragging = selectingFrom !== null;
 
   return (
