@@ -3,14 +3,15 @@ import type { GhPrListItem } from "@/shared/ipc";
 import { Kbd } from "@/components/ui/kbd";
 import { MenuItem, MenuPopup, MenuSeparator } from "@/components/ui/menu";
 import { toastManager } from "@/components/ui/toast";
-import { ContextMenu } from "@base-ui/react/context-menu";
 import { clamp, relativeTime } from "@/shared/format";
+import { ContextMenu } from "@base-ui/react/context-menu";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, Copy, GitMerge, Inbox, Search, XCircle } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { ipc } from "../lib/ipc";
+import { getPrActivityKey, hasNewPrActivity, indexPrActivityStates } from "../lib/pr-activity";
 import { queryClient } from "../lib/query-client";
 import { useWorkspace } from "../lib/workspace-context";
 import { GitHubAvatar } from "./github-avatar";
@@ -25,7 +26,7 @@ import { PrInboxSkeleton } from "./loading-skeletons";
 
 interface PrInboxProps {
   selectedPr: number | null;
-  onSelectPr: (pr: number) => void;
+  onSelectPr: (pr: number, title?: string) => void;
 }
 
 type FilterTab = "review" | "mine" | "all";
@@ -108,6 +109,15 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
   const authorPrs = multiRepo ? [] : (authorQuery.data ?? []);
   const allPrs = multiRepo ? [] : (allQuery.data ?? []);
   const multiRepoPrs = multiRepoQuery.data ?? [];
+  const prActivityQuery = useQuery({
+    queryKey: ["pr-activity", "list"],
+    queryFn: () => ipc("prActivity.list"),
+    staleTime: 30_000,
+  });
+  const prActivityIndex = useMemo(
+    () => indexPrActivityStates(prActivityQuery.data ?? []),
+    [prActivityQuery.data],
+  );
 
   // Filter by active tab + search
   const filteredPrs = useMemo(() => {
@@ -143,6 +153,30 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
     );
   }, [reviewPrs, authorPrs, allPrs, multiRepoPrs, activeFilter, searchQuery, multiRepo]);
 
+  const handleSelectPr = useCallback(
+    (pr: GhPrListItem) => {
+      const prAny = pr as GhPrListItem & { workspacePath?: string };
+      const prCwd = multiRepo ? (prAny.workspacePath ?? cwd) : cwd;
+
+      void ipc("prActivity.markSeen", {
+        repo: prCwd,
+        prNumber: pr.number,
+        updatedAt: pr.updatedAt,
+      })
+        .then(() => {
+          queryClient.invalidateQueries({ queryKey: ["pr-activity"] });
+        })
+        .catch(() => {});
+
+      if (multiRepo && prAny.workspacePath && prAny.workspacePath !== cwd) {
+        switchWorkspace(prAny.workspacePath);
+      }
+
+      onSelectPr(pr.number, pr.title);
+    },
+    [cwd, multiRepo, onSelectPr, switchWorkspace],
+  );
+
   // Clamp focusIndex when the list shrinks
   useEffect(() => {
     if (filteredPrs.length > 0 && focusIndex >= filteredPrs.length) {
@@ -164,7 +198,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
       handler: () => {
         const pr = filteredPrs[focusIndex];
         if (pr) {
-          onSelectPr(pr.number);
+          handleSelectPr(pr);
         }
       },
     },
@@ -302,32 +336,34 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
       {/* PR list */}
       {!isLoading && filteredPrs.length > 0 && (
         <div className="flex-1 overflow-y-auto">
-          {filteredPrs.map((pr, index) => (
-            <PrItem
-              key={pr.number}
-              pr={pr}
-              cwd={
-                multiRepo
-                  ? ((pr as GhPrListItem & { workspacePath?: string }).workspacePath ?? cwd)
-                  : cwd
-              }
-              statusColor={resolveStatusColor(pr.reviewDecision, pr.statusCheckRollup, pr.isDraft)}
-              isActive={selectedPr === pr.number}
-              isFocused={focusIndex === index}
-              workspace={
-                multiRepo ? (pr as GhPrListItem & { workspace?: string }).workspace : undefined
-              }
-              onClick={() => {
-                setFocusIndex(index);
-                // Switch workspace if clicking a PR from a different repo
-                const prAny = pr as GhPrListItem & { workspacePath?: string };
-                if (multiRepo && prAny.workspacePath && prAny.workspacePath !== cwd) {
-                  switchWorkspace(prAny.workspacePath);
-                }
-                onSelectPr(pr.number);
-              }}
-            />
-          ))}
+          {filteredPrs.map((pr, index) => {
+            const prAny = pr as GhPrListItem & { workspace?: string; workspacePath?: string };
+            const prCwd = multiRepo ? (prAny.workspacePath ?? cwd) : cwd;
+
+            return (
+              <PrItem
+                key={multiRepo ? `${prCwd}:${pr.number}` : pr.number}
+                pr={pr}
+                cwd={prCwd}
+                statusColor={resolveStatusColor(
+                  pr.reviewDecision,
+                  pr.statusCheckRollup,
+                  pr.isDraft,
+                )}
+                isActive={selectedPr === pr.number}
+                isFocused={focusIndex === index}
+                hasNewActivity={hasNewPrActivity(
+                  pr.updatedAt,
+                  prActivityIndex.get(getPrActivityKey(prCwd, pr.number)),
+                )}
+                workspace={multiRepo ? prAny.workspace : undefined}
+                onClick={() => {
+                  setFocusIndex(index);
+                  handleSelectPr(pr);
+                }}
+              />
+            );
+          })}
         </div>
       )}
 
@@ -400,6 +436,7 @@ function PrItem({
   statusColor,
   isActive,
   isFocused,
+  hasNewActivity,
   onClick,
   workspace,
   cwd,
@@ -408,6 +445,7 @@ function PrItem({
   statusColor: string;
   isActive: boolean;
   isFocused: boolean;
+  hasNewActivity: boolean;
   onClick: () => void;
   workspace?: string;
   cwd: string;
@@ -486,6 +524,11 @@ function PrItem({
             >
               {size.label}
             </span>
+            {hasNewActivity && (
+              <span className="border-border-accent bg-accent-muted text-accent-text inline-flex shrink-0 items-center rounded-full border px-1.5 py-0.5 font-mono text-[9px] font-medium tracking-[0.06em] uppercase">
+                New
+              </span>
+            )}
           </div>
           <div className="text-text-tertiary mt-0.5 flex items-center gap-1 font-mono text-[10px]">
             <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${statusColor}`} />

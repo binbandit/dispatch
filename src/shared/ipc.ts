@@ -84,6 +84,13 @@ export interface GhPrDetail {
   deletions: number;
 }
 
+export interface PrActivityState {
+  repo: string;
+  prNumber: number;
+  lastSeenUpdatedAt: string;
+  seenAt: string;
+}
+
 export interface GhCheckRun {
   name: string;
   status: string;
@@ -204,6 +211,7 @@ export interface EnvStatus {
   gitVersion: string | null;
   ghAuth: boolean;
 }
+
 export interface DevRepoStatus {
   enabled: boolean;
   hasUpdates: boolean;
@@ -212,7 +220,6 @@ export interface DevRepoStatus {
   aheadCount: number;
   behindCount: number;
 }
-
 
 // ---------------------------------------------------------------------------
 // IPC Method Map
@@ -360,6 +367,11 @@ export interface IpcApi {
   "review.viewedFiles": { args: { repo: string; prNumber: number }; result: string[] };
   "review.setFileViewed": {
     args: { repo: string; prNumber: number; filePath: string; viewed: boolean };
+    result: void;
+  };
+  "prActivity.list": { args: void; result: PrActivityState[] };
+  "prActivity.markSeen": {
+    args: { repo: string; prNumber: number; updatedAt: string };
     result: void;
   };
 

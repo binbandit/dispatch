@@ -67,6 +67,15 @@ export function initDatabase(): Database.Database {
       created_at    TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS pr_activity_state (
+      id                   INTEGER PRIMARY KEY,
+      repo                 TEXT    NOT NULL,
+      pr_number            INTEGER NOT NULL,
+      last_seen_updated_at TEXT    NOT NULL,
+      seen_at              TEXT    NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(repo, pr_number)
+    );
+
     CREATE TABLE IF NOT EXISTS workspaces (
       id            INTEGER PRIMARY KEY,
       path          TEXT    NOT NULL UNIQUE,

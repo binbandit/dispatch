@@ -48,6 +48,50 @@ export function setFileViewed(
 }
 
 // ---------------------------------------------------------------------------
+// PR Activity State
+// ---------------------------------------------------------------------------
+
+export interface PrActivityState {
+  repo: string;
+  prNumber: number;
+  lastSeenUpdatedAt: string;
+  seenAt: string;
+}
+
+export function getPrActivityStates(): PrActivityState[] {
+  const db = getDatabase();
+  const rows = db
+    .prepare(`
+      SELECT repo, pr_number, last_seen_updated_at, seen_at
+      FROM pr_activity_state
+    `)
+    .all() as Array<{
+    repo: string;
+    pr_number: number;
+    last_seen_updated_at: string;
+    seen_at: string;
+  }>;
+
+  return rows.map((row) => ({
+    repo: row.repo,
+    prNumber: row.pr_number,
+    lastSeenUpdatedAt: row.last_seen_updated_at,
+    seenAt: row.seen_at,
+  }));
+}
+
+export function markPrActivitySeen(repo: string, prNumber: number, updatedAt: string): void {
+  const db = getDatabase();
+  db.prepare(`
+    INSERT INTO pr_activity_state (repo, pr_number, last_seen_updated_at, seen_at)
+    VALUES (?, ?, ?, datetime('now'))
+    ON CONFLICT(repo, pr_number) DO UPDATE SET
+      last_seen_updated_at = excluded.last_seen_updated_at,
+      seen_at = excluded.seen_at
+  `).run(repo, prNumber, updatedAt);
+}
+
+// ---------------------------------------------------------------------------
 // Preferences
 // ---------------------------------------------------------------------------
 

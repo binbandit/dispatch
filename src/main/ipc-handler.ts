@@ -182,6 +182,9 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   "review.setFileViewed": async (args) => {
     repo.setFileViewed(args.repo, args.prNumber, args.filePath, args.viewed);
   },
+  "prActivity.list": () => Promise.resolve(repo.getPrActivityStates()),
+  "prActivity.markSeen": (args) =>
+    Promise.resolve(repo.markPrActivitySeen(args.repo, args.prNumber, args.updatedAt)),
 
   // Multi-repo (3.1)
   "pr.listAll": async (args) => {

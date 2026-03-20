@@ -121,6 +121,41 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     queryFn: () => ipc("pr.detail", { cwd, prNumber }),
     refetchInterval: 60_000,
   });
+  const markPrActivitySeenMutation = useMutation({
+    mutationFn: (args: { repo: string; prNumber: number; updatedAt: string }) =>
+      ipc("prActivity.markSeen", args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr-activity"] });
+    },
+  });
+  const hasMarkedPrActivityRef = useRef(false);
+
+  useEffect(() => {
+    hasMarkedPrActivityRef.current = false;
+  }, [cwd, prNumber]);
+
+  useEffect(() => {
+    if (
+      !detailQuery.data?.updatedAt ||
+      !detailQuery.isFetchedAfterMount ||
+      hasMarkedPrActivityRef.current
+    ) {
+      return;
+    }
+
+    hasMarkedPrActivityRef.current = true;
+    markPrActivitySeenMutation.mutate({
+      repo: cwd,
+      prNumber,
+      updatedAt: detailQuery.data.updatedAt,
+    });
+  }, [
+    cwd,
+    detailQuery.data?.updatedAt,
+    detailQuery.isFetchedAfterMount,
+    markPrActivitySeenMutation,
+    prNumber,
+  ]);
 
   // Full PR diff
   const diffQuery = useQuery({
