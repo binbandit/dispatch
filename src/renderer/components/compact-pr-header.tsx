@@ -33,12 +33,15 @@ export function CompactPrHeader({
 }: CompactPrHeaderProps) {
   return (
     <div className="border-border bg-bg-surface flex h-9 shrink-0 items-center gap-2 border-b px-4">
-      {/* Author avatar */}
+      {/* Author avatar + login */}
       <GitHubAvatar
         login={pr.author.login}
         size={20}
         className="border-border-strong shrink-0 border"
       />
+      <span className="text-text-secondary shrink-0 font-mono text-[11px]">
+        {pr.author.login}
+      </span>
 
       {/* Draft badge */}
       {pr.isDraft && (
