@@ -166,12 +166,12 @@ export function MergeButton({
       <div className="flex">
         <Button
           size="sm"
-          className={`gap-1.5 rounded-r-none disabled:opacity-50 ${
-            requirementsMet
-              ? "bg-primary text-primary-foreground hover:bg-accent-hover"
-              : canAdmin
-                ? "bg-warning/80 text-bg-root hover:bg-warning/90"
-                : "bg-primary text-primary-foreground"
+          className={`gap-1.5 rounded-r-none ${
+            !canMerge
+              ? "disabled:bg-bg-raised disabled:border-border disabled:text-text-tertiary disabled:opacity-100"
+              : requirementsMet
+                ? "bg-primary text-primary-foreground hover:bg-accent-hover"
+                : "bg-warning/80 text-bg-root hover:bg-warning/90"
           }`}
           disabled={!canMerge || mergeMutation.isPending}
           onClick={() => {
@@ -188,12 +188,12 @@ export function MergeButton({
         </Button>
         <Button
           size="sm"
-          className={`rounded-l-none border-l px-1.5 disabled:opacity-50 ${
-            requirementsMet
-              ? "border-l-primary-foreground/20 bg-primary text-primary-foreground hover:bg-accent-hover"
-              : canAdmin
-                ? "border-l-bg-root/20 bg-warning/80 text-bg-root hover:bg-warning/90"
-                : "border-l-primary-foreground/20 bg-primary text-primary-foreground"
+          className={`rounded-l-none border-l px-1.5 ${
+            !canMerge
+              ? "disabled:bg-bg-raised disabled:border-border disabled:border-l-border disabled:text-text-tertiary disabled:opacity-100"
+              : requirementsMet
+                ? "border-l-primary-foreground/20 bg-primary text-primary-foreground hover:bg-accent-hover"
+                : "border-l-bg-root/20 bg-warning/80 text-bg-root hover:bg-warning/90"
           }`}
           disabled={mergeMutation.isPending || closeMutation.isPending}
           onClick={() => setMenuOpen(!menuOpen)}

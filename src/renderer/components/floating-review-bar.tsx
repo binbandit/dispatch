@@ -377,10 +377,9 @@ function MergeBarButton({
         disabled={isDraft || !canMerge || mergeMutation.isPending}
         style={{
           ...btnBase,
-          background: "var(--accent)",
-          color: "var(--bg-root)",
-          borderColor: "var(--accent)",
-          opacity: isDraft || !canMerge ? 0.4 : 1,
+          background: isDraft || !canMerge ? "var(--bg-raised)" : "var(--accent)",
+          color: isDraft || !canMerge ? "var(--text-tertiary)" : "var(--bg-root)",
+          borderColor: isDraft || !canMerge ? "var(--border)" : "var(--accent)",
           cursor: isDraft || !canMerge ? "not-allowed" : "pointer",
           borderTopRightRadius: 0,
           borderBottomRightRadius: 0,
@@ -394,14 +393,13 @@ function MergeBarButton({
         onClick={() => setMenuOpen(!menuOpen)}
         style={{
           ...btnBase,
-          background: "var(--accent)",
-          color: "var(--bg-root)",
-          borderColor: "var(--accent)",
-          borderLeft: "1px solid rgba(0,0,0,0.2)",
+          background: isDraft || !canMerge ? "var(--bg-raised)" : "var(--accent)",
+          color: isDraft || !canMerge ? "var(--text-tertiary)" : "var(--bg-root)",
+          borderColor: isDraft || !canMerge ? "var(--border)" : "var(--accent)",
+          borderLeft: isDraft || !canMerge ? "1px solid var(--border)" : "1px solid rgba(0,0,0,0.2)",
           borderTopLeftRadius: 0,
           borderBottomLeftRadius: 0,
           padding: "5px 4px",
-          opacity: isDraft ? 0.4 : 1,
         }}
       >
         <ChevronDown size={10} />
