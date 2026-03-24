@@ -3,7 +3,16 @@ import type { GhPrDetail } from "@/shared/ipc";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { useMutation } from "@tanstack/react-query";
-import { Check, ChevronDown, Eye, GitMerge, MessageSquare, RefreshCw, XCircle } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  Eye,
+  GitMerge,
+  MessageSquare,
+  RefreshCw,
+  ShieldAlert,
+  XCircle,
+} from "lucide-react";
 import { useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
@@ -26,6 +35,7 @@ interface FloatingReviewBarProps {
   cwd: string;
   prNumber: number;
   canAdmin: boolean;
+  hasMergeQueue: boolean;
   currentUserReview: string | null;
   panelOpen?: boolean;
 }
@@ -41,6 +51,7 @@ export function FloatingReviewBar({
   cwd,
   prNumber,
   canAdmin,
+  hasMergeQueue,
   currentUserReview,
   panelOpen,
 }: FloatingReviewBarProps) {
@@ -196,6 +207,7 @@ export function FloatingReviewBar({
           prNumber={prNumber}
           pr={pr}
           canAdmin={canAdmin}
+          hasMergeQueue={hasMergeQueue}
           isDraft={isDraft}
         />
       </div>
@@ -416,6 +428,7 @@ function MergeBarButton({
   prNumber,
   pr,
   canAdmin,
+  hasMergeQueue,
   isDraft,
 }: {
   cwd: string;
@@ -426,6 +439,7 @@ function MergeBarButton({
     statusCheckRollup: Array<{ conclusion: string | null }>;
   };
   canAdmin: boolean;
+  hasMergeQueue: boolean;
   isDraft: boolean;
 }) {
   const hasApproval = pr.reviewDecision === "APPROVED";
@@ -440,12 +454,13 @@ function MergeBarButton({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const mergeMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: (args: { admin?: boolean } | void) =>
       ipc("pr.merge", {
         cwd,
         prNumber,
-        strategy,
-        admin: !requirementsMet && canAdmin ? true : undefined,
+        strategy: hasMergeQueue ? "squash" : strategy,
+        admin:
+          (args && args.admin) ?? (!requirementsMet && canAdmin ? true : undefined),
       }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
@@ -484,6 +499,127 @@ function MergeBarButton({
     rebase: "Rebase & Merge",
   };
 
+  const disabled = isDraft || !canMerge;
+  const mainBg = disabled ? "var(--bg-raised)" : "var(--accent)";
+  const mainColor = disabled ? "var(--text-tertiary)" : "var(--bg-root)";
+  const mainBorder = disabled ? "var(--border)" : "var(--accent)";
+  const mainCursor = disabled ? "not-allowed" : "pointer";
+
+  // Merge queue mode: "Merge when ready" with admin-only dropdown
+  if (hasMergeQueue) {
+    return (
+      <div
+        ref={menuRef}
+        style={{ position: "relative", display: "flex" }}
+      >
+        <button
+          type="button"
+          onClick={() => mergeMutation.mutate()}
+          disabled={isDraft || !canMerge || mergeMutation.isPending}
+          style={{
+            ...btnBase,
+            background: mainBg,
+            color: mainColor,
+            borderColor: mainBorder,
+            cursor: mainCursor,
+            borderTopRightRadius: canAdmin ? 0 : undefined,
+            borderBottomRightRadius: canAdmin ? 0 : undefined,
+          }}
+        >
+          {mergeMutation.isPending ? <Spinner className="h-3 w-3" /> : <GitMerge size={11} />}
+          Merge when ready
+        </button>
+        {canAdmin && (
+          <button
+            type="button"
+            onClick={() => setMenuOpen(!menuOpen)}
+            style={{
+              ...btnBase,
+              background: mainBg,
+              color: mainColor,
+              borderColor: mainBorder,
+              borderLeft: disabled
+                ? "1px solid var(--border)"
+                : "1px solid rgba(0,0,0,0.2)",
+              borderTopLeftRadius: 0,
+              borderBottomLeftRadius: 0,
+              padding: "5px 4px",
+            }}
+          >
+            <ChevronDown size={10} />
+          </button>
+        )}
+        {menuOpen && (
+          <div
+            style={{
+              position: "absolute",
+              bottom: "100%",
+              right: 0,
+              marginBottom: "4px",
+              width: "180px",
+              background: "var(--bg-elevated)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-md)",
+              padding: "4px",
+              boxShadow: "var(--shadow-lg)",
+              zIndex: 50,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                mergeMutation.mutate({ admin: true });
+              }}
+              disabled={mergeMutation.isPending}
+              style={{
+                display: "flex",
+                width: "100%",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 10px",
+                borderRadius: "var(--radius-sm)",
+                fontSize: "11px",
+                cursor: "pointer",
+                border: "none",
+                background: "transparent",
+                color: "var(--warning)",
+              }}
+            >
+              <ShieldAlert size={11} />
+              Merge now (admin)
+            </button>
+            <div style={{ height: "1px", background: "var(--border)", margin: "4px 0" }} />
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                closeMutation.mutate();
+              }}
+              style={{
+                display: "flex",
+                width: "100%",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 10px",
+                borderRadius: "var(--radius-sm)",
+                fontSize: "11px",
+                cursor: "pointer",
+                border: "none",
+                background: "transparent",
+                color: "var(--danger)",
+              }}
+            >
+              <XCircle size={11} />
+              Close pull request
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Standard mode: split button with strategy selection
   return (
     <div
       ref={menuRef}
@@ -495,10 +631,10 @@ function MergeBarButton({
         disabled={isDraft || !canMerge || mergeMutation.isPending}
         style={{
           ...btnBase,
-          background: isDraft || !canMerge ? "var(--bg-raised)" : "var(--accent)",
-          color: isDraft || !canMerge ? "var(--text-tertiary)" : "var(--bg-root)",
-          borderColor: isDraft || !canMerge ? "var(--border)" : "var(--accent)",
-          cursor: isDraft || !canMerge ? "not-allowed" : "pointer",
+          background: mainBg,
+          color: mainColor,
+          borderColor: mainBorder,
+          cursor: mainCursor,
           borderTopRightRadius: 0,
           borderBottomRightRadius: 0,
         }}
@@ -511,11 +647,12 @@ function MergeBarButton({
         onClick={() => setMenuOpen(!menuOpen)}
         style={{
           ...btnBase,
-          background: isDraft || !canMerge ? "var(--bg-raised)" : "var(--accent)",
-          color: isDraft || !canMerge ? "var(--text-tertiary)" : "var(--bg-root)",
-          borderColor: isDraft || !canMerge ? "var(--border)" : "var(--accent)",
-          borderLeft:
-            isDraft || !canMerge ? "1px solid var(--border)" : "1px solid rgba(0,0,0,0.2)",
+          background: mainBg,
+          color: mainColor,
+          borderColor: mainBorder,
+          borderLeft: disabled
+            ? "1px solid var(--border)"
+            : "1px solid rgba(0,0,0,0.2)",
           borderTopLeftRadius: 0,
           borderBottomLeftRadius: 0,
           padding: "5px 4px",

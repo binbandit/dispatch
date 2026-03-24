@@ -2,17 +2,19 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown, GitMerge, RefreshCw, XCircle } from "lucide-react";
+import { ChevronDown, GitMerge, RefreshCw, ShieldAlert, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
+import { summarizePrChecks } from "../lib/pr-check-status";
 import { queryClient } from "../lib/query-client";
 
 /**
  * Merge button — DISPATCH-DESIGN-SYSTEM.md § 8.8
  *
- * Dropdown for strategy selection (squash, merge, rebase).
- * Supports merge queue status display and admin override.
+ * When the repo uses a merge queue, shows "Merge when ready" as the primary action.
+ * Otherwise, shows a split button with strategy selection (squash, merge, rebase).
+ * Supports merge queue status display and admin override in both modes.
  */
 
 const STRATEGY_LABELS: Record<string, string> = {
@@ -26,6 +28,7 @@ export function MergeButton({
   prNumber,
   pr,
   canAdmin,
+  hasMergeQueue,
 }: {
   cwd: string;
   prNumber: number;
@@ -40,6 +43,7 @@ export function MergeButton({
     } | null;
   };
   canAdmin: boolean;
+  hasMergeQueue: boolean;
 }) {
   const [strategy, setStrategy] = useState<"squash" | "merge" | "rebase">("squash");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -186,6 +190,119 @@ export function MergeButton({
     );
   }
 
+  // Merge queue mode: single "Merge when ready" button with dropdown for close / admin override
+  if (hasMergeQueue) {
+    return (
+      <div
+        ref={menuRef}
+        className="relative flex items-center gap-1.5"
+      >
+        <div className="flex">
+          <Button
+            size="sm"
+            variant={!canMerge ? "outline" : "default"}
+            className={`gap-1.5 ${canAdmin ? "rounded-r-none" : ""} ${
+              !canMerge
+                ? "disabled:opacity-100"
+                : requirementsMet
+                  ? "hover:bg-accent-hover"
+                  : "border-warning/80 bg-warning/80 text-bg-root hover:bg-warning/90"
+            }`}
+            disabled={!canMerge || mergeMutation.isPending}
+            onClick={() => {
+              mergeMutation.mutate({
+                cwd,
+                prNumber,
+                strategy: "squash",
+                admin: !requirementsMet && canAdmin ? true : undefined,
+              });
+            }}
+          >
+            {mergeMutation.isPending ? <Spinner className="h-3 w-3" /> : <GitMerge size={13} />}
+            Merge when ready
+          </Button>
+          {canAdmin && (
+            <Button
+              size="sm"
+              variant={!canMerge ? "outline" : "default"}
+              className={`rounded-l-none border-l px-1.5 ${
+                !canMerge
+                  ? "disabled:opacity-100"
+                  : requirementsMet
+                    ? "border-l-primary-foreground/20 hover:bg-accent-hover"
+                    : "border-l-bg-root/20 border-warning/80 bg-warning/80 text-bg-root hover:bg-warning/90"
+              }`}
+              disabled={mergeMutation.isPending || closeMutation.isPending}
+              onClick={() => setMenuOpen(!menuOpen)}
+            >
+              <ChevronDown size={12} />
+            </Button>
+          )}
+        </div>
+
+        {menuOpen && (
+          <div className="border-border bg-bg-elevated absolute top-full right-0 z-20 mt-1 w-48 rounded-md border p-1 shadow-lg">
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                mergeMutation.mutate({ cwd, prNumber, strategy: "squash", admin: true });
+              }}
+              disabled={mergeMutation.isPending}
+              className="text-warning hover:bg-warning/10 flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-3 py-1.5 text-left text-xs transition-colors"
+            >
+              <ShieldAlert size={12} />
+              Merge now (admin)
+            </button>
+            <div className="bg-border my-1 h-px" />
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                closeMutation.mutate();
+              }}
+              disabled={closeMutation.isPending}
+              className="text-destructive hover:bg-destructive/10 flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-3 py-1.5 text-left text-xs transition-colors"
+            >
+              <XCircle size={12} />
+              Close pull request
+            </button>
+          </div>
+        )}
+
+        {/* Update branch button */}
+        {isBehind && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-warning hover:text-warning gap-1 text-[10px]"
+            onClick={() => updateBranchMutation.mutate()}
+            disabled={updateBranchMutation.isPending}
+          >
+            {updateBranchMutation.isPending ? (
+              <Spinner className="h-2.5 w-2.5" />
+            ) : (
+              <RefreshCw size={10} />
+            )}
+            Update branch
+          </Button>
+        )}
+
+        {/* Auto-merge indicator */}
+        {pr.autoMergeRequest && (
+          <div className="border-info/30 bg-info/5 flex items-center gap-1 rounded-md border px-2 py-1">
+            <GitMerge
+              size={11}
+              className="text-info"
+            />
+            <span className="text-info text-[10px] font-medium">Auto-merge</span>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Standard mode: split button with strategy selection
   return (
     <div
       ref={menuRef}

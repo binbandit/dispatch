@@ -251,6 +251,7 @@ export interface RepoInfo {
   isFork: boolean;
   parent: string | null; // "owner/name" of upstream repo, or null
   canPush: boolean;
+  hasMergeQueue: boolean;
 }
 
 export interface EnvStatus {

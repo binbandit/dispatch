@@ -138,7 +138,12 @@ export async function getRepoHost(cwd: string): Promise<string | null> {
 export async function getRepoInfo(cwd: string): Promise<RepoInfo> {
   const { stdout } = await execFile(
     "gh",
-    ["repo", "view", "--json", "nameWithOwner,isFork,parent,viewerPermission"],
+    [
+      "repo",
+      "view",
+      "--json",
+      "nameWithOwner,isFork,parent,viewerPermission,defaultBranchRef",
+    ],
     { cwd, timeout: 10_000 },
   );
   const data = parseJsonOutput<{
@@ -146,14 +151,46 @@ export async function getRepoInfo(cwd: string): Promise<RepoInfo> {
     isFork: boolean;
     parent: { owner: { login: string }; name: string } | null;
     viewerPermission: string;
+    defaultBranchRef: { name: string } | null;
   }>(stdout);
   // viewerPermission is: ADMIN, MAINTAIN, WRITE, TRIAGE, READ
   const canPush = ["ADMIN", "MAINTAIN", "WRITE"].includes(data.viewerPermission);
+
+  // Check if the default branch has a merge queue enabled
+  let hasMergeQueue = false;
+  try {
+    const { owner, repo } = await getOwnerRepo(cwd);
+    const defaultBranch = data.defaultBranchRef?.name ?? "main";
+    const { stdout: gqlOut } = await execFile(
+      "gh",
+      [
+        "api",
+        "graphql",
+        "-f",
+        `owner=${owner}`,
+        "-f",
+        `repo=${repo}`,
+        "-f",
+        `branch=${defaultBranch}`,
+        "-f",
+        `query=query($owner: String!, $repo: String!, $branch: String!) { repository(owner: $owner, name: $repo) { mergeQueue(branch: $branch) { id } } }`,
+      ],
+      { cwd, timeout: 10_000 },
+    );
+    const gql = JSON.parse(gqlOut) as {
+      data?: { repository?: { mergeQueue?: { id: string } | null } };
+    };
+    hasMergeQueue = gql.data?.repository?.mergeQueue != null;
+  } catch {
+    // Merge queue query failed (e.g. GHES without merge queue support) — assume no queue
+  }
+
   return {
     nameWithOwner: data.nameWithOwner,
     isFork: data.isFork,
     parent: data.parent ? `${data.parent.owner.login}/${data.parent.name}` : null,
     canPush,
+    hasMergeQueue,
   };
 }
 

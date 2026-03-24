@@ -64,6 +64,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     staleTime: 300_000,
   });
   const canPush = repoInfoQuery.data?.canPush ?? false;
+  const hasMergeQueue = repoInfoQuery.data?.hasMergeQueue ?? false;
 
   // Current user (for author vs reviewer detection)
   const userQuery = useQuery({
@@ -504,6 +505,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
           cwd={cwd}
           prNumber={prNumber}
           canAdmin={canPush}
+          hasMergeQueue={hasMergeQueue}
           currentUserReview={currentUserReview}
           panelOpen={panelOpen}
         />
