@@ -203,9 +203,13 @@ const PR_LIST_CORE_FIELDS = [
 ].join(",");
 
 /** Heavy fields fetched lazily after the first paint. */
-const PR_LIST_ENRICHMENT_FIELDS = ["number", "statusCheckRollup", "additions", "deletions"].join(
-  ",",
-);
+const PR_LIST_ENRICHMENT_FIELDS = [
+  "number",
+  "statusCheckRollup",
+  "additions",
+  "deletions",
+  "mergeable",
+].join(",");
 
 /** All fields combined — used by the tray poller which needs everything. */
 const PR_LIST_ALL_FIELDS = [
@@ -213,6 +217,7 @@ const PR_LIST_ALL_FIELDS = [
   "statusCheckRollup",
   "additions",
   "deletions",
+  "mergeable",
 ].join(",");
 
 const PR_LIST_LIMIT = "50";
@@ -458,14 +463,17 @@ export function listPrs(
 
       // Also populate the core and enrichment caches from the full result.
       setCache(prListCache, key, {
-        data: data.map(({ statusCheckRollup: _, additions: _a, deletions: _d, ...core }) => core),
+        data: data.map(
+          ({ statusCheckRollup: _, additions: _a, deletions: _d, mergeable: _m, ...core }) => core,
+        ),
       });
       setCache(prEnrichmentCache, key, {
-        data: data.map(({ number, statusCheckRollup, additions, deletions }) => ({
+        data: data.map(({ number, statusCheckRollup, additions, deletions, mergeable }) => ({
           number,
           statusCheckRollup,
           additions,
           deletions,
+          mergeable,
         })),
       });
 

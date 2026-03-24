@@ -49,10 +49,11 @@ export interface GhPrListItem {
   isDraft: boolean;
   additions: number;
   deletions: number;
+  mergeable: string;
 }
 
 /** Lightweight version returned by the core list query (no heavy fields). */
-export type GhPrListItemCore = Omit<GhPrListItem, "statusCheckRollup" | "additions" | "deletions">;
+export type GhPrListItemCore = Omit<GhPrListItem, "statusCheckRollup" | "additions" | "deletions" | "mergeable">;
 
 /** Enrichment payload keyed by PR number. */
 export interface GhPrEnrichment {
@@ -60,6 +61,7 @@ export interface GhPrEnrichment {
   statusCheckRollup: GhPrListItem["statusCheckRollup"];
   additions: number;
   deletions: number;
+  mergeable: string;
 }
 
 export interface GhPrDetail {

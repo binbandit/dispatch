@@ -96,6 +96,7 @@ describe("searchPrs", () => {
         statusCheckRollup: [check("COMPLETED", "SUCCESS")],
         additions: 120,
         deletions: 30,
+        mergeable: "MERGEABLE",
       },
       hasNewActivity: true,
       pr: {
@@ -117,6 +118,7 @@ describe("searchPrs", () => {
         statusCheckRollup: [check("COMPLETED", "FAILURE")],
         additions: 18,
         deletions: 9,
+        mergeable: "MERGEABLE",
       },
       pr: {
         number: 9,
@@ -138,6 +140,7 @@ describe("searchPrs", () => {
         statusCheckRollup: [check("IN_PROGRESS", null)],
         additions: 410,
         deletions: 150,
+        mergeable: "MERGEABLE",
       },
       pr: {
         number: 120,
@@ -158,6 +161,7 @@ describe("searchPrs", () => {
         statusCheckRollup: [check("COMPLETED", "SUCCESS")],
         additions: 22,
         deletions: 6,
+        mergeable: "MERGEABLE",
       },
       pr: {
         number: 240,

@@ -9,6 +9,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Check,
   Copy,
+  GitPullRequestClosed,
   Loader2,
   ExternalLink,
   GitMerge,
@@ -666,6 +667,15 @@ function PrItem({
               <>
                 <span className="text-text-ghost">·</span>
                 <span className="text-warning">Draft</span>
+              </>
+            )}
+            {enrichment?.mergeable === "CONFLICTING" && (
+              <>
+                <span className="text-text-ghost">·</span>
+                <span className="text-destructive flex items-center gap-0.5">
+                  <GitPullRequestClosed size={10} />
+                  Conflicts
+                </span>
               </>
             )}
           </div>
