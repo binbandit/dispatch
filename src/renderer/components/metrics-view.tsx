@@ -81,6 +81,19 @@ export function MetricsView() {
     return sizes;
   }, [cycleData]);
 
+  // PR count per author
+  const prCountData = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const pr of cycleData) {
+      counts.set(pr.author, (counts.get(pr.author) ?? 0) + 1);
+    }
+    return [...counts.entries()]
+      .map(([author, prCount]) => ({ author, prCount }))
+      .sort((a, b) => b.prCount - a.prCount);
+  }, [cycleData]);
+
+  const [graphMode, setGraphMode] = useState<"reviews" | "prs">("reviews");
+
   const isLoading = cycleTimeQuery.isLoading || reviewLoadQuery.isLoading;
 
   return (
@@ -151,46 +164,99 @@ export function MetricsView() {
               />
             </div>
 
-            {/* Review load */}
-            {reviewData.length > 0 && (
+            {/* Review load / PR count */}
+            {(reviewData.length > 0 || prCountData.length > 0) && (
               <section className="mt-8">
-                <h2 className="text-text-tertiary mb-3 text-[10px] font-semibold tracking-[0.06em] uppercase">
-                  Review load
-                </h2>
+                <div className="mb-3 flex items-center gap-3">
+                  <h2 className="text-text-tertiary text-[10px] font-bold tracking-[0.06em] uppercase">
+                    {graphMode === "reviews" ? "Review load" : "PR count"}
+                  </h2>
+                  <div className="border-border bg-bg-raised flex rounded-md border p-[2px]">
+                    <button
+                      type="button"
+                      onClick={() => setGraphMode("reviews")}
+                      className={`cursor-pointer rounded-sm px-2 py-0.5 text-[10px] ${
+                        graphMode === "reviews"
+                          ? "bg-bg-elevated text-text-primary shadow-sm"
+                          : "text-text-tertiary hover:text-text-secondary"
+                      }`}
+                    >
+                      Reviews
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setGraphMode("prs")}
+                      className={`cursor-pointer rounded-sm px-2 py-0.5 text-[10px] ${
+                        graphMode === "prs"
+                          ? "bg-bg-elevated text-text-primary shadow-sm"
+                          : "text-text-tertiary hover:text-text-secondary"
+                      }`}
+                    >
+                      PRs
+                    </button>
+                  </div>
+                </div>
                 <div className="flex flex-col gap-2">
-                  {reviewData.map((r) => {
-                    const maxCount = reviewData[0]?.reviewCount ?? 1;
-                    return (
-                      <div
-                        key={r.reviewer}
-                        className="flex items-center gap-3"
-                      >
-                        <GitHubAvatar
-                          login={r.reviewer}
-                          size={20}
-                        />
-                        <span className="text-text-primary w-24 truncate text-xs font-medium">
-                          {r.reviewer}
-                        </span>
-                        <div className="bg-bg-raised relative h-4 flex-1 overflow-hidden rounded-sm">
+                  {graphMode === "reviews"
+                    ? reviewData.map((r) => {
+                        const maxCount = reviewData[0]?.reviewCount ?? 1;
+                        return (
                           <div
-                            className="bg-primary/50 h-full rounded-sm"
-                            style={{ width: `${(r.reviewCount / maxCount) * 100}%` }}
-                          />
-                        </div>
-                        <span className="text-text-tertiary w-20 text-right font-mono text-[10px]">
-                          {r.reviewCount} reviews
-                        </span>
-                      </div>
-                    );
-                  })}
+                            key={r.reviewer}
+                            className="flex items-center gap-3"
+                          >
+                            <GitHubAvatar
+                              login={r.reviewer}
+                              size={20}
+                            />
+                            <span className="text-text-primary w-24 truncate text-xs font-medium">
+                              {r.reviewer}
+                            </span>
+                            <div className="bg-bg-raised relative h-4 flex-1 overflow-hidden rounded-sm">
+                              <div
+                                className="bg-primary/50 h-full rounded-sm"
+                                style={{ width: `${(r.reviewCount / maxCount) * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-text-tertiary w-20 text-right font-mono text-[10px]">
+                              {r.reviewCount} reviews
+                            </span>
+                          </div>
+                        );
+                      })
+                    : prCountData.map((r) => {
+                        const maxCount = prCountData[0]?.prCount ?? 1;
+                        return (
+                          <div
+                            key={r.author}
+                            className="flex items-center gap-3"
+                          >
+                            <GitHubAvatar
+                              login={r.author}
+                              size={20}
+                            />
+                            <span className="text-text-primary w-24 truncate text-xs font-medium">
+                              {r.author}
+                            </span>
+                            <div className="bg-bg-raised relative h-4 flex-1 overflow-hidden rounded-sm">
+                              <div
+                                className="bg-success/50 h-full rounded-sm"
+                                style={{ width: `${(r.prCount / maxCount) * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-text-tertiary w-20 text-right font-mono text-[10px]">
+                              {r.prCount} PRs
+                            </span>
+                          </div>
+                        );
+                      })}
                 </div>
               </section>
             )}
 
             {/* PR size distribution */}
             <section className="mt-8">
-              <h2 className="text-text-tertiary mb-3 text-[10px] font-semibold tracking-[0.06em] uppercase">
+              <h2 className="text-text-tertiary mb-3 text-[10px] font-bold tracking-[0.06em] uppercase">
                 PR size distribution
               </h2>
               <div className="flex flex-col gap-1.5">
