@@ -7,6 +7,7 @@ import { useNotificationPolling } from "../hooks/use-notification-polling";
 import { FileNavProvider } from "../lib/file-nav-context";
 import { RouterProvider, useRouter } from "../lib/router";
 import { useWorkspace } from "../lib/workspace-context";
+import { CommandPalette } from "./command-palette";
 import { KeyboardShortcutsDialog } from "./keyboard-shortcuts-dialog";
 import { MetricsView } from "./metrics-view";
 import { Navbar } from "./navbar";
@@ -157,6 +158,9 @@ function AppShell() {
         open={showShortcuts}
         onClose={() => setShowShortcuts(false)}
       />
+
+      {/* Command palette (⌘K) */}
+      <CommandPalette />
     </div>
   );
 }
