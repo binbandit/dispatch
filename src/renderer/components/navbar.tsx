@@ -42,10 +42,8 @@ import { NotificationCenter } from "./notification-center";
  * Workspace switcher + user menu in the right area
  */
 export function Navbar({
-  selectedPr,
   bannerVisible,
 }: {
-  selectedPr?: number | null;
   bannerVisible?: boolean;
 }) {
   const { route, navigate, toggleSettings } = useRouter();
@@ -86,7 +84,7 @@ export function Navbar({
           label="Review"
           icon={<GitPullRequest size={14} />}
           active={route.view === "review"}
-          onClick={() => navigate({ view: "review", prNumber: selectedPr ?? null })}
+          onClick={() => navigate({ view: "review", prNumber: null })}
         />
         <NavTab
           label="Workflows"
@@ -106,10 +104,10 @@ export function Navbar({
           active={route.view === "releases"}
           onClick={() => navigate({ view: "releases" })}
         />
-        {route.view === "review" && selectedPr && (
+        {route.view === "review" && route.prNumber && (
           <>
             <span className="text-text-ghost mx-1 text-[11px]">/</span>
-            <span className="text-text-tertiary font-mono text-[11px]">#{selectedPr}</span>
+            <span className="text-text-tertiary font-mono text-[11px]">#{route.prNumber}</span>
           </>
         )}
       </nav>

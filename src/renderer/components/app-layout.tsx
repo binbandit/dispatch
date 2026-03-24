@@ -5,6 +5,7 @@ import { Component, type ErrorInfo, type ReactNode, useCallback, useEffect, useS
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { useNotificationPolling } from "../hooks/use-notification-polling";
 import { FileNavProvider } from "../lib/file-nav-context";
+import { useKeybindings } from "../lib/keybinding-context";
 import { RouterProvider, useRouter } from "../lib/router";
 import { useWorkspace } from "../lib/workspace-context";
 import { CommandPalette } from "./command-palette";
@@ -45,13 +46,15 @@ function AppShell() {
     setSidebarCollapsed((v) => !v);
   }, []);
 
+  const { getBinding } = useKeybindings();
+
   useKeyboardShortcuts([
-    { key: "b", modifiers: ["meta"], handler: toggleSidebar },
-    { key: "?", handler: () => setShowShortcuts(true) },
-    { key: "1", handler: () => navigate({ view: "review", prNumber: null }) },
-    { key: "2", handler: () => navigate({ view: "workflows" }) },
-    { key: "3", handler: () => navigate({ view: "metrics" }) },
-    { key: "4", handler: () => navigate({ view: "releases" }) },
+    { ...getBinding("navigation.toggleSidebar"), handler: toggleSidebar },
+    { ...getBinding("views.shortcuts"), handler: () => setShowShortcuts(true) },
+    { ...getBinding("views.review"), handler: () => navigate({ view: "review", prNumber: null }) },
+    { ...getBinding("views.workflows"), handler: () => navigate({ view: "workflows" }) },
+    { ...getBinding("views.metrics"), handler: () => navigate({ view: "metrics" }) },
+    { ...getBinding("views.releases"), handler: () => navigate({ view: "releases" }) },
   ]);
   useNotificationPolling();
 
@@ -99,10 +102,7 @@ function AppShell() {
       />
 
       {/* Navbar */}
-      <Navbar
-        selectedPr={selectedPr}
-        bannerVisible={bannerVisible}
-      />
+      <Navbar bannerVisible={bannerVisible} />
 
       {/* View content */}
       {route.view === "review" && (
