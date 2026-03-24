@@ -165,6 +165,31 @@ export interface GhReviewThread {
   }>;
 }
 
+export type GhReactionContent =
+  | "THUMBS_UP"
+  | "THUMBS_DOWN"
+  | "LAUGH"
+  | "HOORAY"
+  | "CONFUSED"
+  | "HEART"
+  | "ROCKET"
+  | "EYES";
+
+export interface GhReactionGroup {
+  content: GhReactionContent;
+  count: number;
+  viewerHasReacted: boolean;
+}
+
+export interface GhPrReactions {
+  prNodeId: string;
+  prBody: GhReactionGroup[];
+  /** Keyed by issue comment node_id (GraphQL ID from `gh pr view --json comments`) */
+  issueComments: Record<string, GhReactionGroup[]>;
+  /** Keyed by review comment databaseId (numeric `id` from REST API, as string) */
+  reviewComments: Record<string, GhReactionGroup[]>;
+}
+
 export interface GhAnnotation {
   path: string;
   startLine: number;
@@ -417,6 +442,15 @@ export interface IpcApi {
       event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
       body?: string;
     };
+    result: void;
+  };
+  "pr.reactions": { args: { cwd: string; prNumber: number }; result: GhPrReactions };
+  "pr.addReaction": {
+    args: { cwd: string; subjectId: string; content: GhReactionContent };
+    result: void;
+  };
+  "pr.removeReaction": {
+    args: { cwd: string; subjectId: string; content: GhReactionContent };
     result: void;
   };
 

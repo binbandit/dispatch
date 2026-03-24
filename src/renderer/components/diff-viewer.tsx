@@ -46,6 +46,8 @@ interface DiffViewerProps {
   diffMode?: DiffMode;
   /** Set of thread node IDs that are resolved (from reviewThreads) */
   resolvedThreadIds?: Set<string>;
+  /** Reaction data for review comments, keyed by databaseId (as string) */
+  reviewCommentReactions?: Record<string, import("@/shared/ipc").GhReactionGroup[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -163,6 +165,7 @@ export function DiffViewer({
   fullFileContent,
   diffMode = "unified",
   resolvedThreadIds,
+  reviewCommentReactions,
 }: DiffViewerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { hoveredLine, anchorRect, onLineEnter, onLineLeave } = useBlameHover();
@@ -475,6 +478,7 @@ export function DiffViewer({
           onGutterClick={handleGutterClick}
           onCloseComposer={onCloseComposer}
           resolvedThreadIds={resolvedThreadIds}
+          reviewCommentReactions={reviewCommentReactions}
         />
       )}
 
@@ -677,6 +681,7 @@ function UnifiedDiffView({
   onGutterClick,
   onCloseComposer,
   resolvedThreadIds,
+  reviewCommentReactions,
 }: {
   rows: FlatRow[];
   highlighter: Highlighter | null;
@@ -697,6 +702,7 @@ function UnifiedDiffView({
   onGutterClick: (lineNum: number, shiftKey: boolean) => void;
   onCloseComposer?: () => void;
   resolvedThreadIds?: Set<string>;
+  reviewCommentReactions?: Record<string, import("@/shared/ipc").GhReactionGroup[]>;
 }) {
   // Precompute search match offsets for all rows
   const searchMatchOffsets = useMemo(() => {
@@ -758,6 +764,7 @@ function UnifiedDiffView({
               comments={row.comments}
               prNumber={prNumber}
               resolvedThreadIds={resolvedThreadIds}
+              reviewCommentReactions={reviewCommentReactions}
             />
           );
         }

@@ -1,4 +1,4 @@
-import type { GhPrDetail, GhReviewThread } from "@/shared/ipc";
+import type { GhPrDetail, GhPrReactions, GhReviewThread } from "@/shared/ipc";
 
 import { Spinner } from "@/components/ui/spinner";
 import { relativeTime } from "@/shared/format";
@@ -14,6 +14,7 @@ import { useWorkspace } from "../lib/workspace-context";
 import { ConversationTab } from "./conversation-tab";
 import { GitHubAvatar } from "./github-avatar";
 import { MarkdownBody } from "./markdown-body";
+import { ReactionBar } from "./reaction-bar";
 
 /**
  * Side panel overlay — PR-REVIEW-REDESIGN.md § Side Panel
@@ -37,6 +38,7 @@ interface SidePanelOverlayProps {
   activeTab: PanelTab;
   onTabChange: (tab: PanelTab) => void;
   reviewThreads?: GhReviewThread[];
+  reactions?: GhPrReactions;
 }
 
 export function SidePanelOverlay({
@@ -50,6 +52,7 @@ export function SidePanelOverlay({
   activeTab,
   onTabChange,
   reviewThreads,
+  reactions,
 }: SidePanelOverlayProps) {
   const setActiveTab = onTabChange;
 
@@ -128,6 +131,7 @@ export function SidePanelOverlay({
             reviewThreads={reviewThreads}
             repo={repo}
             onReviewClick={onReviewClick}
+            issueCommentReactions={reactions?.issueComments}
           />
         ) : (
           <div
@@ -139,6 +143,7 @@ export function SidePanelOverlay({
                 pr={pr}
                 prNumber={prNumber}
                 repo={repo}
+                reactions={reactions}
               />
             )}
             {activeTab === "commits" && <PanelCommitsContent prNumber={prNumber} />}
@@ -158,10 +163,12 @@ function PanelOverviewContent({
   pr,
   prNumber,
   repo,
+  reactions,
 }: {
   pr: GhPrDetail;
   prNumber: number;
   repo: string;
+  reactions?: GhPrReactions;
 }) {
   const { cwd } = useWorkspace();
 
@@ -223,6 +230,15 @@ function PanelOverviewContent({
             <span style={{ fontStyle: "italic" }}>No description provided.</span>
           )}
         </div>
+        {reactions?.prNodeId && (
+          <div style={{ marginTop: "8px" }}>
+            <ReactionBar
+              reactions={reactions.prBody}
+              subjectId={reactions.prNodeId}
+              prNumber={prNumber}
+            />
+          </div>
+        )}
       </div>
 
       {/* Labels */}

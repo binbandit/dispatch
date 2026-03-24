@@ -6,6 +6,9 @@ import type {
   GhPrEnrichment,
   GhPrListItem,
   GhPrListItemCore,
+  GhPrReactions,
+  GhReactionContent,
+  GhReactionGroup,
   GhReviewComment,
   GhUser,
   RepoInfo,
@@ -1829,4 +1832,151 @@ export async function generateChangelog(cwd: string, sinceTag: string): Promise<
   }
 
   return relevantPrs.map((pr) => `- ${pr.title} (#${pr.number}) @${pr.author.login}`).join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// Reactions
+// ---------------------------------------------------------------------------
+
+const REACTION_GROUPS_FRAGMENT = `
+  reactionGroups {
+    content
+    viewerHasReacted
+    reactors(first: 0) { totalCount }
+  }
+`;
+
+/**
+ * Fetch all reaction data for a PR in one GraphQL query:
+ * - PR body reactions (with viewerHasReacted)
+ * - Issue/conversation comment reactions
+ * - Review comment reactions (via reviewThreads)
+ */
+export async function getPrReactions(cwd: string, prNumber: number): Promise<GhPrReactions> {
+  const { owner, repo } = await getOwnerRepo(cwd);
+  const query = `query($owner: String!, $repo: String!) {
+    repository(owner: $owner, name: $repo) {
+      pullRequest(number: ${prNumber}) {
+        id
+        ${REACTION_GROUPS_FRAGMENT}
+        comments(first: 100) {
+          nodes {
+            id
+            databaseId
+            ${REACTION_GROUPS_FRAGMENT}
+          }
+        }
+        reviewThreads(first: 100) {
+          nodes {
+            comments(first: 100) {
+              nodes {
+                databaseId
+                ${REACTION_GROUPS_FRAGMENT}
+              }
+            }
+          }
+        }
+      }
+    }
+  }`;
+
+  const { stdout } = await execFile(
+    "gh",
+    ["api", "graphql", "-f", `owner=${owner}`, "-f", `repo=${repo}`, "-f", `query=${query}`],
+    { cwd, timeout: 30_000 },
+  );
+
+  type RawReactionGroup = {
+    content: string;
+    viewerHasReacted: boolean;
+    reactors: { totalCount: number };
+  };
+  type RawIssueComment = { id: string; databaseId: number; reactionGroups: RawReactionGroup[] };
+  type RawReviewComment = { databaseId: number; reactionGroups: RawReactionGroup[] };
+
+  const data = JSON.parse(stdout) as {
+    data?: {
+      repository?: {
+        pullRequest?: {
+          id: string;
+          reactionGroups: RawReactionGroup[];
+          comments: { nodes: RawIssueComment[] };
+          reviewThreads: { nodes: Array<{ comments: { nodes: RawReviewComment[] } }> };
+        };
+      };
+    };
+  };
+
+  const pr = data.data?.repository?.pullRequest;
+  if (!pr) {
+    return { prNodeId: "", prBody: [], issueComments: {}, reviewComments: {} };
+  }
+
+  function mapGroups(groups: RawReactionGroup[]): GhReactionGroup[] {
+    return groups
+      .filter((g) => g.reactors.totalCount > 0 || g.viewerHasReacted)
+      .map((g) => ({
+        content: g.content as GhReactionContent,
+        count: g.reactors.totalCount,
+        viewerHasReacted: g.viewerHasReacted,
+      }));
+  }
+
+  const issueComments: Record<string, GhReactionGroup[]> = {};
+  for (const comment of pr.comments.nodes) {
+    const groups = mapGroups(comment.reactionGroups);
+    // Key by node_id — matches the `id` from `gh pr view --json comments`
+    issueComments[comment.id] = groups;
+  }
+
+  const reviewComments: Record<string, GhReactionGroup[]> = {};
+  for (const thread of pr.reviewThreads.nodes) {
+    for (const comment of thread.comments.nodes) {
+      const groups = mapGroups(comment.reactionGroups);
+      if (groups.length > 0) {
+        reviewComments[String(comment.databaseId)] = groups;
+      }
+    }
+  }
+
+  return {
+    prNodeId: pr.id,
+    prBody: mapGroups(pr.reactionGroups),
+    issueComments,
+    reviewComments,
+  };
+}
+
+export async function addReaction(
+  cwd: string,
+  subjectId: string,
+  content: GhReactionContent,
+): Promise<void> {
+  await execFile(
+    "gh",
+    [
+      "api",
+      "graphql",
+      "-f",
+      `query=mutation { addReaction(input: { subjectId: "${subjectId}", content: ${content} }) { reaction { content } } }`,
+    ],
+    { cwd, timeout: 10_000 },
+  );
+}
+
+export async function removeReaction(
+  cwd: string,
+  subjectId: string,
+  content: GhReactionContent,
+): Promise<void> {
+  await execFile(
+    "gh",
+    [
+      "api",
+      "graphql",
+      "-f",
+      `query=mutation { removeReaction(input: { subjectId: "${subjectId}", content: ${content} }) { reaction { content } } }`,
+    ],
+    { cwd, timeout: 10_000 },
+  );
 }

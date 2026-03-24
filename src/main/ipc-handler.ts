@@ -203,6 +203,13 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   "pr.submitReview": async (args) => {
     await ghCli.submitReview(args);
   },
+  "pr.reactions": async (args) => ghCli.getPrReactions(args.cwd, args.prNumber),
+  "pr.addReaction": async (args) => {
+    await ghCli.addReaction(args.cwd, args.subjectId, args.content);
+  },
+  "pr.removeReaction": async (args) => {
+    await ghCli.removeReaction(args.cwd, args.subjectId, args.content);
+  },
 
   // Checks
   "checks.list": async (args) => ghCli.getPrChecks(args.cwd, args.prNumber),

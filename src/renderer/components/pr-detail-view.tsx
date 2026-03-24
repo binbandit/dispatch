@@ -211,6 +211,13 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     staleTime: 30_000,
   });
 
+  // Reactions (PR body + all comments)
+  const reactionsQuery = useQuery({
+    queryKey: ["pr", "reactions", cwd, prNumber],
+    queryFn: () => ipc("pr.reactions", { cwd, prNumber }),
+    staleTime: 30_000,
+  });
+
   const currentFile = files[currentFileIndex] ?? null;
   const currentFilePath = currentFile ? getDiffFilePath(currentFile) : "";
   const currentLanguage = inferLanguage(currentFilePath);
@@ -469,6 +476,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               fullFileContent={showFullFile ? (fullFileQuery.data ?? null) : null}
               diffMode={viewMode}
               resolvedThreadIds={resolvedThreadIds}
+              reviewCommentReactions={reactionsQuery.data?.reviewComments}
             />
           ) : (
             <div className="flex flex-1 items-center justify-center">
@@ -491,6 +499,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
           activeTab={panelTab}
           onTabChange={setPanelTab}
           reviewThreads={reviewThreadsQuery.data}
+          reactions={reactionsQuery.data}
         />
 
         {/* Floating review bar */}

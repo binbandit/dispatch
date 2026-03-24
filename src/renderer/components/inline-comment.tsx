@@ -1,3 +1,5 @@
+import type { GhReactionGroup } from "@/shared/ipc";
+
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
@@ -25,6 +27,7 @@ import { useWorkspace } from "../lib/workspace-context";
 import { GitHubAvatar } from "./github-avatar";
 import { MarkdownBody } from "./markdown-body";
 import { MentionTextarea } from "./mention-textarea";
+import { ReactionBar } from "./reaction-bar";
 
 /**
  * Inline comment display — renders PR review comments in the diff.
@@ -56,9 +59,17 @@ interface InlineCommentProps {
   repo?: string;
   /** Set of thread node IDs that are resolved (from reviewThreads) */
   resolvedThreadIds?: Set<string>;
+  /** Reaction data for review comments, keyed by databaseId (as string) */
+  reviewCommentReactions?: Record<string, GhReactionGroup[]>;
 }
 
-export function InlineComment({ comments, prNumber, repo, resolvedThreadIds }: InlineCommentProps) {
+export function InlineComment({
+  comments,
+  prNumber,
+  repo,
+  resolvedThreadIds,
+  reviewCommentReactions,
+}: InlineCommentProps) {
   const { cwd } = useWorkspace();
   const { isBot } = useBotSettings();
   const repoKey = repo || cwd;
@@ -85,6 +96,7 @@ export function InlineComment({ comments, prNumber, repo, resolvedThreadIds }: I
             toggleMinimized={toggleMinimized}
             resolvedThreadIds={resolvedThreadIds}
             isBot={isBot}
+            reviewCommentReactions={reviewCommentReactions}
           />
         );
       })}
@@ -97,6 +109,7 @@ export function InlineComment({ comments, prNumber, repo, resolvedThreadIds }: I
             minimizedSet={minimizedSet}
             toggleMinimized={toggleMinimized}
             isBot={isBot}
+            reviewCommentReactions={reviewCommentReactions}
           />
         </>
       )}
@@ -117,6 +130,7 @@ function CommentThread({
   toggleMinimized,
   resolvedThreadIds,
   isBot,
+  reviewCommentReactions,
 }: {
   root: ReviewComment;
   replies: ReviewComment[];
@@ -126,6 +140,7 @@ function CommentThread({
   toggleMinimized: (commentId: string) => void;
   resolvedThreadIds?: Set<string>;
   isBot: (login: string) => boolean;
+  reviewCommentReactions?: Record<string, GhReactionGroup[]>;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showReply, setShowReply] = useState(false);
@@ -158,6 +173,7 @@ function CommentThread({
             onToggleMinimized={() => toggleMinimized(String(root.id))}
             resolvedThreadIds={resolvedThreadIds}
             isBot={isBot}
+            reactions={reviewCommentReactions?.[String(root.id)]}
           />
           {replies.map((reply) => (
             <div
@@ -171,6 +187,7 @@ function CommentThread({
                 minimized={minimizedSet.has(String(reply.id))}
                 onToggleMinimized={() => toggleMinimized(String(reply.id))}
                 isBot={isBot}
+                reactions={reviewCommentReactions?.[String(reply.id)]}
               />
             </div>
           ))}
@@ -284,11 +301,13 @@ function BotCommentGroup({
   minimizedSet,
   toggleMinimized,
   isBot,
+  reviewCommentReactions,
 }: {
   comments: ReviewComment[];
   minimizedSet: Set<string>;
   toggleMinimized: (commentId: string) => void;
   isBot: (login: string) => boolean;
+  reviewCommentReactions?: Record<string, GhReactionGroup[]>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const botNames = [...new Set(comments.map((c) => c.user.login))];
@@ -346,6 +365,7 @@ function BotCommentGroup({
               minimized={minimizedSet.has(String(comment.id))}
               onToggleMinimized={() => toggleMinimized(String(comment.id))}
               isBot={isBot}
+              reactions={reviewCommentReactions?.[String(comment.id)]}
             />
           </div>
         ))}
@@ -563,6 +583,7 @@ function CommentBody({
   onToggleMinimized,
   resolvedThreadIds,
   isBot,
+  reactions,
 }: {
   comment: ReviewComment;
   isRoot?: boolean;
@@ -572,6 +593,7 @@ function CommentBody({
   onToggleMinimized: () => void;
   resolvedThreadIds?: Set<string>;
   isBot: (login: string) => boolean;
+  reactions?: GhReactionGroup[];
 }) {
   const isBotUser = isBot(comment.user.login);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -734,6 +756,16 @@ function CommentBody({
               content={comment.body}
               className="text-xs leading-relaxed"
             />
+          )}
+          {/* Reactions */}
+          {comment.node_id && prNumber && (
+            <div style={{ marginTop: "4px" }}>
+              <ReactionBar
+                reactions={reactions ?? []}
+                subjectId={comment.node_id}
+                prNumber={prNumber}
+              />
+            </div>
           )}
         </div>
       )}

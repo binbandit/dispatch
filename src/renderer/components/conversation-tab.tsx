@@ -1,4 +1,4 @@
-import type { GhReviewThread } from "@/shared/ipc";
+import type { GhReactionGroup, GhReviewThread } from "@/shared/ipc";
 
 import { toastManager } from "@/components/ui/toast";
 import { relativeTime } from "@/shared/format";
@@ -15,6 +15,7 @@ import { useWorkspace } from "../lib/workspace-context";
 import { GitHubAvatar } from "./github-avatar";
 import { MarkdownBody } from "./markdown-body";
 import { MentionTextarea } from "./mention-textarea";
+import { ReactionBar } from "./reaction-bar";
 
 /**
  * Conversation tab — PR-REVIEW-REDESIGN.md § Side Panel → Conversation tab
@@ -31,6 +32,8 @@ interface ConversationTabProps {
   reviewThreads?: GhReviewThread[];
   repo: string;
   onReviewClick: (login: string) => void;
+  /** Reaction data for issue comments, keyed by comment databaseId */
+  issueCommentReactions?: Record<string, GhReactionGroup[]>;
 }
 
 export function ConversationTab({
@@ -40,12 +43,13 @@ export function ConversationTab({
   reviewThreads,
   repo,
   onReviewClick,
+  issueCommentReactions,
 }: ConversationTabProps) {
   const { isBot } = useBotSettings();
   const { minimizedSet, toggleMinimized } = useMinimizedComments(repo, prNumber);
 
   // Build a unified timeline from reviews (status events) and issue comments (content events)
-  const timeline = buildTimeline(reviews, issueComments, isBot);
+  const timeline = buildTimeline(reviews, issueComments, isBot, issueCommentReactions);
 
   // Thread resolution counts from GitHub's reviewThreads data
   const unresolvedThreads = (reviewThreads ?? []).filter((t) => !t.isResolved);
@@ -115,6 +119,7 @@ export function ConversationTab({
               onClick={() => onReviewClick(event.login)}
               minimized={minimizedSet.has(event.commentId)}
               onToggleMinimized={() => toggleMinimized(event.commentId)}
+              reactions={event.reactions}
             />
           );
         })}
@@ -184,6 +189,7 @@ interface ContentTimelineEvent {
   body: string;
   filePath?: string;
   isBot: boolean;
+  reactions?: GhReactionGroup[];
 }
 
 type TimelineEvent = StatusTimelineEvent | ContentTimelineEvent;
@@ -192,6 +198,7 @@ function buildTimeline(
   reviews: Array<{ author: { login: string }; state: string; submittedAt: string }>,
   issueComments: Array<{ id: string; body: string; author: { login: string }; createdAt: string }>,
   isBot: (login: string) => boolean,
+  issueCommentReactions?: Record<string, GhReactionGroup[]>,
 ): TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
@@ -240,6 +247,7 @@ function buildTimeline(
       time: new Date(comment.createdAt),
       body: comment.body,
       isBot: isBot(comment.author.login),
+      reactions: issueCommentReactions?.[comment.id],
     });
   }
 
@@ -320,6 +328,7 @@ function ContentEvent({
   onClick,
   minimized,
   onToggleMinimized,
+  reactions,
 }: {
   commentId: string;
   login: string;
@@ -333,6 +342,7 @@ function ContentEvent({
   onClick: () => void;
   minimized: boolean;
   onToggleMinimized: () => void;
+  reactions?: GhReactionGroup[];
 }) {
   const { cwd } = useWorkspace();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -431,6 +441,14 @@ function ContentEvent({
             <MarkdownBody
               content={body}
               repo={repo}
+            />
+          </div>
+          {/* Reactions */}
+          <div style={{ paddingLeft: "24px", marginTop: "4px" }}>
+            <ReactionBar
+              reactions={reactions ?? []}
+              subjectId={commentId}
+              prNumber={prNumber}
             />
           </div>
         </>
