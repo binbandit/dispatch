@@ -27,23 +27,35 @@ function useAiConfig() {
     staleTime: 60_000,
   });
 
-  return (
-    configQuery.data ?? {
-      provider: null,
-      model: null,
-      baseUrl: null,
-      isConfigured: false,
-      hasApiKey: false,
-      providerSource: "none",
-      modelSource: "none",
-      apiKeySource: "none",
-      baseUrlSource: "none",
-      providerEnvVar: null,
-      modelEnvVar: null,
-      apiKeyEnvVar: null,
-      baseUrlEnvVar: null,
-    }
-  );
+  const enabledQuery = useQuery({
+    queryKey: ["preferences", "aiEnabled"],
+    queryFn: () => ipc("preferences.get", { key: "aiEnabled" }),
+    staleTime: 30_000,
+  });
+
+  const aiEnabled = enabledQuery.data === "true";
+
+  const fallback = {
+    provider: null,
+    model: null,
+    baseUrl: null,
+    isConfigured: false,
+    hasApiKey: false,
+    providerSource: "none" as const,
+    modelSource: "none" as const,
+    apiKeySource: "none" as const,
+    baseUrlSource: "none" as const,
+    providerEnvVar: null,
+    modelEnvVar: null,
+    apiKeyEnvVar: null,
+    baseUrlEnvVar: null,
+  };
+
+  if (!aiEnabled) {
+    return fallback;
+  }
+
+  return configQuery.data ?? fallback;
 }
 
 export { useAiConfig };

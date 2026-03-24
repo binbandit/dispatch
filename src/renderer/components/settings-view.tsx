@@ -39,6 +39,7 @@ const PREF_KEYS = [
   "mergeStrategy",
   "prPollInterval",
   "checksPollInterval",
+  "aiEnabled",
   "aiProvider",
   "aiModel",
   "analytics-opted-in",
@@ -254,7 +255,7 @@ function CodeThemeCard({
   );
 }
 
-const NAV_SECTIONS = [
+const NAV_SECTIONS_BASE = [
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "keybindings", label: "Keybindings", icon: Keyboard },
   { id: "general", label: "General", icon: GitMerge },
@@ -264,7 +265,7 @@ const NAV_SECTIONS = [
   { id: "about", label: "About", icon: Info },
 ] as const;
 
-type SectionId = (typeof NAV_SECTIONS)[number]["id"];
+type SectionId = (typeof NAV_SECTIONS_BASE)[number]["id"];
 
 const KEYBINDING_CATEGORIES: ShortcutCategory[] = ["Navigation", "Actions", "Search", "Views"];
 
@@ -291,9 +292,15 @@ export function SettingsView() {
 
   const prefs = prefsQuery.data ?? {};
   const aiConfig = aiConfigQuery.data;
+  const aiEnabled = prefs.aiEnabled === "true";
   const mergeStrategy = prefs.mergeStrategy ?? "squash";
   const prPollInterval = prefs.prPollInterval ?? "30";
   const checksPollInterval = prefs.checksPollInterval ?? "10";
+
+  const navSections = useMemo(
+    () => (aiEnabled ? NAV_SECTIONS_BASE : NAV_SECTIONS_BASE.filter((s) => s.id !== "ai")),
+    [aiEnabled],
+  );
   const effectiveAiProvider = prefs.aiProvider ?? aiConfig?.provider ?? "none";
   const envAiVars = [
     aiConfig?.providerSource === "environment" ? aiConfig.providerEnvVar : null,
@@ -343,7 +350,7 @@ export function SettingsView() {
       <nav className="border-border flex w-[200px] shrink-0 flex-col border-r py-6">
         <h1 className="font-heading text-text-primary px-5 text-2xl font-bold italic">Settings</h1>
         <div className="mt-4 flex flex-col gap-0.5 px-2">
-          {NAV_SECTIONS.map(({ id, label, icon: Icon }) => (
+          {navSections.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
@@ -583,6 +590,32 @@ export function SettingsView() {
                   </div>
                 </div>
               </section>
+
+              {/* AI toggle */}
+              <section className="mt-8">
+                <h3 className="text-text-primary text-sm font-medium">AI Features</h3>
+                <p className="text-text-tertiary mt-0.5 text-xs">
+                  Enable AI-powered summaries, explanations, and failure analysis.
+                </p>
+                <label className="mt-3 flex cursor-pointer items-center justify-between">
+                  <span className="text-text-secondary text-xs">Use AI</span>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={aiEnabled}
+                    onClick={() => savePref("aiEnabled", aiEnabled ? "false" : "true")}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-[--duration-fast] ${
+                      aiEnabled ? "bg-[--accent]" : "bg-[--bg-elevated]"
+                    }`}
+                  >
+                    <span
+                      className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-[--duration-fast] ${
+                        aiEnabled ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
+                </label>
+              </section>
             </>
           )}
 
@@ -593,7 +626,7 @@ export function SettingsView() {
             />
           )}
 
-          {activeSection === "ai" && (
+          {activeSection === "ai" && aiEnabled && (
             <>
               <h2 className="text-text-primary text-base font-semibold">AI Provider</h2>
               <p className="text-text-tertiary mt-0.5 text-xs">
