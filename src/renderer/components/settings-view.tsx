@@ -2,13 +2,18 @@ import type { Highlighter } from "shiki";
 
 import { Spinner } from "@/components/ui/spinner";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Bot, Check, GitMerge, Info, Monitor, Moon, Palette, Shield, Sun } from "lucide-react";
+import { Bot, Check, GitMerge, Info, Keyboard, Monitor, Moon, Palette, RotateCcw, Shield, Sparkles, Sun, X } from "lucide-react";
 import { memo, useEffect, useMemo, useState } from "react";
+
+import { DEFAULT_BOT_USERNAMES, parseJsonArray } from "../hooks/use-bot-settings";
 
 import { ensureTheme, getHighlighter } from "../lib/highlighter";
 import { ipc } from "../lib/ipc";
+import { useKeybindings } from "../lib/keybinding-context";
+import { DEFAULT_KEYBINDINGS, DEFAULT_KEYBINDINGS_MAP, type ShortcutCategory } from "../lib/keybinding-registry";
 import { queryClient } from "../lib/query-client";
 import { useTheme } from "../lib/theme-context";
+import { KeyRecorder } from "./key-recorder";
 
 /**
  * Settings panel — persists all values via preferences IPC.
@@ -26,6 +31,8 @@ const PREF_KEYS = [
   "crash-reports-opted-in",
   "aiApiKey",
   "aiBaseUrl",
+  "botTitleTags",
+  "botUsernames",
 ];
 
 function getDefaultAiBaseUrl(provider: string): string {
@@ -235,16 +242,21 @@ function CodeThemeCard({
 
 const NAV_SECTIONS = [
   { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "keybindings", label: "Keybindings", icon: Keyboard },
   { id: "general", label: "General", icon: GitMerge },
-  { id: "ai", label: "AI Provider", icon: Bot },
+  { id: "bots", label: "Bots", icon: Bot },
+  { id: "ai", label: "AI Provider", icon: Sparkles },
   { id: "privacy", label: "Privacy", icon: Shield },
   { id: "about", label: "About", icon: Info },
 ] as const;
 
 type SectionId = (typeof NAV_SECTIONS)[number]["id"];
 
+const KEYBINDING_CATEGORIES: ShortcutCategory[] = ["Navigation", "Actions", "Search", "Views"];
+
 export function SettingsView() {
   const { theme, setTheme, resolvedTheme, codeTheme, setCodeTheme } = useTheme();
+  const { getBinding, setBinding, resetBinding, resetAll, overrides } = useKeybindings();
   const [activeSection, setActiveSection] = useState<SectionId>("appearance");
 
   const codeThemeOptions = useMemo(
@@ -303,7 +315,7 @@ export function SettingsView() {
     <div className="flex flex-1 overflow-hidden">
       {/* Side navigation */}
       <nav className="border-border flex w-[200px] shrink-0 flex-col border-r py-6">
-        <h1 className="font-heading text-text-primary px-5 text-2xl italic">Settings</h1>
+        <h1 className="font-heading text-text-primary px-5 text-2xl font-bold italic">Settings</h1>
         <div className="mt-4 flex flex-col gap-0.5 px-2">
           {NAV_SECTIONS.map(({ id, label, icon: Icon }) => (
             <button
@@ -312,11 +324,14 @@ export function SettingsView() {
               onClick={() => setActiveSection(id)}
               className={`flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs transition-all duration-[--duration-fast] ${
                 activeSection === id
-                  ? "bg-[--accent-muted] text-text-primary border-l-2 border-[--accent]"
-                  : "text-text-secondary hover:bg-[--bg-raised] hover:text-text-primary border-l-2 border-transparent"
+                  ? "text-text-primary border-l-2 border-[--accent] bg-[--accent-muted]"
+                  : "text-text-secondary hover:text-text-primary border-l-2 border-transparent hover:bg-[--bg-raised]"
               }`}
             >
-              <Icon size={14} className={activeSection === id ? "text-[--accent-text]" : ""} />
+              <Icon
+                size={14}
+                className={activeSection === id ? "text-[--accent-text]" : ""}
+              />
               {label}
             </button>
           ))}
@@ -448,6 +463,13 @@ export function SettingsView() {
                 </div>
               </section>
             </>
+          )}
+
+          {activeSection === "bots" && (
+            <BotSettings
+              prefs={prefs}
+              savePref={savePref}
+            />
           )}
 
           {activeSection === "ai" && (
@@ -587,6 +609,140 @@ export function SettingsView() {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Bot settings section
+// ---------------------------------------------------------------------------
+
+function BotSettings({
+  prefs,
+  savePref,
+}: {
+  prefs: Record<string, string | null>;
+  savePref: (key: string, value: string) => void;
+}) {
+  const botTitleTags = useMemo(
+    () => parseJsonArray(prefs.botTitleTags ?? null),
+    [prefs.botTitleTags],
+  );
+  const botUsernames = useMemo(
+    () => parseJsonArray(prefs.botUsernames ?? null),
+    [prefs.botUsernames],
+  );
+
+  return (
+    <>
+      <h2 className="text-text-primary text-base font-semibold">Bots</h2>
+      <p className="text-text-tertiary mt-0.5 text-xs">
+        Configure how automated and bot activity is detected and displayed.
+      </p>
+
+      {/* Title tags */}
+      <section className="mt-6">
+        <h3 className="text-text-primary text-sm font-medium">PR Title Tags</h3>
+        <p className="text-text-tertiary mt-0.5 text-xs">
+          PRs with these tags in their title will be flagged as bot/automated PRs.
+        </p>
+        <TagInput
+          tags={botTitleTags}
+          onChange={(tags) => savePref("botTitleTags", JSON.stringify(tags))}
+          placeholder="e.g. [bot], [auto], [dependabot]"
+        />
+      </section>
+
+      {/* Bot usernames */}
+      <section className="mt-8">
+        <h3 className="text-text-primary text-sm font-medium">Bot Usernames</h3>
+        <p className="text-text-tertiary mt-0.5 text-xs">
+          Comments from these users will be styled as bot comments.
+        </p>
+        <TagInput
+          tags={botUsernames}
+          onChange={(tags) => savePref("botUsernames", JSON.stringify(tags))}
+          placeholder="e.g. my-org-bot, deploy-bot"
+        />
+        <div className="mt-2 flex flex-wrap gap-1">
+          <span className="text-text-ghost text-[10px]">Built-in:</span>
+          {DEFAULT_BOT_USERNAMES.map((name) => (
+            <span
+              key={name}
+              className="bg-bg-raised text-text-tertiary rounded-sm px-1.5 py-0.5 font-mono text-[10px]"
+            >
+              {name}
+            </span>
+          ))}
+        </div>
+      </section>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tag input with chips
+// ---------------------------------------------------------------------------
+
+function TagInput({
+  tags,
+  onChange,
+  placeholder,
+}: {
+  tags: string[];
+  onChange: (tags: string[]) => void;
+  placeholder?: string;
+}) {
+  const [input, setInput] = useState("");
+
+  function addTag(value: string) {
+    const trimmed = value.trim();
+    if (trimmed && !tags.includes(trimmed)) {
+      onChange([...tags, trimmed]);
+    }
+    setInput("");
+  }
+
+  function removeTag(index: number) {
+    onChange(tags.filter((_, i) => i !== index));
+  }
+
+  return (
+    <div className="border-border bg-bg-root focus-within:border-border-strong mt-2 flex flex-wrap items-center gap-1.5 rounded-md border px-2 py-1.5">
+      {tags.map((tag, i) => (
+        <span
+          key={tag}
+          className="bg-accent-muted text-accent-text border-border-accent inline-flex items-center gap-1 rounded-sm border px-1.5 py-0.5 font-mono text-[11px]"
+        >
+          {tag}
+          <button
+            type="button"
+            onClick={() => removeTag(i)}
+            className="text-text-tertiary hover:text-text-primary cursor-pointer"
+          >
+            <X size={10} />
+          </button>
+        </span>
+      ))}
+      <input
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && input.trim()) {
+            e.preventDefault();
+            addTag(input);
+          }
+          if (e.key === "Backspace" && !input && tags.length > 0) {
+            removeTag(tags.length - 1);
+          }
+        }}
+        onBlur={() => {
+          if (input.trim()) addTag(input);
+        }}
+        placeholder={tags.length === 0 ? placeholder : ""}
+        className="text-text-primary placeholder:text-text-tertiary min-w-[80px] flex-1 bg-transparent text-xs focus:outline-none"
+      />
     </div>
   );
 }
