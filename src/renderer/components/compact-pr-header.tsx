@@ -22,6 +22,7 @@ interface CompactPrHeaderProps {
   totalAdditions: number;
   totalDeletions: number;
   showPanelToggle: boolean;
+  isRefreshing?: boolean;
   onRefresh: () => void;
 }
 
@@ -32,6 +33,7 @@ export function CompactPrHeader({
   totalAdditions,
   totalDeletions,
   showPanelToggle,
+  isRefreshing,
   onRefresh,
 }: CompactPrHeaderProps) {
   return (
@@ -84,10 +86,11 @@ export function CompactPrHeader({
       <button
         type="button"
         onClick={onRefresh}
-        className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[26px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors"
+        disabled={isRefreshing}
+        className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[26px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors disabled:cursor-default disabled:opacity-50"
         title="Refresh PR"
       >
-        <RefreshCw size={13} />
+        <RefreshCw size={13} className={isRefreshing ? "animate-spin" : ""} />
       </button>
 
       {/* Copy PR number */}

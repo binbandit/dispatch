@@ -430,6 +430,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         totalAdditions={totalAdditions}
         totalDeletions={totalDeletions}
         showPanelToggle={showPanelToggle}
+        isRefreshing={detailQuery.isFetching}
         onRefresh={() => {
           queryClient.invalidateQueries({ queryKey: ["pr"] });
           queryClient.invalidateQueries({ queryKey: ["checks"] });
