@@ -16,6 +16,7 @@ import {
 import { useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
+import { summarizePrChecks } from "../lib/pr-check-status";
 import { queryClient } from "../lib/query-client";
 
 /**
@@ -55,8 +56,12 @@ export function FloatingReviewBar({
   currentUserReview,
   panelOpen,
 }: FloatingReviewBarProps) {
-  const passCount = checkSummary.filter((c) => c.conclusion === "success").length;
-  const failCount = checkSummary.filter((c) => c.conclusion === "failure").length;
+  const passCount = checkSummary.filter(
+    (c) => c.conclusion?.toUpperCase() === "SUCCESS",
+  ).length;
+  const failCount = checkSummary.filter(
+    (c) => c.conclusion?.toUpperCase() === "FAILURE",
+  ).length;
   const allPassing = checkSummary.length > 0 && failCount === 0;
 
   return (
@@ -443,9 +448,9 @@ function MergeBarButton({
   isDraft: boolean;
 }) {
   const hasApproval = pr.reviewDecision === "APPROVED";
+  const checkSummary = summarizePrChecks(pr.statusCheckRollup);
   const allChecksPassing =
-    pr.statusCheckRollup.length > 0 &&
-    pr.statusCheckRollup.every((c) => c.conclusion === "success");
+    checkSummary.failed === 0 && checkSummary.pending === 0 && checkSummary.total > 0;
   const requirementsMet = hasApproval && allChecksPassing && pr.mergeable === "MERGEABLE";
   const canMerge = requirementsMet || canAdmin;
 

@@ -107,7 +107,9 @@ export function SidePanelOverlay({
               count={pr.statusCheckRollup.length}
               active={activeTab === "checks"}
               onClick={() => setActiveTab("checks")}
-              danger={pr.statusCheckRollup.some((c) => c.conclusion === "failure")}
+              danger={pr.statusCheckRollup.some(
+                (c) => c.conclusion?.toUpperCase() === "FAILURE",
+              )}
             />
           </div>
           <button
@@ -167,6 +169,20 @@ function PanelOverviewContent({
 
   return (
     <>
+      {/* Timestamps */}
+      <div
+        className="flex items-center gap-1.5 font-mono"
+        style={{
+          fontSize: "11px",
+          color: "var(--text-tertiary)",
+          marginBottom: "10px",
+        }}
+      >
+        <span>Opened {relativeTime(new Date(pr.createdAt))}</span>
+        <span style={{ color: "var(--text-ghost)" }}>·</span>
+        <span>Updated {relativeTime(new Date(pr.updatedAt))}</span>
+      </div>
+
       {/* Description card */}
       <div
         style={{

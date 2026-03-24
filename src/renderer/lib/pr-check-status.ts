@@ -1,6 +1,7 @@
-import type { GhPrListItem } from "@/shared/ipc";
-
-type PrStatusCheck = GhPrListItem["statusCheckRollup"][number];
+type PrStatusCheck = {
+  status?: string | null;
+  conclusion: string | null;
+};
 
 export type PrCheckSummaryState = "failing" | "pending" | "passing" | "neutral" | "none";
 

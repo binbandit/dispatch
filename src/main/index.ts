@@ -286,10 +286,12 @@ function updateTrayMenu(win: BrowserWindow, state: TrayState): void {
   if (authorPrs.length > 0) {
     menuItems.push({ label: "YOUR PRS", enabled: false });
     for (const pr of authorPrs.slice(0, 5)) {
-      const isFailing = pr.statusCheckRollup.some((c) => c.conclusion === "failure");
+      const isFailing = pr.statusCheckRollup.some(
+        (c) => c.conclusion?.toUpperCase() === "FAILURE",
+      );
       const isApproved = pr.reviewDecision === "APPROVED";
       const allPassing = pr.statusCheckRollup.every(
-        (c) => c.conclusion === "success" || c.conclusion === null,
+        (c) => c.conclusion?.toUpperCase() === "SUCCESS" || c.conclusion === null,
       );
 
       let status = "◌";

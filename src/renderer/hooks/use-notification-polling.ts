@@ -135,8 +135,12 @@ export function useNotificationPolling(): void {
         continue;
       }
 
-      const prevFailing = prev.statusCheckRollup.some((c) => c.conclusion === "failure");
-      const nowFailing = e.statusCheckRollup.some((c) => c.conclusion === "failure");
+      const prevFailing = prev.statusCheckRollup.some(
+        (c) => c.conclusion?.toUpperCase() === "FAILURE",
+      );
+      const nowFailing = e.statusCheckRollup.some(
+        (c) => c.conclusion?.toUpperCase() === "FAILURE",
+      );
       if (nowFailing && !prevFailing) {
         const pr = authorPrMap.get(e.number);
         void ipc("notifications.show", {

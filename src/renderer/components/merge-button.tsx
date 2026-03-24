@@ -123,9 +123,9 @@ export function MergeButton({
   });
 
   const hasApproval = pr.reviewDecision === "APPROVED";
+  const checkSummary = summarizePrChecks(pr.statusCheckRollup);
   const allChecksPassing =
-    pr.statusCheckRollup.length > 0 &&
-    pr.statusCheckRollup.every((c) => c.conclusion === "success");
+    checkSummary.failed === 0 && checkSummary.pending === 0 && checkSummary.total > 0;
   const requirementsMet = hasApproval && allChecksPassing && pr.mergeable === "MERGEABLE";
   const canMerge = requirementsMet || canAdmin;
   const isBehind = pr.mergeStateStatus === "BEHIND";

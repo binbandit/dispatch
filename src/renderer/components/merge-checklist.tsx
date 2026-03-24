@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { GitMerge, RefreshCw } from "lucide-react";
 
 import { ipc } from "../lib/ipc";
+import { summarizePrChecks } from "../lib/pr-check-status";
 import { queryClient } from "../lib/query-client";
 
 /**
@@ -32,9 +33,9 @@ export function MergeChecklist({
   prNumber: number;
 }) {
   const hasApproval = pr.reviewDecision === "APPROVED";
+  const checkSummary = summarizePrChecks(pr.statusCheckRollup);
   const allChecksPassing =
-    pr.statusCheckRollup.length > 0 &&
-    pr.statusCheckRollup.every((c) => c.conclusion === "success");
+    checkSummary.failed === 0 && checkSummary.pending === 0 && checkSummary.total > 0;
   const noConflicts = pr.mergeable === "MERGEABLE";
   const isBehind = pr.mergeStateStatus === "BEHIND";
 
