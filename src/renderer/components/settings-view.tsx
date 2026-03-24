@@ -145,7 +145,7 @@ const CodeThemePreview = memo(function CodeThemePreview({ themeId }: { themeId: 
 
   return (
     <div
-      className="[&_pre]:!rounded-md [&_pre]:!border [&_pre]:!border-[--border] [&_pre]:!p-3 [&_pre]:!text-[12.5px] [&_pre]:!leading-[20px] [&_code]:!font-[--font-mono]"
+      className="[&_pre]:!rounded-md [&_pre]:!border [&_pre]:!border-[--border] [&_pre]:!p-3 [&_pre]:!text-[12.5px] [&_pre]:!leading-[20px] [&_code]:!font-mono"
       // biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki output is safe
       dangerouslySetInnerHTML={{ __html: html }}
     />
