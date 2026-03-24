@@ -396,7 +396,8 @@ function MergeBarButton({
           background: isDraft || !canMerge ? "var(--bg-raised)" : "var(--accent)",
           color: isDraft || !canMerge ? "var(--text-tertiary)" : "var(--bg-root)",
           borderColor: isDraft || !canMerge ? "var(--border)" : "var(--accent)",
-          borderLeft: isDraft || !canMerge ? "1px solid var(--border)" : "1px solid rgba(0,0,0,0.2)",
+          borderLeft:
+            isDraft || !canMerge ? "1px solid var(--border)" : "1px solid rgba(0,0,0,0.2)",
           borderTopLeftRadius: 0,
           borderBottomLeftRadius: 0,
           padding: "5px 4px",
