@@ -51,11 +51,15 @@ export function QueueZone({ queuePrs, activePrNumber, onBack, onSelectPr }: Queu
           {queuePrs.map((pr) => {
             const isActive = pr.number === activePrNumber;
             const dotColor =
-              pr.reviewDecision === "APPROVED"
-                ? "bg-success"
-                : pr.isDraft
-                  ? "bg-warning"
-                  : "bg-purple";
+              pr.state === "CLOSED"
+                ? "bg-destructive"
+                : pr.state === "MERGED"
+                  ? "bg-purple"
+                  : pr.isDraft
+                    ? "bg-text-ghost"
+                    : pr.reviewDecision === "APPROVED"
+                      ? "bg-success"
+                      : "bg-text-tertiary";
 
             return (
               <button
