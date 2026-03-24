@@ -209,6 +209,7 @@ const PR_LIST_ENRICHMENT_FIELDS = [
   "additions",
   "deletions",
   "mergeable",
+  "autoMergeRequest",
 ].join(",");
 
 /** All fields combined — used by the tray poller which needs everything. */
@@ -218,6 +219,7 @@ const PR_LIST_ALL_FIELDS = [
   "additions",
   "deletions",
   "mergeable",
+  "autoMergeRequest",
 ].join(",");
 
 const PR_LIST_LIMIT = "50";
@@ -464,17 +466,27 @@ export function listPrs(
       // Also populate the core and enrichment caches from the full result.
       setCache(prListCache, key, {
         data: data.map(
-          ({ statusCheckRollup: _, additions: _a, deletions: _d, mergeable: _m, ...core }) => core,
+          ({
+            statusCheckRollup: _,
+            additions: _a,
+            deletions: _d,
+            mergeable: _m,
+            autoMergeRequest: _am,
+            ...core
+          }) => core,
         ),
       });
       setCache(prEnrichmentCache, key, {
-        data: data.map(({ number, statusCheckRollup, additions, deletions, mergeable }) => ({
-          number,
-          statusCheckRollup,
-          additions,
-          deletions,
-          mergeable,
-        })),
+        data: data.map(
+          ({ number, statusCheckRollup, additions, deletions, mergeable, autoMergeRequest }) => ({
+            number,
+            statusCheckRollup,
+            additions,
+            deletions,
+            mergeable,
+            autoMergeRequest,
+          }),
+        ),
       });
 
       return data;
@@ -492,6 +504,8 @@ const PR_DETAIL_FIELDS = [
   "headRefOid",
   "reviewDecision",
   "mergeable",
+  "mergeStateStatus",
+  "autoMergeRequest",
   "statusCheckRollup",
   "reviews",
   "files",
@@ -686,6 +700,15 @@ export async function mergePr(
   invalidatePrListCaches(cwd);
   const queued = /merge queue|enqueue/i.test(stdout);
   return { queued };
+}
+
+export async function updatePrBranch(cwd: string, prNumber: number): Promise<void> {
+  await execFile(
+    "gh",
+    ["api", `repos/{owner}/{repo}/pulls/${prNumber}/update-branch`, "-X", "PUT"],
+    { cwd, timeout: 30_000 },
+  );
+  invalidatePrListCaches(cwd);
 }
 
 export async function closePr(cwd: string, prNumber: number): Promise<void> {

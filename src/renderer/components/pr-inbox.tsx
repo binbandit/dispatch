@@ -678,6 +678,15 @@ function PrItem({
                 </span>
               </>
             )}
+            {enrichment?.autoMergeRequest && (
+              <>
+                <span className="text-text-ghost">·</span>
+                <span className="text-info flex items-center gap-0.5">
+                  <GitMerge size={10} />
+                  Auto
+                </span>
+              </>
+            )}
           </div>
         </div>
       </ContextMenu.Trigger>

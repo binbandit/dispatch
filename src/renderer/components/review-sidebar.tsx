@@ -27,11 +27,7 @@ interface ReviewSidebarProps {
   onSelectPr: (prNumber: number) => void;
 }
 
-export function ReviewSidebar({
-  prNumber,
-  onBack,
-  onSelectPr,
-}: ReviewSidebarProps) {
+export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarProps) {
   const { cwd } = useWorkspace();
   const { currentFileIndex, setCurrentFileIndex } = useFileNav();
   const repoName = cwd.split("/").pop() ?? "";
@@ -60,10 +56,7 @@ export function ReviewSidebar({
     queryKey: ["review", "viewedFiles", repoName, prNumber],
     queryFn: () => ipc("review.viewedFiles", { repo: repoName, prNumber }),
   });
-  const viewedFiles = useMemo(
-    () => new Set(viewedQuery.data),
-    [viewedQuery.data],
-  );
+  const viewedFiles = useMemo(() => new Set(viewedQuery.data), [viewedQuery.data]);
 
   // Comments for file badges
   const commentsQuery = useQuery({
@@ -186,10 +179,7 @@ export function ReviewSidebar({
           <div
             className="h-full rounded-full"
             style={{
-              width:
-                files.length > 0
-                  ? `${(viewedCount / files.length) * 100}%`
-                  : "0%",
+              width: files.length > 0 ? `${(viewedCount / files.length) * 100}%` : "0%",
               background:
                 viewMode === "triage" && attentionCount > 0
                   ? "var(--accent-text)"
@@ -215,7 +205,10 @@ export function ReviewSidebar({
       {/* File search */}
       <div className="px-3 pt-2 pb-1.5">
         <div className="border-border bg-bg-raised flex items-center gap-1.5 rounded-md border px-2 py-1">
-          <Search size={11} className="text-text-tertiary shrink-0" />
+          <Search
+            size={11}
+            className="text-text-tertiary shrink-0"
+          />
           <input
             ref={searchRef}
             type="text"
@@ -265,31 +258,38 @@ export function ReviewSidebar({
       )}
 
       {/* Merge readiness card */}
-      {pr && (() => {
-        const checkSummary = summarizePrChecks(pr.statusCheckRollup);
+      {pr &&
+        (() => {
+          const checkSummary = summarizePrChecks(pr.statusCheckRollup);
 
-        // reviewDecision is empty when branch protection doesn't require reviews.
-        // Fall back to checking the reviews array for an actual approval.
-        let hasApproval = pr.reviewDecision === "APPROVED";
-        if (!hasApproval) {
-          const latestByAuthor = new Map<string, string>();
-          for (const r of pr.reviews) {
-            if (r.state === "APPROVED" || r.state === "CHANGES_REQUESTED") {
-              latestByAuthor.set(r.author.login, r.state);
+          // reviewDecision is empty when branch protection doesn't require reviews.
+          // Fall back to checking the reviews array for an actual approval.
+          let hasApproval = pr.reviewDecision === "APPROVED";
+          if (!hasApproval) {
+            const latestByAuthor = new Map<string, string>();
+            for (const r of pr.reviews) {
+              if (r.state === "APPROVED" || r.state === "CHANGES_REQUESTED") {
+                latestByAuthor.set(r.author.login, r.state);
+              }
             }
+            hasApproval = [...latestByAuthor.values()].some((s) => s === "APPROVED");
           }
-          hasApproval = [...latestByAuthor.values()].some((s) => s === "APPROVED");
-        }
 
-        return (
-          <MergeReadinessCard
-            hasApproval={hasApproval}
-            allChecksPassing={checkSummary.failed === 0 && checkSummary.pending === 0 && checkSummary.total > 0}
-            noConflicts={pr.mergeable === "MERGEABLE"}
-            hasChecks={checkSummary.total > 0}
-          />
-        );
-      })()}
+          return (
+            <MergeReadinessCard
+              hasApproval={hasApproval}
+              allChecksPassing={
+                checkSummary.failed === 0 && checkSummary.pending === 0 && checkSummary.total > 0
+              }
+              noConflicts={pr.mergeable === "MERGEABLE"}
+              hasChecks={checkSummary.total > 0}
+              isBehind={pr.mergeStateStatus === "BEHIND"}
+              autoMergeRequest={pr.autoMergeRequest}
+              cwd={cwd}
+              prNumber={prNumber}
+            />
+          );
+        })()}
     </div>
   );
 }

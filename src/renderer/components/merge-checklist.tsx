@@ -1,23 +1,57 @@
+import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
+import { useMutation } from "@tanstack/react-query";
+import { GitMerge, RefreshCw } from "lucide-react";
+
+import { ipc } from "../lib/ipc";
+import { queryClient } from "../lib/query-client";
+
 /**
  * Merge checklist — DISPATCH-DESIGN-SYSTEM.md § 8.8
  *
- * Shows review approval, CI checks, and merge conflict status.
+ * Shows review approval, CI checks, merge conflict status,
+ * branch behind status with update button, and auto-merge indicator.
  */
 
 export function MergeChecklist({
   pr,
+  cwd,
+  prNumber,
 }: {
   pr: {
     reviewDecision: string;
     mergeable: string;
+    mergeStateStatus: string;
     statusCheckRollup: Array<{ conclusion: string | null }>;
+    autoMergeRequest: {
+      enabledBy: { login: string };
+      mergeMethod: string;
+    } | null;
   };
+  cwd: string;
+  prNumber: number;
 }) {
   const hasApproval = pr.reviewDecision === "APPROVED";
   const allChecksPassing =
     pr.statusCheckRollup.length > 0 &&
     pr.statusCheckRollup.every((c) => c.conclusion === "success");
   const noConflicts = pr.mergeable === "MERGEABLE";
+  const isBehind = pr.mergeStateStatus === "BEHIND";
+
+  const updateBranchMutation = useMutation({
+    mutationFn: () => ipc("pr.updateBranch", { cwd, prNumber }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr"] });
+      toastManager.add({ title: "Branch updated", type: "success" });
+    },
+    onError: (err) => {
+      toastManager.add({
+        title: "Update failed",
+        description: String(err.message),
+        type: "error",
+      });
+    },
+  });
 
   return (
     <div className="border-border bg-bg-raised border-t p-3">
@@ -34,7 +68,46 @@ export function MergeChecklist({
           label={pr.mergeable === "CONFLICTING" ? "Merge conflicts" : "No merge conflicts"}
           passed={noConflicts}
         />
+        {isBehind && (
+          <div className="flex items-center gap-1.5">
+            <span className="text-warning flex h-[13px] w-[13px] items-center justify-center text-[10px]">
+              ●
+            </span>
+            <span className="text-warning text-[11px]">Branch is behind</span>
+            <button
+              type="button"
+              onClick={() => updateBranchMutation.mutate()}
+              disabled={updateBranchMutation.isPending}
+              className="text-accent-text hover:text-accent-hover ml-auto flex cursor-pointer items-center gap-1 text-[10px] font-medium transition-colors disabled:opacity-50"
+            >
+              {updateBranchMutation.isPending ? (
+                <Spinner className="h-2.5 w-2.5" />
+              ) : (
+                <RefreshCw size={10} />
+              )}
+              Update
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Auto-merge indicator */}
+      {pr.autoMergeRequest && (
+        <div className="border-border-subtle mt-2 flex items-center gap-1.5 border-t pt-2">
+          <GitMerge
+            size={11}
+            className="text-info shrink-0"
+          />
+          <span className="text-info text-[10px]">
+            Auto-merge enabled
+            <span className="text-text-tertiary">
+              {" "}
+              · {pr.autoMergeRequest.mergeMethod.toLowerCase()} by{" "}
+              {pr.autoMergeRequest.enabledBy.login}
+            </span>
+          </span>
+        </div>
+      )}
     </div>
   );
 }

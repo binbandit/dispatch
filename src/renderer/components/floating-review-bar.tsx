@@ -3,7 +3,7 @@ import type { GhPrDetail } from "@/shared/ipc";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { useMutation } from "@tanstack/react-query";
-import { Check, ChevronDown, Eye, GitMerge, MessageSquare, XCircle } from "lucide-react";
+import { Check, ChevronDown, Eye, GitMerge, MessageSquare, RefreshCw, XCircle } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
@@ -137,20 +137,34 @@ export function FloatingReviewBar({
         </div>
       </div>
 
-      {/* Pending pill */}
-      <span
-        style={{
-          fontSize: "10px",
-          fontWeight: 500,
-          padding: "1px 7px",
-          borderRadius: "var(--radius-full)",
-          background: "var(--accent-muted)",
-          color: "var(--accent-text)",
-          fontFamily: "var(--font-mono)",
-        }}
-      >
-        3 pending
-      </span>
+      {/* Auto-merge pill */}
+      {pr.autoMergeRequest && (
+        <span
+          style={{
+            fontSize: "10px",
+            fontWeight: 500,
+            padding: "1px 7px",
+            borderRadius: "var(--radius-full)",
+            background: "var(--info-muted)",
+            color: "var(--info)",
+            fontFamily: "var(--font-mono)",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "3px",
+          }}
+        >
+          <GitMerge size={9} />
+          auto
+        </span>
+      )}
+
+      {/* Update branch button when behind */}
+      {pr.mergeStateStatus === "BEHIND" && (
+        <UpdateBranchPill
+          cwd={cwd}
+          prNumber={prNumber}
+        />
+      )}
 
       {/* Separator */}
       <div
@@ -576,5 +590,43 @@ function MergeBarButton({
         </div>
       )}
     </div>
+  );
+}
+
+function UpdateBranchPill({ cwd, prNumber }: { cwd: string; prNumber: number }) {
+  const updateMutation = useMutation({
+    mutationFn: () => ipc("pr.updateBranch", { cwd, prNumber }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr"] });
+      toastManager.add({ title: "Branch updated", type: "success" });
+    },
+    onError: (err) => {
+      toastManager.add({
+        title: "Update failed",
+        description: String(err.message),
+        type: "error",
+      });
+    },
+  });
+
+  return (
+    <button
+      type="button"
+      onClick={() => updateMutation.mutate()}
+      disabled={updateMutation.isPending}
+      style={{
+        ...btnBase,
+        background: "transparent",
+        color: "var(--warning)",
+        borderColor: "var(--border)",
+        fontSize: "10px",
+        padding: "2px 7px",
+        gap: "3px",
+        opacity: updateMutation.isPending ? 0.5 : 1,
+      }}
+    >
+      {updateMutation.isPending ? <Spinner className="h-2.5 w-2.5" /> : <RefreshCw size={9} />}
+      Update branch
+    </button>
   );
 }

@@ -168,6 +168,9 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   "pr.merge": async (args) => {
     return ghCli.mergePr(args.cwd, args.prNumber, args.strategy, args.admin);
   },
+  "pr.updateBranch": async (args) => {
+    await ghCli.updatePrBranch(args.cwd, args.prNumber);
+  },
   "pr.close": async (args) => {
     await ghCli.closePr(args.cwd, args.prNumber);
   },

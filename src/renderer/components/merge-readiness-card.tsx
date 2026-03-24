@@ -1,7 +1,16 @@
+import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
+import { useMutation } from "@tanstack/react-query";
+import { GitMerge, RefreshCw } from "lucide-react";
+
+import { ipc } from "../lib/ipc";
+import { queryClient } from "../lib/query-client";
+
 /**
  * Merge readiness card — PR-REVIEW-REDESIGN.md § Merge readiness card
  *
- * Bottom of review sidebar. Shows title, dot progress + checklist items.
+ * Bottom of review sidebar. Shows title, dot progress + checklist items,
+ * branch behind status with update button, and auto-merge indicator.
  */
 
 interface MergeReadinessCardProps {
@@ -9,6 +18,13 @@ interface MergeReadinessCardProps {
   allChecksPassing: boolean;
   noConflicts: boolean;
   hasChecks: boolean;
+  isBehind: boolean;
+  autoMergeRequest: {
+    enabledBy: { login: string };
+    mergeMethod: string;
+  } | null;
+  cwd: string;
+  prNumber: number;
 }
 
 export function MergeReadinessCard({
@@ -16,12 +32,32 @@ export function MergeReadinessCard({
   allChecksPassing,
   noConflicts,
   hasChecks,
+  isBehind,
+  autoMergeRequest,
+  cwd,
+  prNumber,
 }: MergeReadinessCardProps) {
   const items = [
     { label: hasChecks ? "CI passed" : "No CI checks", met: allChecksPassing || !hasChecks },
     { label: hasApproval ? "1 approval" : "Approval needed", met: hasApproval },
     { label: noConflicts ? "No conflicts" : "Conflicts", met: noConflicts },
+    ...(isBehind ? [{ label: "Branch behind", met: false }] : []),
   ];
+
+  const updateBranchMutation = useMutation({
+    mutationFn: () => ipc("pr.updateBranch", { cwd, prNumber }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr"] });
+      toastManager.add({ title: "Branch updated", type: "success" });
+    },
+    onError: (err) => {
+      toastManager.add({
+        title: "Update failed",
+        description: String(err.message),
+        type: "error",
+      });
+    },
+  });
 
   return (
     <div
@@ -72,9 +108,46 @@ export function MergeReadinessCard({
             >
               {item.label}
             </span>
+            {/* Update button inline with "Branch behind" */}
+            {item.label === "Branch behind" && (
+              <button
+                type="button"
+                onClick={() => updateBranchMutation.mutate()}
+                disabled={updateBranchMutation.isPending}
+                className="text-accent-text hover:text-accent-hover ml-auto flex cursor-pointer items-center gap-0.5 text-[10px] font-medium transition-colors disabled:opacity-50"
+              >
+                {updateBranchMutation.isPending ? (
+                  <Spinner className="h-2.5 w-2.5" />
+                ) : (
+                  <RefreshCw size={9} />
+                )}
+                Update
+              </button>
+            )}
           </div>
         ))}
       </div>
+
+      {/* Auto-merge indicator */}
+      {autoMergeRequest && (
+        <div
+          className="flex items-center gap-1"
+          style={{
+            marginTop: "5px",
+            paddingTop: "5px",
+            borderTop: "1px solid var(--border-subtle)",
+          }}
+        >
+          <GitMerge
+            size={10}
+            className="text-info shrink-0"
+          />
+          <span className="text-info text-[10px]">Auto-merge</span>
+          <span className="text-text-tertiary text-[10px]">
+            · {autoMergeRequest.mergeMethod.toLowerCase()}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

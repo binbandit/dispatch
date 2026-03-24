@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ChevronDown, GitMerge, XCircle } from "lucide-react";
+import { ChevronDown, GitMerge, RefreshCw, XCircle } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
@@ -32,7 +32,12 @@ export function MergeButton({
   pr: {
     reviewDecision: string;
     mergeable: string;
+    mergeStateStatus: string;
     statusCheckRollup: Array<{ conclusion: string | null }>;
+    autoMergeRequest: {
+      enabledBy: { login: string };
+      mergeMethod: string;
+    } | null;
   };
   canAdmin: boolean;
 }) {
@@ -98,12 +103,28 @@ export function MergeButton({
     },
   });
 
+  const updateBranchMutation = useMutation({
+    mutationFn: () => ipc("pr.updateBranch", { cwd, prNumber }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr"] });
+      toastManager.add({ title: "Branch updated", type: "success" });
+    },
+    onError: (err) => {
+      toastManager.add({
+        title: "Update failed",
+        description: String(err.message),
+        type: "error",
+      });
+    },
+  });
+
   const hasApproval = pr.reviewDecision === "APPROVED";
   const allChecksPassing =
     pr.statusCheckRollup.length > 0 &&
     pr.statusCheckRollup.every((c) => c.conclusion === "success");
   const requirementsMet = hasApproval && allChecksPassing && pr.mergeable === "MERGEABLE";
   const canMerge = requirementsMet || canAdmin;
+  const isBehind = pr.mergeStateStatus === "BEHIND";
 
   useEffect(() => {
     if (!menuOpen) {
@@ -241,6 +262,35 @@ export function MergeButton({
             <XCircle size={12} />
             Close pull request
           </button>
+        </div>
+      )}
+
+      {/* Update branch button */}
+      {isBehind && (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="text-warning hover:text-warning gap-1 text-[10px]"
+          onClick={() => updateBranchMutation.mutate()}
+          disabled={updateBranchMutation.isPending}
+        >
+          {updateBranchMutation.isPending ? (
+            <Spinner className="h-2.5 w-2.5" />
+          ) : (
+            <RefreshCw size={10} />
+          )}
+          Update branch
+        </Button>
+      )}
+
+      {/* Auto-merge indicator */}
+      {pr.autoMergeRequest && (
+        <div className="border-info/30 bg-info/5 flex items-center gap-1 rounded-md border px-2 py-1">
+          <GitMerge
+            size={11}
+            className="text-info"
+          />
+          <span className="text-info text-[10px] font-medium">Auto-merge</span>
         </div>
       )}
     </div>

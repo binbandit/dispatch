@@ -50,10 +50,17 @@ export interface GhPrListItem {
   additions: number;
   deletions: number;
   mergeable: string;
+  autoMergeRequest: {
+    enabledBy: { login: string };
+    mergeMethod: string;
+  } | null;
 }
 
 /** Lightweight version returned by the core list query (no heavy fields). */
-export type GhPrListItemCore = Omit<GhPrListItem, "statusCheckRollup" | "additions" | "deletions" | "mergeable">;
+export type GhPrListItemCore = Omit<
+  GhPrListItem,
+  "statusCheckRollup" | "additions" | "deletions" | "mergeable" | "autoMergeRequest"
+>;
 
 /** Enrichment payload keyed by PR number. */
 export interface GhPrEnrichment {
@@ -62,6 +69,10 @@ export interface GhPrEnrichment {
   additions: number;
   deletions: number;
   mergeable: string;
+  autoMergeRequest: {
+    enabledBy: { login: string };
+    mergeMethod: string;
+  } | null;
 }
 
 export interface GhPrDetail {
@@ -91,6 +102,11 @@ export interface GhPrDetail {
     deletions: number;
   }>;
   labels: Array<{ name: string; color: string }>;
+  autoMergeRequest: {
+    enabledBy: { login: string };
+    mergeMethod: string;
+  } | null;
+  mergeStateStatus: string;
   updatedAt: string;
   url: string;
   isDraft: boolean;
@@ -308,6 +324,10 @@ export interface IpcApi {
       admin?: boolean;
     };
     result: { queued: boolean };
+  };
+  "pr.updateBranch": {
+    args: { cwd: string; prNumber: number };
+    result: void;
   };
   "pr.close": {
     args: { cwd: string; prNumber: number };

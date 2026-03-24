@@ -97,6 +97,7 @@ describe("searchPrs", () => {
         additions: 120,
         deletions: 30,
         mergeable: "MERGEABLE",
+        autoMergeRequest: null,
       },
       hasNewActivity: true,
       pr: {
@@ -119,6 +120,7 @@ describe("searchPrs", () => {
         additions: 18,
         deletions: 9,
         mergeable: "MERGEABLE",
+        autoMergeRequest: null,
       },
       pr: {
         number: 9,
@@ -141,6 +143,7 @@ describe("searchPrs", () => {
         additions: 410,
         deletions: 150,
         mergeable: "MERGEABLE",
+        autoMergeRequest: null,
       },
       pr: {
         number: 120,
@@ -162,6 +165,7 @@ describe("searchPrs", () => {
         additions: 22,
         deletions: 6,
         mergeable: "MERGEABLE",
+        autoMergeRequest: null,
       },
       pr: {
         number: 240,
