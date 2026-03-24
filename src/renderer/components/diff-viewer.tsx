@@ -268,19 +268,15 @@ export function DiffViewer({
     return count;
   }, [searchQuery, rows]);
 
-  // Clamp match index
-  useEffect(() => {
-    if (totalSearchMatches > 0 && searchMatchIndex >= totalSearchMatches) {
-      setSearchMatchIndex(0);
-    }
-  }, [totalSearchMatches, searchMatchIndex]);
+  // Clamp match index inline (derived state, no effect needed)
+  const clampedMatchIndex = totalSearchMatches > 0 ? searchMatchIndex % totalSearchMatches : 0;
 
   // Scroll active match into view
   useEffect(() => {
     if (activeSearchRef.current) {
       activeSearchRef.current.scrollIntoView({ block: "center", behavior: "smooth" });
     }
-  }, [searchMatchIndex, searchQuery]);
+  }, [clampedMatchIndex, searchQuery]);
 
   // Cmd+F to open search
   useEffect(() => {
@@ -372,7 +368,7 @@ export function DiffViewer({
           {searchQuery && totalSearchMatches > 0 && (
             <>
               <span className="text-text-tertiary font-mono text-[10px]">
-                {searchMatchIndex + 1}/{totalSearchMatches}
+                {clampedMatchIndex + 1}/{totalSearchMatches}
               </span>
               <button
                 type="button"
@@ -469,7 +465,7 @@ export function DiffViewer({
           activeComposer={activeComposer ?? null}
           isDragging={isDragging}
           searchQuery={searchQuery}
-          searchMatchIndex={searchMatchIndex}
+          searchMatchIndex={clampedMatchIndex}
           activeSearchRef={activeSearchRef}
           onLineEnter={onLineEnter}
           onLineLeave={onLineLeave}

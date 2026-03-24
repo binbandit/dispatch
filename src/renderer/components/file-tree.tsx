@@ -1,3 +1,4 @@
+import { toastManager } from "@/components/ui/toast";
 import {
   Check,
   CheckCheck,
@@ -14,8 +15,6 @@ import {
   Square,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-
-import { toastManager } from "@/components/ui/toast";
 
 import { getDiffFilePath, type DiffFile } from "../lib/diff-parser";
 import { openExternal } from "../lib/open-external";
@@ -239,13 +238,11 @@ export function FileTree({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const initializedRef = useRef(false);
 
-  // Expand all directories on first render
-  useEffect(() => {
-    if (!initializedRef.current && tree.length > 0) {
-      initializedRef.current = true;
-      setExpandedPaths(new Set(getAllDirPaths(tree)));
-    }
-  }, [tree]);
+  // Expand all directories on first render (render-time state adjustment)
+  if (!initializedRef.current && tree.length > 0) {
+    initializedRef.current = true;
+    setExpandedPaths(new Set(getAllDirPaths(tree)));
+  }
 
   const viewedCount = files.filter((f) => viewedFiles.has(getDiffFilePath(f))).length;
 
@@ -280,13 +277,10 @@ export function FileTree({
     onSelectFile(index);
   }
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent, node: TreeNode) => {
-      e.preventDefault();
-      setContextMenu({ x: e.clientX, y: e.clientY, node });
-    },
-    [],
-  );
+  const handleContextMenu = useCallback((e: React.MouseEvent, node: TreeNode) => {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY, node });
+  }, []);
 
   const repoSlug = cwd.split("/").slice(-2).join("/");
 

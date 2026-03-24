@@ -311,12 +311,14 @@ function JobRow({
   const [expanded, setExpanded] = useState(false);
   const statusIcon = resolveStatusIcon(job.conclusion);
 
-  // Auto-expand failed jobs
-  useEffect(() => {
+  // Auto-expand failed jobs (render-time state adjustment)
+  const [prevConclusion, setPrevConclusion] = useState(job.conclusion);
+  if (job.conclusion !== prevConclusion) {
+    setPrevConclusion(job.conclusion);
     if (job.conclusion === "failure") {
       setExpanded(true);
     }
-  }, [job.conclusion]);
+  }
 
   return (
     <div className="border-border-subtle border-b">

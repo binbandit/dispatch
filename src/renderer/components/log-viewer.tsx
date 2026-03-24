@@ -107,9 +107,12 @@ function LogContent({
     return count;
   }, [allLines, searchQuery]);
 
-  useEffect(() => {
+  // Notify parent of match count changes during render
+  const prevMatchCountRef = useRef<number | undefined>(undefined);
+  if (prevMatchCountRef.current !== matchCount) {
+    prevMatchCountRef.current = matchCount;
     onMatchCountChange?.(matchCount);
-  }, [matchCount, onMatchCountChange]);
+  }
 
   // Scroll active match into view
   useEffect(() => {

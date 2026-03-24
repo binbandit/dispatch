@@ -94,9 +94,14 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   });
   const hasMarkedPrActivityRef = useRef(false);
 
-  useEffect(() => {
+  // Reset flag when PR changes (render-time ref adjustment)
+  const prevCwdRef = useRef(cwd);
+  const prevPrNumberRef = useRef(prNumber);
+  if (prevCwdRef.current !== cwd || prevPrNumberRef.current !== prNumber) {
+    prevCwdRef.current = cwd;
+    prevPrNumberRef.current = prNumber;
     hasMarkedPrActivityRef.current = false;
-  }, [cwd, prNumber]);
+  }
 
   useEffect(() => {
     if (
