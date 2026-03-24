@@ -469,13 +469,16 @@ function IconButton({
       type="button"
       onClick={onClick}
       title={title}
-      className={`flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded-sm transition-colors ${
+      className={`relative flex h-[30px] w-[30px] cursor-pointer items-center justify-center rounded-sm transition-colors ${
         active
           ? "bg-bg-raised text-text-primary"
           : "text-text-secondary hover:bg-bg-raised hover:text-text-primary"
       }`}
     >
       {icon}
+      {active && (
+        <div className="bg-primary absolute bottom-[-7px] left-1/2 h-[1.5px] w-4 -translate-x-1/2 rounded-[1px]" />
+      )}
     </button>
   );
 }
