@@ -283,7 +283,6 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
               noConflicts={pr.mergeable === "MERGEABLE"}
               hasChecks={checkSummary.total > 0}
               isBehind={pr.mergeStateStatus === "BEHIND"}
-              autoMergeRequest={pr.autoMergeRequest}
               cwd={cwd}
               prNumber={prNumber}
             />

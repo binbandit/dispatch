@@ -1,7 +1,7 @@
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { useMutation } from "@tanstack/react-query";
-import { GitMerge, RefreshCw } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 
 import { ipc } from "../lib/ipc";
 import { queryClient } from "../lib/query-client";
@@ -10,7 +10,7 @@ import { queryClient } from "../lib/query-client";
  * Merge readiness card — PR-REVIEW-REDESIGN.md § Merge readiness card
  *
  * Bottom of review sidebar. Shows title, dot progress + checklist items,
- * branch behind status with update button, and auto-merge indicator.
+ * and branch behind status with update button.
  */
 
 interface MergeReadinessCardProps {
@@ -19,10 +19,6 @@ interface MergeReadinessCardProps {
   noConflicts: boolean;
   hasChecks: boolean;
   isBehind: boolean;
-  autoMergeRequest: {
-    enabledBy: { login: string };
-    mergeMethod: string;
-  } | null;
   cwd: string;
   prNumber: number;
 }
@@ -33,7 +29,6 @@ export function MergeReadinessCard({
   noConflicts,
   hasChecks,
   isBehind,
-  autoMergeRequest,
   cwd,
   prNumber,
 }: MergeReadinessCardProps) {
@@ -128,26 +123,6 @@ export function MergeReadinessCard({
         ))}
       </div>
 
-      {/* Auto-merge indicator */}
-      {autoMergeRequest && (
-        <div
-          className="flex items-center gap-1"
-          style={{
-            marginTop: "5px",
-            paddingTop: "5px",
-            borderTop: "1px solid var(--border-subtle)",
-          }}
-        >
-          <GitMerge
-            size={10}
-            className="text-info shrink-0"
-          />
-          <span className="text-info text-[10px]">Auto-merge</span>
-          <span className="text-text-tertiary text-[10px]">
-            · {autoMergeRequest.mergeMethod.toLowerCase()}
-          </span>
-        </div>
-      )}
     </div>
   );
 }
