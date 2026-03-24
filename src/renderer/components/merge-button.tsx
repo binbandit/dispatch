@@ -200,21 +200,16 @@ export function MergeButton({
         <div className="flex">
           <Button
             size="sm"
-            variant={!canMerge ? "outline" : "default"}
+            variant={!requirementsMet ? "outline" : "default"}
             className={`gap-1.5 ${canAdmin ? "rounded-r-none" : ""} ${
-              !canMerge
-                ? "disabled:opacity-100"
-                : requirementsMet
-                  ? "hover:bg-accent-hover"
-                  : "border-warning/80 bg-warning/80 text-bg-root hover:bg-warning/90"
+              !requirementsMet ? "disabled:opacity-100" : "hover:bg-accent-hover"
             }`}
-            disabled={!canMerge || mergeMutation.isPending}
+            disabled={!requirementsMet || mergeMutation.isPending}
             onClick={() => {
               mergeMutation.mutate({
                 cwd,
                 prNumber,
                 strategy: "squash",
-                admin: !requirementsMet && canAdmin ? true : undefined,
               });
             }}
           >
@@ -224,13 +219,11 @@ export function MergeButton({
           {canAdmin && (
             <Button
               size="sm"
-              variant={!canMerge ? "outline" : "default"}
+              variant={!requirementsMet ? "outline" : "default"}
               className={`rounded-l-none border-l px-1.5 ${
-                !canMerge
+                !requirementsMet
                   ? "disabled:opacity-100"
-                  : requirementsMet
-                    ? "border-l-primary-foreground/20 hover:bg-accent-hover"
-                    : "border-l-bg-root/20 border-warning/80 bg-warning/80 text-bg-root hover:bg-warning/90"
+                  : "border-l-primary-foreground/20 hover:bg-accent-hover"
               }`}
               disabled={mergeMutation.isPending || closeMutation.isPending}
               onClick={() => setMenuOpen(!menuOpen)}

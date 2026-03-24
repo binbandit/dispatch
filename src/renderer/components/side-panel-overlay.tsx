@@ -1,9 +1,10 @@
 import type { GhPrDetail, GhPrReactions, GhReviewThread } from "@/shared/ipc";
 
 import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
 import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Check, Loader2, X, XCircle } from "lucide-react";
+import { Check, GitMerge, Loader2, X, XCircle } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
@@ -173,6 +174,17 @@ function PanelOverviewContent({
 }) {
   const { cwd } = useWorkspace();
   const aiConfig = useAiConfig();
+
+  const closeMutation = useMutation({
+    mutationFn: () => ipc("pr.close", { cwd, prNumber }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr"] });
+      toastManager.add({ title: `PR #${prNumber} closed`, type: "success" });
+    },
+    onError: (err) => {
+      toastManager.add({ title: "Close failed", description: String(err.message), type: "error" });
+    },
+  });
 
   const reviewRequestsQuery = useQuery({
     queryKey: ["pr", "reviewRequests", cwd, prNumber],
@@ -412,6 +424,37 @@ function PanelOverviewContent({
           </div>
         </div>
       )}
+
+      {/* Auto-merge / Merge when ready indicator */}
+      {pr.autoMergeRequest && (
+        <div
+          className="border-info/30 bg-info/5 flex items-center gap-1.5 rounded-md border"
+          style={{ padding: "6px 10px", marginTop: "10px" }}
+        >
+          <GitMerge size={12} className="text-info" />
+          <span className="text-info text-[11px] font-medium">Merge when ready</span>
+          <span className="text-text-tertiary text-[10px]">
+            · {pr.autoMergeRequest.mergeMethod.toLowerCase()} by {pr.autoMergeRequest.enabledBy.login}
+          </span>
+        </div>
+      )}
+
+      {/* Close PR */}
+      <div className="flex justify-end" style={{ marginTop: "12px" }}>
+        <button
+          type="button"
+          onClick={() => closeMutation.mutate()}
+          disabled={closeMutation.isPending}
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-transparent px-2.5 py-1 text-[11px] font-medium transition-colors hover:border-[var(--danger)]/30 hover:bg-[var(--danger)]/10"
+          style={{
+            color: "var(--danger)",
+            opacity: closeMutation.isPending ? 0.5 : 1,
+          }}
+        >
+          {closeMutation.isPending ? <Spinner className="h-3 w-3" /> : <XCircle size={11} />}
+          Close pull request
+        </button>
+      </div>
     </>
   );
 }
