@@ -34,6 +34,7 @@ const SECTIONS = [
       { keys: ["a"], description: "Approve PR" },
       { keys: ["v"], description: "Toggle file viewed" },
       { keys: ["n"], description: "Next unreviewed file" },
+      { keys: ["Cmd+|"], description: "Open conversation" },
     ],
   },
   {

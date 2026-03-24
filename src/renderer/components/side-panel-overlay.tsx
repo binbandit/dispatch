@@ -22,7 +22,7 @@ import { MarkdownBody } from "./markdown-body";
  * Tabs: Overview, Conversation, Commits, Checks
  */
 
-type PanelTab = "overview" | "conversation" | "commits" | "checks";
+export type PanelTab = "overview" | "conversation" | "commits" | "checks";
 
 interface SidePanelOverlayProps {
   open: boolean;
@@ -34,6 +34,8 @@ interface SidePanelOverlayProps {
   highlightedLogin: string | null;
   onReviewClick: (login: string) => void;
   diffSnippet: string;
+  activeTab: PanelTab;
+  onTabChange: (tab: PanelTab) => void;
 }
 
 export function SidePanelOverlay({
@@ -44,8 +46,10 @@ export function SidePanelOverlay({
   issueComments,
   repo,
   onReviewClick,
+  activeTab,
+  onTabChange,
 }: SidePanelOverlayProps) {
-  const [activeTab, setActiveTab] = useState<PanelTab>("overview");
+  const setActiveTab = onTabChange;
 
   return (
     <>

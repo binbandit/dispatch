@@ -19,7 +19,7 @@ import { DiffViewer, type CommentRange, type DiffMode } from "./diff-viewer";
 import { EmptyState } from "./empty-state";
 import { FloatingReviewBar } from "./floating-review-bar";
 import { PrDetailSkeleton } from "./loading-skeletons";
-import { SidePanelOverlay } from "./side-panel-overlay";
+import { SidePanelOverlay, type PanelTab } from "./side-panel-overlay";
 
 /**
  * PR detail view — DISPATCH-DESIGN-SYSTEM.md § 8.5, 8.6, 8.7, 8.8
@@ -49,7 +49,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const { currentFileIndex, setCurrentFileIndex } = useFileNav();
   const [diffMode, setDiffMode] = useState<"all" | "since-review">("all");
   const [viewMode, setViewMode] = useState<DiffMode>("unified");
-  const [showFullFile] = useState(false);
+  const [showFullFile, setShowFullFile] = useState(false);
   const [activeComposer, setActiveComposer] = useState<CommentRange | null>(null);
 
   const highlighter = useSyntaxHighlighter();
@@ -218,6 +218,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   });
 
   const [panelOpen, setPanelOpen] = useState(false);
+  const [panelTab, setPanelTab] = useState<PanelTab>("overview");
   const togglePanel = useCallback(() => setPanelOpen((v) => !v), []);
 
   // State for visually highlighting a comment after navigation
@@ -244,6 +245,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         }
       } else {
         // No inline comments — open the panel and highlight the review
+        setPanelTab("conversation");
         setPanelOpen(true);
         setHighlightedComment({ login, expiresAt: Date.now() + 2000 });
         setTimeout(() => setHighlightedComment(null), 2000);
@@ -285,6 +287,14 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     { key: "[", handler: goToPrevFile },
     { key: "]", handler: goToNextFile },
     { key: "i", handler: togglePanel },
+    {
+      key: "|",
+      modifiers: ["meta", "shift"],
+      handler: () => {
+        setPanelTab("conversation");
+        setPanelOpen(true);
+      },
+    },
     { key: "v", handler: handleToggleViewed },
     {
       key: "n",
@@ -374,6 +384,8 @@ function PrDetail({ prNumber }: { prNumber: number }) {
             hasLastReview={!!lastSha && lastSha !== headSha}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            showFullFile={showFullFile}
+            onToggleFullFile={() => setShowFullFile((v) => !v)}
             isViewed={
               currentFilePath ? (viewedQuery.data?.includes(currentFilePath) ?? false) : false
             }
@@ -426,6 +438,8 @@ function PrDetail({ prNumber }: { prNumber: number }) {
           highlightedLogin={highlightedComment?.login ?? null}
           onReviewClick={handleReviewClick}
           diffSnippet={rawDiff ?? ""}
+          activeTab={panelTab}
+          onTabChange={setPanelTab}
         />
 
         {/* Floating review bar */}
