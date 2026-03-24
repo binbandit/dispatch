@@ -96,6 +96,16 @@ export interface GhPrDetail {
     state: string;
     submittedAt: string;
   }>;
+  reviewThreads: Array<{
+    id: string;
+    isResolved: boolean;
+    path: string;
+    line: number | null;
+    comments: Array<{
+      author: { login: string };
+      body: string;
+    }>;
+  }>;
   files: Array<{
     path: string;
     additions: number;

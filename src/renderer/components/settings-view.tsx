@@ -145,7 +145,7 @@ const CodeThemePreview = memo(function CodeThemePreview({ themeId }: { themeId: 
 
   return (
     <div
-      className="[&_pre]:!rounded-md [&_pre]:!border [&_pre]:!border-[--border] [&_pre]:!p-3 [&_pre]:!text-[12.5px] [&_pre]:!leading-[20px] [&_code]:!font-mono"
+      className="[&_code]:!font-mono [&_pre]:!rounded-md [&_pre]:!border [&_pre]:!border-[--border] [&_pre]:!p-3 [&_pre]:!text-[12.5px] [&_pre]:!leading-[20px]"
       // biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki output is safe
       dangerouslySetInnerHTML={{ __html: html }}
     />
@@ -206,7 +206,7 @@ function CodeThemeCard({
       } rounded-md`}
     >
       {/* Color dots */}
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="flex shrink-0 items-center gap-1">
         {colors
           ? colors.map((c) => (
               <span
@@ -223,7 +223,12 @@ function CodeThemeCard({
             ))}
       </div>
       <span className="text-text-primary flex-1 truncate font-mono text-xs">{theme.name}</span>
-      {isActive && <Check size={13} className="text-[--accent-text] shrink-0" />}
+      {isActive && (
+        <Check
+          size={13}
+          className="shrink-0 text-[--accent-text]"
+        />
+      )}
     </button>
   );
 }
@@ -318,8 +323,8 @@ export function SettingsView() {
         <section className="mt-8">
           <h2 className="text-text-primary text-sm font-semibold">Code Theme</h2>
           <p className="text-text-tertiary mt-0.5 text-xs">
-            Syntax highlighting theme for diffs.{" "}
-            {resolvedTheme === "light" ? "Light" : "Dark"} themes shown for your current mode.
+            Syntax highlighting theme for diffs. {resolvedTheme === "light" ? "Light" : "Dark"}{" "}
+            themes shown for your current mode.
           </p>
           <div className="mt-3 grid grid-cols-2 gap-1.5">
             {codeThemeOptions.map((t) => (
@@ -332,7 +337,7 @@ export function SettingsView() {
             ))}
           </div>
           <div className="mt-3">
-            <label className="text-text-tertiary mb-1.5 block font-mono text-[10px] font-medium uppercase tracking-wider">
+            <label className="text-text-tertiary mb-1.5 block font-mono text-[10px] font-medium tracking-wider uppercase">
               Preview
             </label>
             <CodeThemePreview themeId={codeTheme} />

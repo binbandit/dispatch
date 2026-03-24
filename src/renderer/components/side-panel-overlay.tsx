@@ -123,6 +123,7 @@ export function SidePanelOverlay({
             prNumber={prNumber}
             reviews={pr.reviews}
             issueComments={issueComments}
+            reviewThreads={pr.reviewThreads}
             repo={repo}
             onReviewClick={onReviewClick}
           />
@@ -358,7 +359,7 @@ function LabelSection({
             <button
               type="button"
               onClick={() => removeLabelMutation.mutate(label.name)}
-              className="hidden cursor-pointer items-center justify-center rounded-full opacity-60 transition-opacity hover:opacity-100 group-hover:inline-flex"
+              className="hidden cursor-pointer items-center justify-center rounded-full opacity-60 transition-opacity group-hover:inline-flex hover:opacity-100"
               style={{ width: "12px", height: "12px" }}
             >
               <X size={8} />

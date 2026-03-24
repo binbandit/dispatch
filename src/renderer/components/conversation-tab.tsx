@@ -35,10 +35,19 @@ function isBot(login: string): boolean {
   return BOT_PATTERNS.some((p) => p.test(login));
 }
 
+interface ReviewThread {
+  id: string;
+  isResolved: boolean;
+  path: string;
+  line: number | null;
+  comments: Array<{ author: { login: string }; body: string }>;
+}
+
 interface ConversationTabProps {
   prNumber: number;
   reviews: Array<{ author: { login: string }; state: string; submittedAt: string }>;
   issueComments: Array<{ id: string; body: string; author: { login: string }; createdAt: string }>;
+  reviewThreads?: ReviewThread[];
   repo: string;
   onReviewClick: (login: string) => void;
 }
@@ -47,6 +56,7 @@ export function ConversationTab({
   prNumber,
   reviews,
   issueComments,
+  reviewThreads,
   repo,
   onReviewClick,
 }: ConversationTabProps) {
@@ -55,10 +65,12 @@ export function ConversationTab({
   // Build a unified timeline from reviews (status events) and issue comments (content events)
   const timeline = buildTimeline(reviews, issueComments);
 
-  // Separate unresolved items (for now, treat all inline comments as potentially unresolved)
-  // In the real app this would check thread resolution state
-  const unresolvedCount = 0; // TODO: wire to actual unresolved thread count
-  const resolvedCount = 0;
+  // Thread resolution counts from GitHub's reviewThreads data
+  const unresolvedThreads = (reviewThreads ?? []).filter((t) => !t.isResolved);
+  const resolvedThreads = (reviewThreads ?? []).filter((t) => t.isResolved);
+  const unresolvedCount = unresolvedThreads.length;
+  const resolvedCount = resolvedThreads.length;
+  const [showResolved, setShowResolved] = useState(false);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -73,7 +85,17 @@ export function ConversationTab({
               dotColor="var(--warning)"
               label={`Unresolved · ${unresolvedCount}`}
             />
-            {/* TODO: render unresolved thread items */}
+            {unresolvedThreads.map((thread) => (
+              <UnresolvedThreadItem
+                key={thread.id}
+                thread={thread}
+                onClick={() => {
+                  if (thread.comments[0]) {
+                    onReviewClick(thread.comments[0].author.login);
+                  }
+                }}
+              />
+            ))}
           </>
         )}
 
@@ -117,13 +139,29 @@ export function ConversationTab({
 
         {/* Resolved collapsed */}
         {resolvedCount > 0 && (
-          <div
-            className="text-text-ghost hover:text-text-tertiary flex cursor-pointer items-center gap-[5px] select-none"
-            style={{ padding: "6px 0", fontSize: "11px" }}
-          >
-            <ChevronRight size={11} />
-            {resolvedCount} resolved thread{resolvedCount > 1 ? "s" : ""}
-          </div>
+          <>
+            <button
+              type="button"
+              onClick={() => setShowResolved(!showResolved)}
+              className="text-text-ghost hover:text-text-tertiary flex w-full cursor-pointer items-center gap-[5px] select-none"
+              style={{ padding: "6px 0", fontSize: "11px" }}
+            >
+              {showResolved ? <ChevronDown size={11} /> : <ChevronRight size={11} />}
+              {resolvedCount} resolved thread{resolvedCount > 1 ? "s" : ""}
+            </button>
+            {showResolved &&
+              resolvedThreads.map((thread) => (
+                <UnresolvedThreadItem
+                  key={thread.id}
+                  thread={thread}
+                  onClick={() => {
+                    if (thread.comments[0]) {
+                      onReviewClick(thread.comments[0].author.login);
+                    }
+                  }}
+                />
+              ))}
+          </>
         )}
 
         {/* Empty state */}
@@ -554,6 +592,39 @@ function ConvoMenuItem({
     >
       {icon}
       {label}
+    </button>
+  );
+}
+
+function UnresolvedThreadItem({ thread, onClick }: { thread: ReviewThread; onClick: () => void }) {
+  const firstComment = thread.comments[0];
+  if (!firstComment) {
+    return null;
+  }
+
+  const preview =
+    firstComment.body.length > 120 ? `${firstComment.body.slice(0, 120)}...` : firstComment.body;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="border-border-subtle hover:bg-bg-raised w-full cursor-pointer border-b text-left"
+      style={{ padding: "6px 0" }}
+    >
+      <div className="flex items-center gap-1.5">
+        <MessageSquare
+          size={10}
+          className={thread.isResolved ? "text-success" : "text-warning"}
+        />
+        <span className="text-text-tertiary text-[10px] font-[450]">
+          {firstComment.author.login}
+        </span>
+        {thread.path && (
+          <span className="text-text-ghost truncate font-mono text-[9px]">{thread.path}</span>
+        )}
+      </div>
+      <p className="text-text-secondary mt-0.5 truncate text-[11px] leading-[1.4]">{preview}</p>
     </button>
   );
 }

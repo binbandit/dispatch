@@ -38,8 +38,8 @@ import { RunDetail } from "./run-detail";
 export function WorkflowsDashboard() {
   const { cwd } = useWorkspace();
   const { route, navigate } = useRouter();
-  const initialRunId = route.view === "workflows" ? route.runId ?? null : null;
-  const fromPr = route.view === "workflows" ? route.fromPr ?? null : null;
+  const initialRunId = route.view === "workflows" ? (route.runId ?? null) : null;
+  const fromPr = route.view === "workflows" ? (route.fromPr ?? null) : null;
   const [selectedWorkflow, setSelectedWorkflow] = useState<number | null>(null);
   const [selectedRun, setSelectedRun] = useState<number | null>(initialRunId);
   const [compareRun, setCompareRun] = useState<number | null>(null);

@@ -79,6 +79,13 @@ export function ApproveButton({
   }
 
   function insertLgtmGif() {
+    if (lgtmQuery.isLoading) {
+      return;
+    }
+    if (lgtmQuery.isError) {
+      toastManager.add({ title: "LGTM gifs unavailable", type: "error" });
+      return;
+    }
     const gifs = lgtmQuery.data;
     if (!gifs || gifs.length === 0) return;
     const gif = gifs[Math.floor(Math.random() * gifs.length)]!;
@@ -151,10 +158,11 @@ export function ApproveButton({
             <button
               type="button"
               onClick={insertLgtmGif}
-              className="text-text-tertiary hover:text-text-primary mt-1.5 flex cursor-pointer items-center gap-1 text-[11px]"
+              disabled={lgtmQuery.isLoading}
+              className="text-text-tertiary hover:text-text-primary mt-1.5 flex cursor-pointer items-center gap-1 text-[11px] disabled:opacity-40"
             >
-              <Dices size={13} />
-              Insert random LGTM gif
+              {lgtmQuery.isLoading ? <Spinner className="h-3 w-3" /> : <Dices size={13} />}
+              {lgtmQuery.isLoading ? "Loading gifs..." : "Insert random LGTM gif"}
             </button>
           </div>
           <DialogFooter variant="bare">

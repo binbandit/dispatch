@@ -2,6 +2,7 @@ import type { Annotation } from "./ci-annotation";
 import type { ReviewComment } from "./inline-comment";
 
 import { Spinner } from "@/components/ui/spinner";
+import { toastManager } from "@/components/ui/toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -234,6 +235,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   } | null>(null);
 
   // Navigate to a reviewer's first inline comment in the diff
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleReviewClick = useCallback(
     (login: string) => {
       const allComments = commentsQuery.data ?? [];
@@ -254,11 +256,23 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         setPanelTab("conversation");
         setPanelOpen(true);
         setHighlightedComment({ login, expiresAt: Date.now() + 2000 });
-        setTimeout(() => setHighlightedComment(null), 2000);
+        if (highlightTimerRef.current) {
+          clearTimeout(highlightTimerRef.current);
+        }
+        highlightTimerRef.current = setTimeout(() => setHighlightedComment(null), 2000);
       }
     },
     [commentsQuery.data, files, setCurrentFileIndex],
   );
+
+  // Clean up highlight timer on unmount
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+    };
+  }, []);
 
   // File navigation
   const goToPrevFile = useCallback(() => {
@@ -285,7 +299,11 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       prNumber,
       filePath: currentFilePath,
       viewed: !isCurrentlyViewed,
-    }).then(() => viewedQuery.refetch());
+    })
+      .then(() => viewedQuery.refetch())
+      .catch(() => {
+        toastManager.add({ title: "Failed to update viewed state", type: "error" });
+      });
   }, [currentFilePath, prNumber, repoName, viewedQuery]);
 
   // Keyboard shortcuts — centralized via useKeyboardShortcuts
@@ -403,7 +421,11 @@ function PrDetail({ prNumber }: { prNumber: number }) {
                   prNumber,
                   filePath: currentFilePath,
                   viewed: !isCurrentlyViewed,
-                }).then(() => viewedQuery.refetch());
+                })
+                  .then(() => viewedQuery.refetch())
+                  .catch(() => {
+                    toastManager.add({ title: "Failed to update viewed state", type: "error" });
+                  });
               }
             }}
           />

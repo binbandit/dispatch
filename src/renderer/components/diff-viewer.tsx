@@ -582,7 +582,9 @@ function SplitDiffView({
                     className="text-text-primary flex-1 overflow-x-auto pr-2 pl-1 whitespace-pre"
                     style={{ tabSize: 4 }}
                   >
-                    {pair.left ? renderLineContent(pair.left, highlighter, language, shikiTheme) : ""}
+                    {pair.left
+                      ? renderLineContent(pair.left, highlighter, language, shikiTheme)
+                      : ""}
                   </span>
                 </div>
               </td>
@@ -613,7 +615,9 @@ function SplitDiffView({
                     className="text-text-primary flex-1 overflow-x-auto pr-2 pl-1 whitespace-pre"
                     style={{ tabSize: 4 }}
                   >
-                    {pair.right ? renderLineContent(pair.right, highlighter, language, shikiTheme) : ""}
+                    {pair.right
+                      ? renderLineContent(pair.right, highlighter, language, shikiTheme)
+                      : ""}
                   </span>
                 </div>
               </td>
@@ -632,7 +636,9 @@ function renderLineContent(
   shikiTheme: string = "github-dark-default",
 ): React.ReactNode {
   const tokens =
-    highlighter && language !== "text" ? safeTokenize(highlighter, line.content, language, shikiTheme) : null;
+    highlighter && language !== "text"
+      ? safeTokenize(highlighter, line.content, language, shikiTheme)
+      : null;
   if (tokens) {
     return <SyntaxContent tokens={tokens} />;
   }

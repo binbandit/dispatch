@@ -508,6 +508,7 @@ const PR_DETAIL_FIELDS = [
   "autoMergeRequest",
   "statusCheckRollup",
   "reviews",
+  "reviewThreads",
   "files",
   "labels",
   "updatedAt",

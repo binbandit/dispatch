@@ -39,9 +39,7 @@ export function CompactPrHeader({
         size={20}
         className="border-border-strong shrink-0 border"
       />
-      <span className="text-text-secondary shrink-0 font-mono text-[11px]">
-        {pr.author.login}
-      </span>
+      <span className="text-text-secondary shrink-0 font-mono text-[11px]">{pr.author.login}</span>
 
       {/* Draft badge */}
       {pr.isDraft && (
