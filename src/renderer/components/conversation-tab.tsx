@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Copy, ExternalLink, MessageSquare } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
 
+import { useMinimizedComments } from "../hooks/use-minimized-comments";
 import { ipc } from "../lib/ipc";
 import { openExternal } from "../lib/open-external";
 import { queryClient } from "../lib/query-client";
@@ -47,6 +48,8 @@ export function ConversationTab({
   repo,
   onReviewClick,
 }: ConversationTabProps) {
+  const { minimizedSet, toggleMinimized } = useMinimizedComments(repo, prNumber);
+
   // Build a unified timeline from reviews (status events) and issue comments (content events)
   const timeline = buildTimeline(reviews, issueComments);
 
@@ -104,6 +107,8 @@ export function ConversationTab({
               isBot={event.isBot}
               prNumber={prNumber}
               onClick={() => onReviewClick(event.login)}
+              minimized={minimizedSet.has(event.commentId)}
+              onToggleMinimized={() => toggleMinimized(event.commentId)}
             />
           );
         })}
@@ -290,6 +295,8 @@ function ContentEvent({
   isBot: isBotUser,
   prNumber,
   onClick,
+  minimized,
+  onToggleMinimized,
 }: {
   commentId: string;
   login: string;
@@ -301,9 +308,10 @@ function ContentEvent({
   isBot: boolean;
   prNumber: number;
   onClick: () => void;
+  minimized: boolean;
+  onToggleMinimized: () => void;
 }) {
   const { cwd } = useWorkspace();
-  const [minimized, setMinimized] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const severity = isBotUser ? parseBotSeverity(body) : null;
@@ -373,7 +381,7 @@ function ContentEvent({
         {/* Minimize toggle */}
         <button
           type="button"
-          onClick={() => setMinimized(!minimized)}
+          onClick={onToggleMinimized}
           className="text-text-ghost hover:text-text-primary cursor-pointer rounded-sm p-0.5 transition-colors"
           title={minimized ? "Expand" : "Minimize"}
         >

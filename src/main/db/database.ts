@@ -88,6 +88,15 @@ export function initDatabase(): Database.Database {
       host          TEXT    NOT NULL,
       login         TEXT    NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS minimized_comments (
+      id            INTEGER PRIMARY KEY,
+      repo          TEXT    NOT NULL,
+      pr_number     INTEGER NOT NULL,
+      comment_id    TEXT    NOT NULL,
+      minimized_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(repo, pr_number, comment_id)
+    );
   `);
 
   return db;

@@ -171,6 +171,38 @@ export function setRepoAccount(path: string, host: string, login: string): void 
 }
 
 // ---------------------------------------------------------------------------
+// Minimized Comments
+// ---------------------------------------------------------------------------
+
+export function getMinimizedComments(repo: string, prNumber: number): string[] {
+  const db = getDatabase();
+  const rows = db
+    .prepare("SELECT comment_id FROM minimized_comments WHERE repo = ? AND pr_number = ?")
+    .all(repo, prNumber) as Array<{ comment_id: string }>;
+  return rows.map((r) => r.comment_id);
+}
+
+export function setCommentMinimized(
+  repo: string,
+  prNumber: number,
+  commentId: string,
+  minimized: boolean,
+): void {
+  const db = getDatabase();
+  if (minimized) {
+    db.prepare(`
+      INSERT INTO minimized_comments (repo, pr_number, comment_id)
+      VALUES (?, ?, ?)
+      ON CONFLICT(repo, pr_number, comment_id) DO NOTHING
+    `).run(repo, prNumber, commentId);
+  } else {
+    db.prepare(
+      "DELETE FROM minimized_comments WHERE repo = ? AND pr_number = ? AND comment_id = ?",
+    ).run(repo, prNumber, commentId);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Notifications
 // ---------------------------------------------------------------------------
 

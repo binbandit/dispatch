@@ -221,6 +221,12 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   "prActivity.markSeen": (args) =>
     Promise.resolve(repo.markPrActivitySeen(args.repo, args.prNumber, args.updatedAt)),
 
+  // Minimized comments
+  "comment.getMinimized": async (args) => repo.getMinimizedComments(args.repo, args.prNumber),
+  "comment.setMinimized": async (args) => {
+    repo.setCommentMinimized(args.repo, args.prNumber, args.commentId, args.minimized);
+  },
+
   // Multi-repo (3.1)
   "pr.listAll": async (args) => {
     const workspaces = repo.getWorkspaces();

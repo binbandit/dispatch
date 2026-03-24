@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { useMinimizedComments } from "../hooks/use-minimized-comments";
 import { ipc } from "../lib/ipc";
 import { openExternal } from "../lib/open-external";
 import { queryClient } from "../lib/query-client";
@@ -51,6 +52,7 @@ export interface ReviewComment {
 interface InlineCommentProps {
   comments: ReviewComment[];
   prNumber?: number;
+  repo?: string;
 }
 
 // Known bot patterns
@@ -68,7 +70,11 @@ function isBot(login: string): boolean {
   return BOT_PATTERNS.some((p) => p.test(login));
 }
 
-export function InlineComment({ comments, prNumber }: InlineCommentProps) {
+export function InlineComment({ comments, prNumber, repo }: InlineCommentProps) {
+  const { cwd } = useWorkspace();
+  const repoKey = repo || cwd;
+  const { minimizedSet, toggleMinimized } = useMinimizedComments(repoKey, prNumber ?? 0);
+
   const roots = comments.filter((c) => !c.in_reply_to_id);
   const replies = comments.filter((c) => !!c.in_reply_to_id);
 
@@ -86,6 +92,8 @@ export function InlineComment({ comments, prNumber }: InlineCommentProps) {
             replies={threadReplies}
             prNumber={prNumber}
             showBorder={i > 0}
+            minimizedSet={minimizedSet}
+            toggleMinimized={toggleMinimized}
           />
         );
       })}
@@ -93,7 +101,11 @@ export function InlineComment({ comments, prNumber }: InlineCommentProps) {
       {botRoots.length > 0 && (
         <>
           {humanRoots.length > 0 && <div className="border-border border-t" />}
-          <BotCommentGroup comments={botRoots} />
+          <BotCommentGroup
+            comments={botRoots}
+            minimizedSet={minimizedSet}
+            toggleMinimized={toggleMinimized}
+          />
         </>
       )}
     </div>
@@ -109,11 +121,15 @@ function CommentThread({
   replies,
   prNumber,
   showBorder,
+  minimizedSet,
+  toggleMinimized,
 }: {
   root: ReviewComment;
   replies: ReviewComment[];
   prNumber?: number;
   showBorder: boolean;
+  minimizedSet: Set<string>;
+  toggleMinimized: (commentId: string) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showReply, setShowReply] = useState(false);
@@ -142,6 +158,8 @@ function CommentThread({
             isRoot
             onReply={() => setShowReply(true)}
             prNumber={prNumber}
+            minimized={minimizedSet.has(String(root.id))}
+            onToggleMinimized={() => toggleMinimized(String(root.id))}
           />
           {replies.map((reply) => (
             <div
@@ -152,6 +170,8 @@ function CommentThread({
                 comment={reply}
                 onReply={() => setShowReply(true)}
                 prNumber={prNumber}
+                minimized={minimizedSet.has(String(reply.id))}
+                onToggleMinimized={() => toggleMinimized(String(reply.id))}
               />
             </div>
           ))}
@@ -260,7 +280,15 @@ function ReplyComposer({
 // Bot comment group — collapsed by default
 // ---------------------------------------------------------------------------
 
-function BotCommentGroup({ comments }: { comments: ReviewComment[] }) {
+function BotCommentGroup({
+  comments,
+  minimizedSet,
+  toggleMinimized,
+}: {
+  comments: ReviewComment[];
+  minimizedSet: Set<string>;
+  toggleMinimized: (commentId: string) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const botNames = [...new Set(comments.map((c) => c.user.login))];
 
@@ -312,7 +340,11 @@ function BotCommentGroup({ comments }: { comments: ReviewComment[] }) {
             key={comment.id}
             className="border-border-subtle border-t"
           >
-            <CommentBody comment={comment} />
+            <CommentBody
+              comment={comment}
+              minimized={minimizedSet.has(String(comment.id))}
+              onToggleMinimized={() => toggleMinimized(String(comment.id))}
+            />
           </div>
         ))}
     </div>
@@ -519,15 +551,18 @@ function CommentBody({
   isRoot,
   onReply,
   prNumber,
+  minimized,
+  onToggleMinimized,
 }: {
   comment: ReviewComment;
   isRoot?: boolean;
   onReply?: () => void;
   prNumber?: number;
+  minimized: boolean;
+  onToggleMinimized: () => void;
 }) {
   const isBotUser = isBot(comment.user.login);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const [minimized, setMinimized] = useState(false);
 
   const { bodyParts, suggestions } = useMemo(() => parseSuggestions(comment.body), [comment.body]);
 
@@ -569,8 +604,8 @@ function CommentBody({
             }}
           >
             <svg
-              width="10"
-              height="10"
+              width="13"
+              height="13"
               viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
@@ -646,7 +681,7 @@ function CommentBody({
           {/* Minimize toggle */}
           <button
             type="button"
-            onClick={() => setMinimized(!minimized)}
+            onClick={onToggleMinimized}
             className="text-text-ghost hover:text-text-primary cursor-pointer rounded-sm p-0.5 transition-colors"
             title={minimized ? "Expand comment" : "Minimize comment"}
           >

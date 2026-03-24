@@ -401,6 +401,15 @@ export interface IpcApi {
     result: void;
   };
 
+  "comment.getMinimized": {
+    args: { repo: string; prNumber: number };
+    result: string[];
+  };
+  "comment.setMinimized": {
+    args: { repo: string; prNumber: number; commentId: string; minimized: boolean };
+    result: void;
+  };
+
   // Multi-repo (3.1)
   "pr.listAll": {
     args: { filter: "reviewRequested" | "authored" | "all" };
