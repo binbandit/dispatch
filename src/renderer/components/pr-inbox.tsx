@@ -257,7 +257,8 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
   const isLoading =
     (activeFilter === "review" && reviewQuery.isLoading) ||
     (activeFilter === "mine" && authorQuery.isLoading) ||
-    (activeFilter === "all" && allQuery.isLoading);
+    (activeFilter === "all" && allQuery.isLoading) ||
+    enrichmentQuery.isLoading;
 
   return (
     <aside className="border-border bg-bg-surface flex h-full flex-col">
