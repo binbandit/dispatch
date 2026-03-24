@@ -1,3 +1,4 @@
+import { existsSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 
 import Database from "better-sqlite3";
@@ -133,5 +134,20 @@ export function closeDatabase(): void {
   if (db) {
     db.close();
     db = null;
+  }
+}
+
+/**
+ * Destroy the entire database — close the connection and delete the file
+ * (plus WAL/SHM journals). Used by the "nuke" reset flow.
+ */
+export function destroyDatabase(): void {
+  closeDatabase();
+  const dbPath = getDbPath();
+  for (const suffix of ["", "-wal", "-shm"]) {
+    const file = dbPath + suffix;
+    if (existsSync(file)) {
+      unlinkSync(file);
+    }
   }
 }

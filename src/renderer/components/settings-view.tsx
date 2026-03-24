@@ -16,6 +16,7 @@ import {
   Shield,
   Sparkles,
   Sun,
+  Trash2,
   TriangleAlert,
   X,
 } from "lucide-react";
@@ -330,6 +331,8 @@ export function SettingsView() {
   }
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showNukeConfirm, setShowNukeConfirm] = useState(false);
+  const [nukeConfirmText, setNukeConfirmText] = useState("");
 
   const resetDefaults = useCallback(async () => {
     await ipc("preferences.deleteMany", { keys: PREF_KEYS });
@@ -340,6 +343,11 @@ export function SettingsView() {
     queryClient.invalidateQueries({ queryKey: ["ai"] });
     setShowResetConfirm(false);
   }, [setTheme, setCodeTheme, resetAll]);
+
+  const nukeApp = useCallback(async () => {
+    localStorage.clear();
+    await ipc("app.nuke");
+  }, []);
 
   if (prefsQuery.isLoading) {
     return (
@@ -810,6 +818,113 @@ export function SettingsView() {
                   CI/CD-integrated desktop PR review app.
                 </p>
               </section>
+
+              {/* Danger Zone */}
+              <section className="mt-10">
+                <h3 className="text-[--danger] text-sm font-medium">Danger Zone</h3>
+                <div className="border-[--danger]/30 mt-3 rounded-lg border">
+                  <div className="flex items-center justify-between p-4">
+                    <div>
+                      <p className="text-text-primary text-xs font-medium">
+                        Reset Dispatch to factory defaults
+                      </p>
+                      <p className="text-text-tertiary mt-0.5 text-[11px]">
+                        Deletes all data — workspaces, review progress, preferences, notifications,
+                        and caches. This cannot be undone.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowNukeConfirm(true);
+                        setNukeConfirmText("");
+                      }}
+                      className="text-[--danger] border-[--danger]/30 hover:bg-[--danger-muted] ml-4 shrink-0 cursor-pointer rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
+                    >
+                      Reset everything
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              {/* Nuke confirmation modal */}
+              {showNukeConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center">
+                  <div
+                    className="absolute inset-0 bg-black/60"
+                    onClick={() => setShowNukeConfirm(false)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        setShowNukeConfirm(false);
+                      }
+                    }}
+                  />
+                  <div className="bg-bg-root border-border relative z-10 w-full max-w-sm rounded-lg border p-6 shadow-xl">
+                    <div className="flex items-center gap-2.5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[--danger-muted]">
+                        <Trash2
+                          size={16}
+                          className="text-[--danger]"
+                        />
+                      </div>
+                      <h3 className="text-text-primary text-sm font-semibold">
+                        Reset Dispatch?
+                      </h3>
+                    </div>
+                    <p className="text-text-secondary mt-3 text-xs leading-relaxed">
+                      This will permanently delete <strong>all</strong> app data and restart
+                      Dispatch:
+                    </p>
+                    <ul className="text-text-tertiary mt-2 flex flex-col gap-1 text-[11px]">
+                      <li className="flex items-center gap-1.5">
+                        <span className="text-[--danger]">-</span> All workspaces and repo accounts
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <span className="text-[--danger]">-</span> Review progress and viewed files
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <span className="text-[--danger]">-</span> Preferences, themes, and
+                        keybindings
+                      </li>
+                      <li className="flex items-center gap-1.5">
+                        <span className="text-[--danger]">-</span> Notifications and cached data
+                      </li>
+                    </ul>
+                    <div className="mt-4">
+                      <label className="text-text-tertiary block text-[11px]">
+                        Type <span className="text-text-primary font-mono font-medium">RESET</span>{" "}
+                        to confirm
+                      </label>
+                      <input
+                        type="text"
+                        value={nukeConfirmText}
+                        onChange={(e) => setNukeConfirmText(e.target.value)}
+                        placeholder="RESET"
+                        autoFocus
+                        className="border-border bg-bg-raised text-text-primary placeholder:text-text-ghost focus:border-[--danger]/50 mt-1.5 w-full rounded-md border px-3 py-1.5 font-mono text-xs tracking-wider focus:outline-none"
+                      />
+                    </div>
+                    <div className="mt-4 flex gap-2">
+                      <button
+                        type="button"
+                        disabled={nukeConfirmText !== "RESET"}
+                        onClick={nukeApp}
+                        className="flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-md bg-[--danger] px-3 py-1.5 text-xs font-medium text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        <Trash2 size={12} />
+                        Reset everything
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowNukeConfirm(false)}
+                        className="border-border text-text-secondary hover:text-text-primary hover:bg-bg-raised flex-1 cursor-pointer rounded-md border px-3 py-1.5 text-xs transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>

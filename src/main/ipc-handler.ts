@@ -1,6 +1,7 @@
-import { BrowserWindow, dialog, ipcMain } from "electron";
+import { BrowserWindow, app, dialog, ipcMain } from "electron";
 
 import { IPC_CHANNEL, type IpcApi, type IpcMethod } from "../shared/ipc";
+import { destroyDatabase } from "./db/database";
 import * as repo from "./db/repository";
 import * as ai from "./services/ai";
 import { getAiConfig } from "./services/ai-config";
@@ -35,6 +36,11 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   },
   "app.openExternal": async (args) => {
     await openExternalUrl(args.url);
+  },
+  "app.nuke": async () => {
+    destroyDatabase();
+    app.relaunch();
+    app.exit(0);
   },
   "app.devRepoStatus": async () => {
     if (!process.env.VITE_DEV_SERVER_URL) {
