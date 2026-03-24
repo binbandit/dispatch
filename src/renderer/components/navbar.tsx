@@ -41,11 +41,7 @@ import { NotificationCenter } from "./notification-center";
  * Route-aware tabs: Review | Workflows
  * Workspace switcher + user menu in the right area
  */
-export function Navbar({
-  bannerVisible,
-}: {
-  bannerVisible?: boolean;
-}) {
+export function Navbar({ bannerVisible }: { bannerVisible?: boolean }) {
   const { route, navigate, toggleSettings } = useRouter();
 
   // Fetch authenticated GitHub user for avatar
@@ -65,15 +61,17 @@ export function Navbar({
       }
     >
       {/* Logo */}
-      <div
-        className="flex items-center gap-[7px]"
+      <button
+        type="button"
+        className="flex cursor-pointer items-center gap-[7px] transition-opacity hover:opacity-80"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+        onClick={() => navigate({ view: "review", prNumber: null })}
       >
         <DispatchLogo size={20} />
         <span className="text-text-primary text-[13px] font-semibold tracking-[-0.02em]">
           Dispatch
         </span>
-      </div>
+      </button>
 
       {/* Nav tabs */}
       <nav
