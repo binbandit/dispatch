@@ -801,39 +801,53 @@ function SuggestionBlock({ suggestion }: { suggestion: string }) {
           Apply
         </button>
       </div>
-      <div
+      <pre
         style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: "11px",
-          lineHeight: "18px",
+          margin: 0,
           padding: "4px 10px 6px",
+          background: "transparent",
+          border: "none",
+          borderTop: "1px solid rgba(61,214,140,0.1)",
+          borderRadius: 0,
+          overflow: "auto",
         }}
       >
-        {lines.map((line, i) => {
-          const trimmed = line;
-          if (trimmed.startsWith("-")) {
-            return (
-              <div
-                key={i}
-                style={{ color: "var(--danger)", textDecoration: "line-through", opacity: 0.7 }}
-              >
-                {trimmed.slice(1)}
-              </div>
-            );
-          }
-          if (trimmed.startsWith("+")) {
-            return (
-              <div
-                key={i}
-                style={{ color: "var(--success)" }}
-              >
-                {trimmed.slice(1)}
-              </div>
-            );
-          }
-          return <div key={i}>{line}</div>;
-        })}
-      </div>
+        <code
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: "11px",
+            lineHeight: "18px",
+            padding: 0,
+            background: "none",
+            border: "none",
+          }}
+        >
+          {lines.map((line, i) => {
+            const trimmed = line;
+            if (trimmed.startsWith("-")) {
+              return (
+                <div
+                  key={i}
+                  style={{ color: "var(--danger)", textDecoration: "line-through", opacity: 0.7 }}
+                >
+                  {trimmed.slice(1)}
+                </div>
+              );
+            }
+            if (trimmed.startsWith("+")) {
+              return (
+                <div
+                  key={i}
+                  style={{ color: "var(--success)" }}
+                >
+                  {trimmed.slice(1)}
+                </div>
+              );
+            }
+            return <div key={i}>{line}</div>;
+          })}
+        </code>
+      </pre>
     </div>
   );
 }
