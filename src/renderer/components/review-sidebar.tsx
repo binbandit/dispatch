@@ -121,12 +121,13 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
 
   return (
     <div className="bg-bg-surface flex h-full flex-col">
-      {/* Queue zone */}
+      {/* Queue zone — only show queue list if there are PRs to review */}
       <QueueZone
         queuePrs={queuePrs}
         activePrNumber={prNumber}
         onBack={onBack}
         onSelectPr={onSelectPr}
+        hideWhenEmpty
       />
 
       {/* View toggle + progress */}
