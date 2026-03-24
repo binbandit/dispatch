@@ -194,12 +194,13 @@ export function MergeButton({
       <div className="flex">
         <Button
           size="sm"
+          variant={!canMerge ? "outline" : "default"}
           className={`gap-1.5 rounded-r-none ${
             !canMerge
-              ? "disabled:bg-bg-raised disabled:border-border disabled:text-text-tertiary disabled:opacity-100"
+              ? "disabled:opacity-100"
               : requirementsMet
-                ? "bg-primary text-primary-foreground hover:bg-accent-hover"
-                : "bg-warning/80 text-bg-root hover:bg-warning/90"
+                ? "hover:bg-accent-hover"
+                : "border-warning/80 bg-warning/80 text-bg-root hover:bg-warning/90"
           }`}
           disabled={!canMerge || mergeMutation.isPending}
           onClick={() => {
@@ -216,14 +217,15 @@ export function MergeButton({
         </Button>
         <Button
           size="sm"
+          variant={!canMerge ? "outline" : "default"}
           className={`rounded-l-none border-l px-1.5 ${
             !canMerge
-              ? "disabled:bg-bg-raised disabled:border-border disabled:border-l-border disabled:text-text-tertiary disabled:opacity-100"
+              ? "disabled:opacity-100"
               : requirementsMet
-                ? "border-l-primary-foreground/20 bg-primary text-primary-foreground hover:bg-accent-hover"
-                : "border-l-bg-root/20 bg-warning/80 text-bg-root hover:bg-warning/90"
+                ? "border-l-primary-foreground/20 hover:bg-accent-hover"
+                : "border-l-bg-root/20 border-warning/80 bg-warning/80 text-bg-root hover:bg-warning/90"
           }`}
-          disabled={mergeMutation.isPending || closeMutation.isPending}
+          disabled={!canMerge || mergeMutation.isPending || closeMutation.isPending}
           onClick={() => setMenuOpen(!menuOpen)}
         >
           <ChevronDown size={12} />
