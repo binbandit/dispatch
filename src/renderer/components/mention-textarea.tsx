@@ -22,6 +22,8 @@ interface MentionTextareaProps {
   placeholder?: string;
   rows?: number;
   className?: string;
+  /** Override the default textarea classes entirely. When provided, replaces the built-in styling. */
+  textareaClassName?: string;
   prNumber?: number;
   autoFocus?: boolean;
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
@@ -39,12 +41,16 @@ interface Suggestion {
   isPr?: boolean;
 }
 
+const DEFAULT_TEXTAREA_CLASS =
+  "border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-primary w-full resize-none rounded-md border px-3 py-2.5 text-xs leading-relaxed focus:outline-none";
+
 export function MentionTextarea({
   value,
   onChange,
   placeholder,
   rows = 3,
   className = "",
+  textareaClassName,
   prNumber,
   autoFocus,
   onKeyDown: externalOnKeyDown,
@@ -247,7 +253,7 @@ export function MentionTextarea({
   const isSearching = trigger?.kind === "user" && userSearchQuery.isFetching;
 
   return (
-    <div className="relative">
+    <div className={`relative ${className}`}>
       <textarea
         ref={textareaRef}
         value={value}
@@ -260,7 +266,7 @@ export function MentionTextarea({
         placeholder={placeholder}
         rows={rows}
         autoFocus={autoFocus}
-        className={`border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-primary w-full resize-none rounded-md border px-3 py-2.5 text-xs leading-relaxed focus:outline-none ${className}`}
+        className={textareaClassName ?? DEFAULT_TEXTAREA_CLASS}
       />
 
       {/* Autocomplete dropdown */}

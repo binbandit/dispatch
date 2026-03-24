@@ -11,6 +11,7 @@ import { queryClient } from "../lib/query-client";
 import { useWorkspace } from "../lib/workspace-context";
 import { GitHubAvatar } from "./github-avatar";
 import { MarkdownBody } from "./markdown-body";
+import { MentionTextarea } from "./mention-textarea";
 
 /**
  * Conversation tab — PR-REVIEW-REDESIGN.md § Side Panel → Conversation tab
@@ -593,25 +594,19 @@ function PanelComposer({ prNumber }: { prNumber: number }) {
       className="shrink-0"
       style={{ borderTop: "1px solid var(--border)", padding: "8px 12px" }}
     >
-      <textarea
+      <MentionTextarea
         value={body}
-        onChange={(e) => setBody(e.target.value)}
+        onChange={setBody}
         placeholder="Leave a comment..."
         rows={1}
+        prNumber={prNumber}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && body.trim()) {
             e.preventDefault();
             commentMutation.mutate({ cwd, prNumber, body: body.trim() });
           }
         }}
-        className="text-text-primary placeholder:text-text-ghost focus:border-border-strong w-full resize-none rounded-lg outline-none"
-        style={{
-          background: "var(--bg-raised)",
-          border: "1px solid var(--border)",
-          padding: "6px 10px",
-          fontSize: "12px",
-          minHeight: "32px",
-        }}
+        textareaClassName="bg-bg-raised border-border text-text-primary placeholder:text-text-ghost focus:border-border-strong w-full resize-none rounded-lg border px-2.5 py-1.5 text-xs outline-none min-h-[32px]"
       />
       <div
         className="text-text-ghost font-mono"

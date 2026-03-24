@@ -17,6 +17,7 @@ import { useState } from "react";
 
 import { ipc } from "../lib/ipc";
 import { queryClient } from "../lib/query-client";
+import { MentionTextarea } from "./mention-textarea";
 
 /**
  * Request Changes button — opens a dialog to describe what needs to change.
@@ -74,12 +75,13 @@ export function RequestChangesButton({ cwd, prNumber }: { cwd: string; prNumber:
           </DialogDescription>
         </DialogHeader>
         <div className="px-6 pb-2">
-          <textarea
+          <MentionTextarea
             value={body}
-            onChange={(e) => setBody(e.target.value)}
+            onChange={setBody}
             placeholder="What needs to change?"
             rows={4}
-            className="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-destructive w-full resize-none rounded-md border px-3 py-2.5 text-xs leading-relaxed focus:outline-none"
+            prNumber={prNumber}
+            textareaClassName="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-destructive w-full resize-none rounded-md border px-3 py-2.5 text-xs leading-relaxed focus:outline-none"
           />
         </div>
         <DialogFooter variant="bare">

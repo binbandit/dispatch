@@ -8,6 +8,7 @@ import { useState } from "react";
 import { ipc } from "../lib/ipc";
 import { queryClient } from "../lib/query-client";
 import { useWorkspace } from "../lib/workspace-context";
+import { MentionTextarea } from "./mention-textarea";
 
 /**
  * Comment composer — inline card for creating new review comments.
@@ -83,14 +84,15 @@ export function CommentComposer({
           Lines {startLine}–{line}
         </div>
       )}
-      <textarea
-        autoFocus
+      <MentionTextarea
         value={body}
-        onChange={(e) => setBody(e.target.value)}
+        onChange={setBody}
         onKeyDown={handleKeyDown}
         placeholder="Leave a comment..."
         rows={4}
-        className="text-text-primary placeholder:text-text-tertiary bg-bg-root w-full resize-none border-none px-3 py-2.5 font-sans text-xs leading-relaxed focus:outline-none"
+        prNumber={prNumber}
+        autoFocus
+        textareaClassName="text-text-primary placeholder:text-text-tertiary bg-bg-root w-full resize-none border-none px-3 py-2.5 font-sans text-xs leading-relaxed focus:outline-none"
       />
       <div className="border-border flex items-center justify-between border-t px-3 py-2">
         <span className="text-text-ghost text-[10px]">
