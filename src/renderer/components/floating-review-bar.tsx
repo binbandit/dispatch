@@ -37,6 +37,7 @@ interface FloatingReviewBarProps {
   canAdmin: boolean;
   hasMergeQueue: boolean;
   currentUserReview: string | null;
+  isReRequested: boolean;
   panelOpen?: boolean;
 }
 
@@ -53,6 +54,7 @@ export function FloatingReviewBar({
   canAdmin,
   hasMergeQueue,
   currentUserReview,
+  isReRequested,
   panelOpen,
 }: FloatingReviewBarProps) {
   const passCount = checkSummary.filter((c) => c.conclusion?.toUpperCase() === "SUCCESS").length;
@@ -199,6 +201,7 @@ export function FloatingReviewBar({
               cwd={cwd}
               prNumber={prNumber}
               currentUserReview={currentUserReview}
+              isReRequested={isReRequested}
             />
           </>
         )}
@@ -367,12 +370,14 @@ function ApproveBarButton({
   cwd,
   prNumber,
   currentUserReview,
+  isReRequested,
 }: {
   cwd: string;
   prNumber: number;
   currentUserReview: string | null;
+  isReRequested: boolean;
 }) {
-  const alreadyApproved = currentUserReview === "APPROVED";
+  const alreadyApproved = currentUserReview === "APPROVED" && !isReRequested;
 
   const reviewMutation = useMutation({
     mutationFn: () => ipc("pr.submitReview", { cwd, prNumber, event: "APPROVE" as const }),

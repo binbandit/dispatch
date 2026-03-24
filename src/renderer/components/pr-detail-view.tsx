@@ -403,6 +403,15 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         ?.state ?? null)
     : null;
 
+  // Check if the current user has been re-requested for review (e.g. after new commits)
+  const reviewRequestsQuery = useQuery({
+    queryKey: ["pr", "reviewRequests", cwd, prNumber],
+    queryFn: () => ipc("pr.reviewRequests", { cwd, prNumber }),
+  });
+  const isReRequested =
+    currentUser !== null &&
+    (reviewRequestsQuery.data ?? []).some((rr) => rr.login === currentUser);
+
   // Count inline comments for the floating bar
   const totalCommentCount = commentsQuery.data?.length ?? 0;
 
@@ -521,6 +530,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
           canAdmin={canPush}
           hasMergeQueue={hasMergeQueue}
           currentUserReview={currentUserReview}
+          isReRequested={isReRequested}
           panelOpen={panelOpen}
         />
       </div>
