@@ -38,7 +38,6 @@ interface FloatingReviewBarProps {
   hasMergeQueue: boolean;
   currentUserReview: string | null;
   isReRequested: boolean;
-  panelOpen?: boolean;
 }
 
 export function FloatingReviewBar({
@@ -55,7 +54,6 @@ export function FloatingReviewBar({
   hasMergeQueue,
   currentUserReview,
   isReRequested,
-  panelOpen,
 }: FloatingReviewBarProps) {
   const passCount = checkSummary.filter((c) => c.conclusion?.toUpperCase() === "SUCCESS").length;
   const failCount = checkSummary.filter((c) => c.conclusion?.toUpperCase() === "FAILURE").length;
@@ -66,9 +64,8 @@ export function FloatingReviewBar({
       style={{
         position: "absolute",
         bottom: "12px",
-        left: panelOpen ? "calc(50% - 190px)" : "50%",
+        left: "50%",
         transform: "translateX(-50%)",
-        transition: "left 400ms cubic-bezier(0.16, 1, 0.3, 1)",
         zIndex: 3,
         background: "var(--bar-glass)",
         backdropFilter: "blur(12px)",

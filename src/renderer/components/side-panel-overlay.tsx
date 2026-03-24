@@ -58,26 +58,16 @@ export function SidePanelOverlay({
 }: SidePanelOverlayProps) {
   const setActiveTab = onTabChange;
 
-  return (
-    <>
-      {/* Backdrop */}
-      <div
-        className={`absolute inset-0 z-[4] transition-opacity duration-[400ms] ease-out ${
-          open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-        }`}
-        style={{ background: "rgba(0,0,0,0.25)" }}
-        onClick={onClose}
-      />
+  if (!open) {
+    return null;
+  }
 
-      {/* Panel */}
+  return (
       <div
-        className={`bg-bg-surface absolute top-0 right-0 bottom-0 z-[5] flex w-[380px] flex-col transition-transform duration-[400ms] ${
-          open ? "pointer-events-auto translate-x-0" : "pointer-events-none translate-x-full"
-        }`}
+        className="bg-bg-surface flex shrink-0 flex-col"
         style={{
+          width: "380px",
           borderLeft: "1px solid var(--border)",
-          boxShadow: open ? "-4px 0 24px rgba(0,0,0,0.4)" : "none",
-          transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
         }}
       >
         {/* Header — 36px, tabs + close */}
@@ -153,7 +143,6 @@ export function SidePanelOverlay({
           </div>
         )}
       </div>
-    </>
   );
 }
 

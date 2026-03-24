@@ -240,7 +240,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     staleTime: 120_000,
   });
 
-  const [panelOpen, setPanelOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState(true);
   const [panelTab, setPanelTab] = useState<PanelTab>("overview");
   const togglePanel = useCallback(() => setPanelOpen((v) => !v), []);
 
@@ -531,7 +531,6 @@ function PrDetail({ prNumber }: { prNumber: number }) {
           hasMergeQueue={hasMergeQueue}
           currentUserReview={currentUserReview}
           isReRequested={isReRequested}
-          panelOpen={panelOpen}
         />
       </div>
     </div>
