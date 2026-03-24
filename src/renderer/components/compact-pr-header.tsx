@@ -1,6 +1,7 @@
 import type { GhPrDetail } from "@/shared/ipc";
 
-import { ExternalLink, PanelRight } from "lucide-react";
+import { toastManager } from "@/components/ui/toast";
+import { Copy, ExternalLink, Link, PanelRight } from "lucide-react";
 
 import { openExternal } from "../lib/open-external";
 import { GitHubAvatar } from "./github-avatar";
@@ -76,6 +77,32 @@ export function CompactPrHeader({
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Copy PR number */}
+      <button
+        type="button"
+        onClick={() => {
+          void navigator.clipboard.writeText(`#${pr.number}`);
+          toastManager.add({ title: `Copied #${pr.number}`, type: "success" });
+        }}
+        className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[26px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors"
+        title="Copy PR number"
+      >
+        <Copy size={13} />
+      </button>
+
+      {/* Copy PR link */}
+      <button
+        type="button"
+        onClick={() => {
+          void navigator.clipboard.writeText(pr.url);
+          toastManager.add({ title: "PR URL copied", type: "success" });
+        }}
+        className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[26px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors"
+        title="Copy PR link"
+      >
+        <Link size={13} />
+      </button>
 
       {/* External link */}
       <button
