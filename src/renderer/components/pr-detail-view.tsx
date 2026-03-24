@@ -372,6 +372,12 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     return ids;
   }, [reviewThreadsQuery.data]);
 
+  // Check if the current user has been re-requested for review (e.g. after new commits)
+  const reviewRequestsQuery = useQuery({
+    queryKey: ["pr", "reviewRequests", cwd, prNumber],
+    queryFn: () => ipc("pr.reviewRequests", { cwd, prNumber }),
+  });
+
   // Loading
   if (detailQuery.isLoading) {
     return <PrDetailSkeleton />;
@@ -403,11 +409,6 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         ?.state ?? null)
     : null;
 
-  // Check if the current user has been re-requested for review (e.g. after new commits)
-  const reviewRequestsQuery = useQuery({
-    queryKey: ["pr", "reviewRequests", cwd, prNumber],
-    queryFn: () => ipc("pr.reviewRequests", { cwd, prNumber }),
-  });
   const isReRequested =
     currentUser !== null &&
     (reviewRequestsQuery.data ?? []).some((rr) => rr.login === currentUser);
