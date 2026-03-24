@@ -454,7 +454,7 @@ function FilterButton({
       {count > 0 && (
         <span
           className={`ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 font-mono text-[9px] font-medium ${
-            active ? "bg-primary/15 text-accent-text" : "bg-bg-raised text-text-ghost"
+            active ? "bg-primary/15 text-accent-text" : "bg-bg-raised text-text-tertiary"
           }`}
         >
           {count}
