@@ -8,6 +8,7 @@ import { ContextMenu } from "@base-ui/react/context-menu";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Check,
+  CheckCircle2,
   Copy,
   GitPullRequestClosed,
   Loader2,
@@ -74,36 +75,33 @@ function resolveStatusColor(
 // ---------------------------------------------------------------------------
 
 export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
-  const { cwd, switchWorkspace } = useWorkspace();
+  const { cwd } = useWorkspace();
   const [searchQuery, setSearchQuery] = useState("");
   const [focusIndex, setFocusIndex] = useState(0);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("review");
-  const [multiRepo, setMultiRepo] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
-  // Single-repo core queries (lightweight — only active tab fires)
   const reviewQuery = useQuery({
     queryKey: ["pr", "list", cwd, "reviewRequested"],
     queryFn: () => ipc("pr.list", { cwd, filter: "reviewRequested" }),
     refetchInterval: 30_000,
-    enabled: !multiRepo && activeFilter === "review",
+    enabled: activeFilter === "review",
   });
 
   const authorQuery = useQuery({
     queryKey: ["pr", "list", cwd, "authored"],
     queryFn: () => ipc("pr.list", { cwd, filter: "authored" }),
     refetchInterval: 30_000,
-    enabled: !multiRepo && activeFilter === "mine",
+    enabled: activeFilter === "mine",
   });
 
   const allQuery = useQuery({
     queryKey: ["pr", "list", cwd, "all"],
     queryFn: () => ipc("pr.list", { cwd, filter: "all" }),
     refetchInterval: 30_000,
-    enabled: !multiRepo && activeFilter === "all",
+    enabled: activeFilter === "all",
   });
 
-  // Enrichment queries (heavy fields — lazy loaded after initial render)
   const activeFilterIpc =
     activeFilter === "mine" ? "authored" : activeFilter === "all" ? "all" : "reviewRequested";
 
@@ -111,50 +109,20 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
     queryKey: ["pr", "enrichment", cwd, activeFilterIpc],
     queryFn: () => ipc("pr.listEnrichment", { cwd, filter: activeFilterIpc }),
     refetchInterval: 30_000,
-    enabled: !multiRepo,
-  });
-
-  // Multi-repo query (when toggle is active)
-  const multiRepoQuery = useQuery({
-    queryKey: ["pr", "listAll", activeFilter],
-    queryFn: () =>
-      ipc("pr.listAll", {
-        filter: activeFilterIpc,
-      }),
-    refetchInterval: 30_000,
-    enabled: multiRepo,
-    placeholderData: (prev) => prev,
-  });
-
-  const multiRepoEnrichmentQuery = useQuery({
-    queryKey: ["pr", "listAllEnrichment", activeFilter],
-    queryFn: () =>
-      ipc("pr.listAllEnrichment", {
-        filter: activeFilterIpc,
-      }),
-    refetchInterval: 30_000,
-    enabled: multiRepo,
   });
 
   // Build enrichment index for O(1) lookups
   const enrichmentIndex = useMemo(() => {
     const map = new Map<string, GhPrEnrichment>();
-    if (multiRepo) {
-      for (const e of multiRepoEnrichmentQuery.data ?? []) {
-        map.set(`${e.workspacePath}:${e.number}`, e);
-      }
-    } else {
-      for (const e of enrichmentQuery.data ?? []) {
-        map.set(String(e.number), e);
-      }
+    for (const e of enrichmentQuery.data ?? []) {
+      map.set(String(e.number), e);
     }
     return map;
-  }, [multiRepo, enrichmentQuery.data, multiRepoEnrichmentQuery.data]);
+  }, [enrichmentQuery.data]);
 
-  const reviewPrs = multiRepo ? [] : (reviewQuery.data ?? []);
-  const authorPrs = multiRepo ? [] : (authorQuery.data ?? []);
-  const allPrs = multiRepo ? [] : (allQuery.data ?? []);
-  const multiRepoPrs = multiRepoQuery.data ?? [];
+  const reviewPrs = reviewQuery.data ?? [];
+  const authorPrs = authorQuery.data ?? [];
+  const allPrs = allQuery.data ?? [];
   const prActivityQuery = useQuery({
     queryKey: ["pr-activity", "list"],
     queryFn: () => ipc("prActivity.list"),
@@ -166,10 +134,6 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
   );
 
   const visiblePrs = useMemo(() => {
-    if (multiRepo) {
-      return multiRepoPrs;
-    }
-
     if (activeFilter === "review") {
       return reviewPrs;
     }
@@ -179,29 +143,19 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
     }
 
     return allPrs;
-  }, [activeFilter, allPrs, authorPrs, multiRepo, multiRepoPrs, reviewPrs]);
+  }, [activeFilter, allPrs, authorPrs, reviewPrs]);
 
   const searchablePrs = useMemo<SearchablePrItem[]>(
     () =>
-      visiblePrs.map((pr) => {
-        const prAny = pr as GhPrListItemCore & { workspace?: string; workspacePath?: string };
-        const prCwd = multiRepo ? (prAny.workspacePath ?? cwd) : cwd;
-        const enrichmentKey = multiRepo ? `${prCwd}:${pr.number}` : String(pr.number);
-
-        return {
-          enrichment: enrichmentIndex.get(enrichmentKey),
-          hasNewActivity: hasNewPrActivity(
-            pr.updatedAt,
-            prActivityIndex.get(getPrActivityKey(prCwd, pr.number)),
-          ),
-          pr: {
-            ...prAny,
-            workspace: prAny.workspace,
-            workspacePath: prAny.workspacePath,
-          },
-        };
-      }),
-    [cwd, enrichmentIndex, multiRepo, prActivityIndex, visiblePrs],
+      visiblePrs.map((pr) => ({
+        enrichment: enrichmentIndex.get(String(pr.number)),
+        hasNewActivity: hasNewPrActivity(
+          pr.updatedAt,
+          prActivityIndex.get(getPrActivityKey(cwd, pr.number)),
+        ),
+        pr,
+      })),
+    [cwd, enrichmentIndex, prActivityIndex, visiblePrs],
   );
 
   const filteredResults = useMemo(
@@ -234,11 +188,8 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
 
   const handleSelectPr = useCallback(
     (pr: GhPrListItemCore) => {
-      const prAny = pr as GhPrListItemCore & { workspacePath?: string };
-      const prCwd = multiRepo ? (prAny.workspacePath ?? cwd) : cwd;
-
       void ipc("prActivity.markSeen", {
-        repo: prCwd,
+        repo: cwd,
         prNumber: pr.number,
         updatedAt: pr.updatedAt,
       })
@@ -247,13 +198,9 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
         })
         .catch(() => {});
 
-      if (multiRepo && prAny.workspacePath && prAny.workspacePath !== cwd) {
-        switchWorkspace(prAny.workspacePath);
-      }
-
       onSelectPr(pr.number, pr.title);
     },
-    [cwd, multiRepo, onSelectPr, switchWorkspace],
+    [cwd, onSelectPr],
   );
 
   // Derive a safe focus index — stays valid when the list shrinks without
@@ -287,44 +234,24 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
 
   const hasSearch = searchQuery.trim().length > 0;
 
-  const isLoading = multiRepo
-    ? multiRepoQuery.isLoading
-    : (activeFilter === "review" && reviewQuery.isLoading) ||
-      (activeFilter === "mine" && authorQuery.isLoading) ||
-      (activeFilter === "all" && allQuery.isLoading);
-
-  // Tab counts — show multi-repo count when in that mode
-  const reviewCount = multiRepo ? multiRepoPrs.length : reviewPrs.length;
-  const mineCount = multiRepo ? 0 : authorPrs.length;
-  const allCount = multiRepo ? multiRepoPrs.length : allPrs.length;
+  const isLoading =
+    (activeFilter === "review" && reviewQuery.isLoading) ||
+    (activeFilter === "mine" && authorQuery.isLoading) ||
+    (activeFilter === "all" && allQuery.isLoading);
 
   return (
     <aside className="border-border bg-bg-surface flex h-full flex-col">
-      {/* Header with multi-repo toggle */}
-      <div className="flex items-center justify-between px-3 pt-3 pb-2">
+      <div className="px-3 pt-3 pb-2">
         <h2 className="text-text-secondary text-[11px] font-semibold tracking-[0.06em] uppercase">
           Pull Requests
         </h2>
-        <button
-          type="button"
-          onClick={() => {
-            setMultiRepo(!multiRepo);
-            setFocusIndex(0);
-          }}
-          className={`cursor-pointer rounded-sm px-1.5 py-0.5 text-[9px] font-medium transition-colors ${
-            multiRepo ? "bg-primary/15 text-primary" : "text-text-ghost hover:text-text-tertiary"
-          }`}
-          title={multiRepo ? "Showing all repos" : "Show all repos"}
-        >
-          {multiRepo ? "All repos" : "This repo"}
-        </button>
       </div>
 
       {/* Filter tabs */}
       <div className="border-border flex border-b px-3">
         <FilterButton
           label="Review"
-          count={reviewCount}
+          count={reviewPrs.length}
           active={activeFilter === "review"}
           onClick={() => {
             setActiveFilter("review");
@@ -333,7 +260,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
         />
         <FilterButton
           label="Mine"
-          count={mineCount}
+          count={authorPrs.length}
           active={activeFilter === "mine"}
           onClick={() => {
             setActiveFilter("mine");
@@ -342,7 +269,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
         />
         <FilterButton
           label="All"
-          count={allCount}
+          count={allPrs.length}
           active={activeFilter === "all"}
           onClick={() => {
             setActiveFilter("all");
@@ -446,22 +373,19 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
         <div className="flex-1 overflow-y-auto">
           {filteredResults.map(({ item }, index) => {
             const { enrichment, pr } = item;
-            const prAny = pr as GhPrListItemCore & { workspace?: string; workspacePath?: string };
-            const prCwd = multiRepo ? (prAny.workspacePath ?? cwd) : cwd;
             const checkSummary = summarizePrChecks(enrichment?.statusCheckRollup ?? []);
 
             return (
               <PrItem
-                key={multiRepo ? `${prCwd}:${pr.number}` : pr.number}
+                key={pr.number}
                 pr={pr}
                 enrichment={enrichment}
-                cwd={prCwd}
+                cwd={cwd}
                 checkSummary={checkSummary}
                 statusColor={resolveStatusColor(pr.reviewDecision, checkSummary, pr.isDraft)}
                 isActive={selectedPr === pr.number}
                 isFocused={safeFocusIndex === index}
                 hasNewActivity={item.hasNewActivity ?? false}
-                workspace={multiRepo ? prAny.workspace : undefined}
                 onClick={() => {
                   setFocusIndex(index);
                   handleSelectPr(pr);
@@ -545,7 +469,6 @@ function PrItem({
   isFocused,
   hasNewActivity,
   onClick,
-  workspace,
   cwd,
 }: {
   pr: GhPrListItemCore;
@@ -556,7 +479,6 @@ function PrItem({
   isFocused: boolean;
   hasNewActivity: boolean;
   onClick: () => void;
-  workspace?: string;
   cwd: string;
 }) {
   const size = enrichment ? prSizeLabel(enrichment.additions, enrichment.deletions) : null;
@@ -655,14 +577,20 @@ function PrItem({
             <span>#{pr.number}</span>
             <span className="text-text-ghost">·</span>
             <span className="truncate">{pr.author.login}</span>
-            {workspace && (
-              <>
-                <span className="text-text-ghost">·</span>
-                <span className="text-info truncate">{workspace}</span>
-              </>
-            )}
             <span className="text-text-ghost">·</span>
             <span className="shrink-0">{relativeTime(new Date(pr.updatedAt))}</span>
+            {!pr.isDraft &&
+              pr.reviewDecision === "APPROVED" &&
+              checkSummary.state === "passing" &&
+              enrichment?.mergeable !== "CONFLICTING" && (
+                <>
+                  <span className="text-text-ghost">·</span>
+                  <span className="text-success flex items-center gap-0.5">
+                    <CheckCircle2 size={10} />
+                    Ready
+                  </span>
+                </>
+              )}
             {pr.isDraft && (
               <>
                 <span className="text-text-ghost">·</span>
