@@ -1,6 +1,7 @@
 import type { Highlighter } from "shiki";
 
 import { Spinner } from "@/components/ui/spinner";
+import { Switch } from "@/components/ui/switch";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Bot,
@@ -599,21 +600,12 @@ export function SettingsView() {
                 </p>
                 <label className="mt-3 flex cursor-pointer items-center justify-between">
                   <span className="text-text-secondary text-xs">Use AI</span>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={aiEnabled}
-                    onClick={() => savePref("aiEnabled", aiEnabled ? "false" : "true")}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border border-transparent transition-colors duration-[--duration-fast] ${
-                      aiEnabled ? "bg-[--accent]" : "bg-[--bg-elevated]"
-                    }`}
-                  >
-                    <span
-                      className={`pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-[--duration-fast] ${
-                        aiEnabled ? "translate-x-4" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
+                  <Switch
+                    checked={aiEnabled}
+                    onCheckedChange={(checked) =>
+                      savePref("aiEnabled", checked ? "true" : "false")
+                    }
+                  />
                 </label>
               </section>
             </>
