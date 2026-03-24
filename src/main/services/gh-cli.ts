@@ -90,6 +90,33 @@ export async function switchAccount(host: string, login: string): Promise<void> 
 // Repo info (fork detection)
 // ---------------------------------------------------------------------------
 
+/**
+ * Determine the GitHub host for a repository by parsing its git remote URL.
+ * Returns a hostname like "github.com" or "ghes.company.com", or null on failure.
+ */
+export async function getRepoHost(cwd: string): Promise<string | null> {
+  try {
+    const { stdout } = await execFile("git", ["remote", "get-url", "origin"], {
+      cwd,
+      timeout: 5_000,
+    });
+    const url = stdout.trim();
+    // HTTPS: https://github.com/owner/repo.git
+    const httpsMatch = url.match(/^https?:\/\/([^/:]+)/);
+    if (httpsMatch?.[1]) {
+      return httpsMatch[1];
+    }
+    // SSH: git@github.com:owner/repo.git  or  ssh://git@github.com/owner/repo.git
+    const sshMatch = url.match(/^(?:ssh:\/\/)?[^@]+@([^:/]+)/);
+    if (sshMatch?.[1]) {
+      return sshMatch[1];
+    }
+  } catch {
+    // No remote or git not available
+  }
+  return null;
+}
+
 export async function getRepoInfo(cwd: string): Promise<RepoInfo> {
   const { stdout } = await execFile(
     "gh",

@@ -77,6 +77,17 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
     }
 
     const accounts = await ghCli.listAccounts();
+
+    // Determine the host from the repo's git remote so we pick the right account
+    // even when the active account is on a different host.
+    const repoHost = await ghCli.getRepoHost(args.cwd);
+    if (repoHost) {
+      const match = accounts.find((a) => a.host === repoHost);
+      if (match) {
+        return { host: match.host, login: match.login };
+      }
+    }
+
     const active = accounts.find((account) => account.active);
     if (!active) {
       return null;
