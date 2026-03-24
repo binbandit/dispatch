@@ -9,9 +9,10 @@ import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { useSyntaxHighlighter } from "../hooks/use-syntax-highlight";
 import { getDiffFilePath, parseDiff, type DiffFile } from "../lib/diff-parser";
 import { useFileNav } from "../lib/file-nav-context";
-import { ensureLanguage, inferLanguage } from "../lib/highlighter";
+import { ensureLanguage, ensureTheme, inferLanguage } from "../lib/highlighter";
 import { ipc } from "../lib/ipc";
 import { queryClient } from "../lib/query-client";
+import { useTheme } from "../lib/theme-context";
 import { useWorkspace } from "../lib/workspace-context";
 import { CompactPrHeader } from "./compact-pr-header";
 import { DiffToolbar } from "./diff-toolbar";
@@ -204,9 +205,14 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const currentFilePath = currentFile ? getDiffFilePath(currentFile) : "";
   const currentLanguage = inferLanguage(currentFilePath);
 
-  // Ensure the language is loaded for the current file (lazy-load non-core langs)
+  const { codeTheme } = useTheme();
+
+  // Ensure the language and code theme are loaded (lazy-load non-core langs & themes)
   if (highlighter && currentLanguage !== "text") {
     ensureLanguage(currentLanguage);
+  }
+  if (highlighter) {
+    ensureTheme(codeTheme);
   }
 
   // Full file content (for "show full file" mode)

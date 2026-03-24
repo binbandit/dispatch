@@ -9,12 +9,19 @@ interface ThemeContextValue {
   theme: Theme;
   resolvedTheme: ResolvedTheme;
   setTheme: (theme: Theme) => void;
+  codeTheme: string;
+  setCodeTheme: (theme: string) => void;
 }
+
+const DEFAULT_CODE_THEME_DARK = "github-dark-default";
+const DEFAULT_CODE_THEME_LIGHT = "github-light-default";
 
 const ThemeContext = createContext<ThemeContextValue>({
   theme: "dark",
   resolvedTheme: "dark",
   setTheme: () => {},
+  codeTheme: DEFAULT_CODE_THEME_DARK,
+  setCodeTheme: () => {},
 });
 
 function getSystemTheme(): ResolvedTheme {
@@ -36,8 +43,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
     return (localStorage.getItem("dispatch-theme") as Theme) ?? "dark";
   });
+  const [codeThemeDark, setCodeThemeDark] = useState<string>(() => {
+    return localStorage.getItem("dispatch-code-theme-dark") ?? DEFAULT_CODE_THEME_DARK;
+  });
+  const [codeThemeLight, setCodeThemeLight] = useState<string>(() => {
+    return localStorage.getItem("dispatch-code-theme-light") ?? DEFAULT_CODE_THEME_LIGHT;
+  });
 
   const resolved = resolveTheme(theme);
+  const codeTheme = resolved === "light" ? codeThemeLight : codeThemeDark;
 
   // Apply theme class on changes
   useEffect(() => {
@@ -46,11 +60,24 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Load authoritative value from SQLite preferences on mount
   useEffect(() => {
-    ipc("preferences.get", { key: "theme" }).then((saved) => {
-      if (saved && saved !== theme) {
-        setThemeState(saved as Theme);
-        localStorage.setItem("dispatch-theme", saved);
-        applyTheme(resolveTheme(saved as Theme));
+    ipc("preferences.getAll", {
+      keys: ["theme", "codeThemeDark", "codeThemeLight"],
+    }).then((prefs) => {
+      const savedTheme = prefs.theme;
+      if (savedTheme && savedTheme !== theme) {
+        setThemeState(savedTheme as Theme);
+        localStorage.setItem("dispatch-theme", savedTheme);
+        applyTheme(resolveTheme(savedTheme as Theme));
+      }
+      const savedDark = prefs.codeThemeDark;
+      if (savedDark) {
+        setCodeThemeDark(savedDark);
+        localStorage.setItem("dispatch-code-theme-dark", savedDark);
+      }
+      const savedLight = prefs.codeThemeLight;
+      if (savedLight) {
+        setCodeThemeLight(savedLight);
+        localStorage.setItem("dispatch-code-theme-light", savedLight);
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- only on mount
@@ -72,8 +99,25 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     ipc("preferences.set", { key: "theme", value: newTheme });
   }, []);
 
+  const setCodeTheme = useCallback(
+    (newCodeTheme: string) => {
+      if (resolved === "light") {
+        setCodeThemeLight(newCodeTheme);
+        localStorage.setItem("dispatch-code-theme-light", newCodeTheme);
+        ipc("preferences.set", { key: "codeThemeLight", value: newCodeTheme });
+      } else {
+        setCodeThemeDark(newCodeTheme);
+        localStorage.setItem("dispatch-code-theme-dark", newCodeTheme);
+        ipc("preferences.set", { key: "codeThemeDark", value: newCodeTheme });
+      }
+    },
+    [resolved],
+  );
+
   return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme: resolved, setTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, resolvedTheme: resolved, setTheme, codeTheme, setCodeTheme }}
+    >
       {children}
     </ThemeContext.Provider>
   );

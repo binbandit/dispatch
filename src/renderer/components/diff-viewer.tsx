@@ -163,8 +163,7 @@ export function DiffViewer({
 }: DiffViewerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { hoveredLine, anchorRect, onLineEnter, onLineLeave } = useBlameHover();
-  const { resolvedTheme } = useTheme();
-  const shikiTheme = resolvedTheme === "light" ? "github-light-default" : "github-dark-default";
+  const { codeTheme: shikiTheme } = useTheme();
 
   // --- Search state ---
   const [searchOpen, setSearchOpen] = useState(false);

@@ -40,6 +40,21 @@ export function getHighlighter(): Promise<Highlighter> {
 }
 
 /**
+ * Ensure a theme is loaded in the highlighter.
+ * No-op if already loaded. Safe to call repeatedly.
+ */
+export async function ensureTheme(theme: string): Promise<void> {
+  const h = await getHighlighter();
+  if (!h.getLoadedThemes().includes(theme)) {
+    try {
+      await h.loadTheme(theme as Parameters<Highlighter["loadTheme"]>[0]);
+    } catch {
+      // Theme not supported by Shiki — will fall back to default
+    }
+  }
+}
+
+/**
  * Ensure a language is loaded in the highlighter.
  * No-op if already loaded. Safe to call repeatedly.
  */

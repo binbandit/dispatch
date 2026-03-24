@@ -1,7 +1,11 @@
+import type { Highlighter } from "shiki";
+
 import { Spinner } from "@/components/ui/spinner";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Check, Monitor, Moon, Sun } from "lucide-react";
+import { memo, useEffect, useMemo, useState } from "react";
 
+import { ensureTheme, getHighlighter } from "../lib/highlighter";
 import { ipc } from "../lib/ipc";
 import { queryClient } from "../lib/query-client";
 import { useTheme } from "../lib/theme-context";
@@ -47,8 +51,190 @@ const THEME_OPTIONS = [
   { value: "system", label: "System", icon: Monitor },
 ] as const;
 
+// --- Code theme definitions ---
+
+interface CodeThemeOption {
+  id: string;
+  name: string;
+}
+
+const CODE_THEMES_DARK: CodeThemeOption[] = [
+  { id: "github-dark-default", name: "GitHub Dark" },
+  { id: "github-dark-dimmed", name: "GitHub Dimmed" },
+  { id: "one-dark-pro", name: "One Dark Pro" },
+  { id: "dracula", name: "Dracula" },
+  { id: "tokyo-night", name: "Tokyo Night" },
+  { id: "catppuccin-mocha", name: "Catppuccin Mocha" },
+  { id: "catppuccin-macchiato", name: "Catppuccin Macchiato" },
+  { id: "nord", name: "Nord" },
+  { id: "rose-pine-moon", name: "Rosé Pine Moon" },
+  { id: "rose-pine", name: "Rosé Pine" },
+  { id: "night-owl", name: "Night Owl" },
+  { id: "monokai", name: "Monokai" },
+  { id: "vitesse-dark", name: "Vitesse Dark" },
+  { id: "vitesse-black", name: "Vitesse Black" },
+  { id: "solarized-dark", name: "Solarized Dark" },
+  { id: "material-theme-ocean", name: "Material Ocean" },
+  { id: "material-theme-palenight", name: "Material Palenight" },
+  { id: "poimandres", name: "Poimandres" },
+  { id: "vesper", name: "Vesper" },
+  { id: "ayu-dark", name: "Ayu Dark" },
+  { id: "everforest-dark", name: "Everforest Dark" },
+  { id: "kanagawa-wave", name: "Kanagawa Wave" },
+  { id: "synthwave-84", name: "Synthwave '84" },
+  { id: "houston", name: "Houston" },
+  { id: "andromeeda", name: "Andromeeda" },
+];
+
+const CODE_THEMES_LIGHT: CodeThemeOption[] = [
+  { id: "github-light-default", name: "GitHub Light" },
+  { id: "github-light", name: "GitHub Light Classic" },
+  { id: "one-light", name: "One Light" },
+  { id: "catppuccin-latte", name: "Catppuccin Latte" },
+  { id: "rose-pine-dawn", name: "Rosé Pine Dawn" },
+  { id: "vitesse-light", name: "Vitesse Light" },
+  { id: "solarized-light", name: "Solarized Light" },
+  { id: "min-light", name: "Min Light" },
+  { id: "ayu-light", name: "Ayu Light" },
+  { id: "everforest-light", name: "Everforest Light" },
+  { id: "snazzy-light", name: "Snazzy Light" },
+  { id: "slack-ochin", name: "Slack Ochin" },
+  { id: "light-plus", name: "Light+" },
+];
+
+const PREVIEW_CODE = `interface Repository {
+  name: string;
+  stars: number;
+  private: boolean;
+}
+
+async function fetchRepos(org: string) {
+  const url = \`/api/orgs/\${org}/repos\`;
+  const res = await fetch(url);
+  return res.json() as Promise<Repository[]>;
+}`;
+
+// --- Code theme preview ---
+
+const CodeThemePreview = memo(function CodeThemePreview({ themeId }: { themeId: string }) {
+  const [html, setHtml] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      await ensureTheme(themeId);
+      const highlighter = await getHighlighter();
+      const result = highlighter.codeToHtml(PREVIEW_CODE, {
+        lang: "typescript",
+        theme: themeId,
+      });
+      if (!cancelled) setHtml(result);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [themeId]);
+
+  if (!html) {
+    return (
+      <div className="bg-bg-root border-border flex h-[220px] items-center justify-center rounded-md border">
+        <Spinner className="text-text-tertiary h-4 w-4" />
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="[&_pre]:!rounded-md [&_pre]:!border [&_pre]:!border-[--border] [&_pre]:!p-3 [&_pre]:!text-[12.5px] [&_pre]:!leading-[20px] [&_code]:!font-[--font-mono]"
+      // biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki output is safe
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  );
+});
+
+// --- Code theme grid item ---
+
+function CodeThemeCard({
+  theme,
+  isActive,
+  onSelect,
+}: {
+  theme: CodeThemeOption;
+  isActive: boolean;
+  onSelect: () => void;
+}) {
+  const [colors, setColors] = useState<string[] | null>(null);
+
+  // Extract a few representative token colors from the theme for the preview dots
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      await ensureTheme(theme.id);
+      const highlighter = await getHighlighter();
+      const sample = 'const x: string = "hello";';
+      const tokens = highlighter.codeToTokens(sample, {
+        lang: "typescript",
+        theme: theme.id,
+      } as Parameters<Highlighter["codeToTokens"]>[1]);
+      if (cancelled) return;
+      // Collect unique non-bg colors from the first line
+      const seen = new Set<string>();
+      const result: string[] = [];
+      for (const token of tokens.tokens[0] ?? []) {
+        const c = token.color?.toLowerCase();
+        if (c && !seen.has(c) && c !== tokens.bg?.toLowerCase()) {
+          seen.add(c);
+          result.push(c);
+        }
+        if (result.length >= 4) break;
+      }
+      setColors(result);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [theme.id]);
+
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={`group relative flex cursor-pointer items-center gap-2.5 border px-3 py-2 text-left transition-all duration-[--duration-fast] ${
+        isActive
+          ? "border-[--border-accent] bg-[--accent-muted]"
+          : "border-[--border] hover:border-[--border-strong] hover:bg-[--bg-raised]"
+      } rounded-md`}
+    >
+      {/* Color dots */}
+      <div className="flex items-center gap-1 shrink-0">
+        {colors
+          ? colors.map((c) => (
+              <span
+                key={c}
+                className="h-3 w-3 rounded-full border border-[--border-subtle]"
+                style={{ backgroundColor: c }}
+              />
+            ))
+          : Array.from({ length: 4 }).map((_, i) => (
+              <span
+                key={i}
+                className="bg-bg-elevated h-3 w-3 animate-pulse rounded-full"
+              />
+            ))}
+      </div>
+      <span className="text-text-primary flex-1 truncate font-mono text-xs">{theme.name}</span>
+      {isActive && <Check size={13} className="text-[--accent-text] shrink-0" />}
+    </button>
+  );
+}
+
 export function SettingsView() {
-  const { theme, setTheme } = useTheme();
+  const { theme, setTheme, resolvedTheme, codeTheme, setCodeTheme } = useTheme();
+
+  const codeThemeOptions = useMemo(
+    () => (resolvedTheme === "light" ? CODE_THEMES_LIGHT : CODE_THEMES_DARK),
+    [resolvedTheme],
+  );
 
   // Load saved preferences
   const prefsQuery = useQuery({
@@ -125,6 +311,31 @@ export function SettingsView() {
                 {label}
               </button>
             ))}
+          </div>
+        </section>
+
+        {/* Code Theme */}
+        <section className="mt-8">
+          <h2 className="text-text-primary text-sm font-semibold">Code Theme</h2>
+          <p className="text-text-tertiary mt-0.5 text-xs">
+            Syntax highlighting theme for diffs.{" "}
+            {resolvedTheme === "light" ? "Light" : "Dark"} themes shown for your current mode.
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-1.5">
+            {codeThemeOptions.map((t) => (
+              <CodeThemeCard
+                key={t.id}
+                theme={t}
+                isActive={codeTheme === t.id}
+                onSelect={() => setCodeTheme(t.id)}
+              />
+            ))}
+          </div>
+          <div className="mt-3">
+            <label className="text-text-tertiary mb-1.5 block font-mono text-[10px] font-medium uppercase tracking-wider">
+              Preview
+            </label>
+            <CodeThemePreview themeId={codeTheme} />
           </div>
         </section>
 
