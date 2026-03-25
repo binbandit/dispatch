@@ -158,7 +158,7 @@ export function OverviewTab({
       )}
 
       {/* Close PR */}
-      <div className="sticky bottom-0 flex justify-end px-4 py-3">
+      <div className="flex justify-end px-4 py-3">
         <button
           type="button"
           onClick={() => closeMutation.mutate()}

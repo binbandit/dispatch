@@ -63,86 +63,86 @@ export function SidePanelOverlay({
   }
 
   return (
+    <div
+      className="bg-bg-surface flex shrink-0 flex-col"
+      style={{
+        width: "380px",
+        borderLeft: "1px solid var(--border)",
+      }}
+    >
+      {/* Header — 36px, tabs + close */}
       <div
-        className="bg-bg-surface flex shrink-0 flex-col"
+        className="flex shrink-0 items-center"
         style={{
-          width: "380px",
-          borderLeft: "1px solid var(--border)",
+          height: "36px",
+          padding: "0 8px",
+          borderBottom: "1px solid var(--border)",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
         }}
       >
-        {/* Header — 36px, tabs + close */}
-        <div
-          className="flex shrink-0 items-center"
-          style={{
-            height: "36px",
-            padding: "0 8px",
-            borderBottom: "1px solid var(--border)",
-            boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
-          }}
-        >
-          <div className="flex flex-1 gap-0">
-            <PanelTabButton
-              label="Overview"
-              active={activeTab === "overview"}
-              onClick={() => setActiveTab("overview")}
-            />
-            <PanelTabButton
-              label="Conversation"
-              count={issueComments.length + pr.reviews.length}
-              active={activeTab === "conversation"}
-              onClick={() => setActiveTab("conversation")}
-            />
-            <PanelTabButton
-              label="Commits"
-              active={activeTab === "commits"}
-              onClick={() => setActiveTab("commits")}
-            />
-            <PanelTabButton
-              label="Checks"
-              count={pr.statusCheckRollup.length}
-              active={activeTab === "checks"}
-              onClick={() => setActiveTab("checks")}
-              danger={pr.statusCheckRollup.some((c) => c.conclusion?.toUpperCase() === "FAILURE")}
-            />
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-text-ghost hover:text-text-primary hover:bg-bg-raised flex h-6 w-6 cursor-pointer items-center justify-center rounded-sm transition-colors"
-          >
-            <X size={14} />
-          </button>
-        </div>
-
-        {/* Conversation tab manages its own scroll + composer */}
-        {activeTab === "conversation" ? (
-          <ConversationTab
-            prNumber={prNumber}
-            reviews={pr.reviews}
-            issueComments={issueComments}
-            reviewThreads={reviewThreads}
-            repo={repo}
-            onReviewClick={onReviewClick}
-            issueCommentReactions={reactions?.issueComments}
+        <div className="flex flex-1 gap-0">
+          <PanelTabButton
+            label="Overview"
+            active={activeTab === "overview"}
+            onClick={() => setActiveTab("overview")}
           />
-        ) : (
-          <div
-            className="flex-1 overflow-y-auto"
-            style={{ padding: "12px" }}
-          >
-            {activeTab === "overview" && (
-              <PanelOverviewContent
-                pr={pr}
-                prNumber={prNumber}
-                repo={repo}
-                reactions={reactions}
-              />
-            )}
-            {activeTab === "commits" && <PanelCommitsContent prNumber={prNumber} />}
-            {activeTab === "checks" && <PanelChecksContent prNumber={prNumber} />}
-          </div>
-        )}
+          <PanelTabButton
+            label="Conversation"
+            count={issueComments.length + pr.reviews.length}
+            active={activeTab === "conversation"}
+            onClick={() => setActiveTab("conversation")}
+          />
+          <PanelTabButton
+            label="Commits"
+            active={activeTab === "commits"}
+            onClick={() => setActiveTab("commits")}
+          />
+          <PanelTabButton
+            label="Checks"
+            count={pr.statusCheckRollup.length}
+            active={activeTab === "checks"}
+            onClick={() => setActiveTab("checks")}
+            danger={pr.statusCheckRollup.some((c) => c.conclusion?.toUpperCase() === "FAILURE")}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-text-ghost hover:text-text-primary hover:bg-bg-raised flex h-6 w-6 cursor-pointer items-center justify-center rounded-sm transition-colors"
+        >
+          <X size={14} />
+        </button>
       </div>
+
+      {/* Conversation tab manages its own scroll + composer */}
+      {activeTab === "conversation" ? (
+        <ConversationTab
+          prNumber={prNumber}
+          reviews={pr.reviews}
+          issueComments={issueComments}
+          reviewThreads={reviewThreads}
+          repo={repo}
+          onReviewClick={onReviewClick}
+          issueCommentReactions={reactions?.issueComments}
+        />
+      ) : (
+        <div
+          className="flex-1 overflow-y-auto"
+          style={{ padding: "12px" }}
+        >
+          {activeTab === "overview" && (
+            <PanelOverviewContent
+              pr={pr}
+              prNumber={prNumber}
+              repo={repo}
+              reactions={reactions}
+            />
+          )}
+          {activeTab === "commits" && <PanelCommitsContent prNumber={prNumber} />}
+          {activeTab === "checks" && <PanelChecksContent prNumber={prNumber} />}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -196,7 +196,10 @@ function PanelOverviewContent({
           marginBottom: "10px",
         }}
       >
-        <GitHubAvatar login={pr.author.login} size={18} />
+        <GitHubAvatar
+          login={pr.author.login}
+          size={18}
+        />
         <span className="font-medium">{pr.author.login}</span>
         <span className="text-text-ghost font-mono text-[10px]">
           opened {relativeTime(new Date(pr.createdAt))}
@@ -420,21 +423,28 @@ function PanelOverviewContent({
           className="border-info/30 bg-info/5 flex items-center gap-1.5 rounded-md border"
           style={{ padding: "6px 10px", marginTop: "10px" }}
         >
-          <GitMerge size={12} className="text-info" />
+          <GitMerge
+            size={12}
+            className="text-info"
+          />
           <span className="text-info text-[11px] font-medium">Merge when ready</span>
           <span className="text-text-tertiary text-[10px]">
-            · {pr.autoMergeRequest.mergeMethod.toLowerCase()} by {pr.autoMergeRequest.enabledBy.login}
+            · {pr.autoMergeRequest.mergeMethod.toLowerCase()} by{" "}
+            {pr.autoMergeRequest.enabledBy.login}
           </span>
         </div>
       )}
 
       {/* Close PR */}
-      <div className="sticky bottom-0 flex justify-end" style={{ marginTop: "12px" }}>
+      <div
+        className="flex justify-end"
+        style={{ marginTop: "32px" }}
+      >
         <button
           type="button"
           onClick={() => closeMutation.mutate()}
           disabled={closeMutation.isPending}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md bg-[var(--danger)] px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-[var(--danger)]/80 disabled:opacity-50"
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
         >
           {closeMutation.isPending ? <Spinner className="h-3 w-3" /> : <XCircle size={11} />}
           Close pull request
