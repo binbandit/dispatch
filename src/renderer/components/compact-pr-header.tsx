@@ -1,9 +1,14 @@
 import type { GhPrDetail } from "@/shared/ipc";
 
 import { toastManager } from "@/components/ui/toast";
+import { useMutation } from "@tanstack/react-query";
 import { Copy, ExternalLink, Link, PanelRight, RefreshCw } from "lucide-react";
+import { useRef, useState } from "react";
 
+import { ipc } from "../lib/ipc";
 import { openExternal } from "../lib/open-external";
+import { queryClient } from "../lib/query-client";
+import { useWorkspace } from "../lib/workspace-context";
 import { GitHubAvatar } from "./github-avatar";
 
 /**
@@ -24,6 +29,7 @@ interface CompactPrHeaderProps {
   showPanelToggle: boolean;
   isRefreshing?: boolean;
   onRefresh: () => void;
+  canEdit?: boolean;
 }
 
 export function CompactPrHeader({
@@ -35,7 +41,46 @@ export function CompactPrHeader({
   showPanelToggle,
   isRefreshing,
   onRefresh,
+  canEdit,
 }: CompactPrHeaderProps) {
+  const { cwd } = useWorkspace();
+  const [editing, setEditing] = useState(false);
+  const [editValue, setEditValue] = useState(pr.title);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const titleMutation = useMutation({
+    mutationFn: (title: string) => ipc("pr.updateTitle", { cwd, prNumber: pr.number, title }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr"] });
+      setEditing(false);
+    },
+    onError: (err: Error) => {
+      toastManager.add({ title: "Failed to update title", description: err.message, type: "error" });
+    },
+  });
+
+  const startEditing = () => {
+    if (!canEdit) {
+      return;
+    }
+    setEditValue(pr.title);
+    setEditing(true);
+  };
+
+  const saveTitle = () => {
+    const trimmed = editValue.trim();
+    if (!trimmed || trimmed === pr.title) {
+      setEditing(false);
+      return;
+    }
+    titleMutation.mutate(trimmed);
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+    setEditValue(pr.title);
+  };
+
   return (
     <div className="border-border bg-bg-surface flex h-9 shrink-0 items-center gap-2 border-b px-4">
       {/* Author avatar + login */}
@@ -54,12 +99,36 @@ export function CompactPrHeader({
       )}
 
       {/* PR Title — most prominent element (14px, 700) */}
-      <span
-        className="text-text-primary min-w-0 flex-1 truncate"
-        style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "-0.02em" }}
-      >
-        {pr.title}
-      </span>
+      {editing ? (
+        <input
+          ref={inputRef}
+          autoFocus
+          type="text"
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              saveTitle();
+            } else if (e.key === "Escape") {
+              cancelEditing();
+            }
+          }}
+          onBlur={saveTitle}
+          disabled={titleMutation.isPending}
+          className="text-text-primary border-primary bg-bg-root min-w-0 flex-1 rounded-sm border px-1.5 focus:outline-none"
+          style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "-0.02em", height: "26px" }}
+        />
+      ) : (
+        <span
+          onClick={startEditing}
+          className={`text-text-primary min-w-0 flex-1 truncate ${canEdit ? "hover:bg-bg-raised cursor-pointer rounded-sm px-1.5 -mx-1.5 transition-colors" : ""}`}
+          style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "-0.02em" }}
+          title={canEdit ? "Click to edit title" : undefined}
+        >
+          {pr.title}
+        </span>
+      )}
 
       {/* PR number */}
       <span className="text-text-tertiary shrink-0 font-mono text-[11px]">#{pr.number}</span>
@@ -90,7 +159,10 @@ export function CompactPrHeader({
         className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[26px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors disabled:cursor-default disabled:opacity-50"
         title="Refresh PR"
       >
-        <RefreshCw size={13} className={isRefreshing ? "animate-spin" : ""} />
+        <RefreshCw
+          size={13}
+          className={isRefreshing ? "animate-spin" : ""}
+        />
       </button>
 
       {/* Copy PR number */}

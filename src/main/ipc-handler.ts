@@ -167,6 +167,9 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   "pr.updateTitle": async (args) => {
     await ghCli.updatePrTitle(args.cwd, args.prNumber, args.title);
   },
+  "pr.updateBody": async (args) => {
+    await ghCli.updatePrBody(args.cwd, args.prNumber, args.body);
+  },
   "pr.repoLabels": async (args) => ghCli.listRepoLabels(args.cwd),
   "pr.addLabel": async (args) => {
     await ghCli.addPrLabel(args.cwd, args.prNumber, args.label);

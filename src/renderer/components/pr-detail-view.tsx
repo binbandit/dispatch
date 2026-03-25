@@ -445,6 +445,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
           queryClient.invalidateQueries({ queryKey: ["checks"] });
           queryClient.invalidateQueries({ queryKey: ["pr-activity"] });
         }}
+        canEdit={canPush}
       />
 
       {/* Diff viewer area (relative for overlay positioning) */}
@@ -525,6 +526,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
           onTabChange={setPanelTab}
           reviewThreads={reviewThreadsQuery.data}
           reactions={reactionsQuery.data}
+          canEdit={canPush}
         />
 
         {/* Floating review bar */}

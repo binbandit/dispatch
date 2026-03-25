@@ -653,6 +653,14 @@ export async function updatePrTitle(cwd: string, prNumber: number, title: string
   invalidatePrListCaches(cwd);
 }
 
+export async function updatePrBody(cwd: string, prNumber: number, body: string): Promise<void> {
+  await execFile("gh", ["pr", "edit", String(prNumber), "--body", body], {
+    cwd,
+    timeout: 15_000,
+  });
+  invalidatePrListCaches(cwd);
+}
+
 // ---------------------------------------------------------------------------
 // Labels
 // ---------------------------------------------------------------------------

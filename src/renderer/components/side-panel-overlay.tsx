@@ -4,7 +4,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Check, GitMerge, Loader2, X, XCircle } from "lucide-react";
+import { Check, GitMerge, Loader2, Pencil, X, XCircle } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
@@ -41,6 +41,7 @@ interface SidePanelOverlayProps {
   onTabChange: (tab: PanelTab) => void;
   reviewThreads?: GhReviewThread[];
   reactions?: GhPrReactions;
+  canEdit?: boolean;
 }
 
 export function SidePanelOverlay({
@@ -55,6 +56,7 @@ export function SidePanelOverlay({
   onTabChange,
   reviewThreads,
   reactions,
+  canEdit,
 }: SidePanelOverlayProps) {
   const setActiveTab = onTabChange;
 
@@ -136,6 +138,7 @@ export function SidePanelOverlay({
               prNumber={prNumber}
               repo={repo}
               reactions={reactions}
+              canEdit={canEdit}
             />
           )}
           {activeTab === "commits" && <PanelCommitsContent prNumber={prNumber} />}
@@ -155,14 +158,19 @@ function PanelOverviewContent({
   prNumber,
   repo,
   reactions,
+  canEdit,
 }: {
   pr: GhPrDetail;
   prNumber: number;
   repo: string;
   reactions?: GhPrReactions;
+  canEdit?: boolean;
 }) {
   const { cwd } = useWorkspace();
   const aiConfig = useAiConfig();
+  const [editingBody, setEditingBody] = useState(false);
+  const [bodyValue, setBodyValue] = useState(pr.body);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const closeMutation = useMutation({
     mutationFn: () => ipc("pr.close", { cwd, prNumber }),
@@ -174,6 +182,35 @@ function PanelOverviewContent({
       toastManager.add({ title: "Close failed", description: String(err.message), type: "error" });
     },
   });
+
+  const bodyMutation = useMutation({
+    mutationFn: (body: string) => ipc("pr.updateBody", { cwd, prNumber, body }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr"] });
+      setEditingBody(false);
+      toastManager.add({ title: "Description updated", type: "success" });
+    },
+    onError: (err: Error) => {
+      toastManager.add({
+        title: "Failed to update description",
+        description: err.message,
+        type: "error",
+      });
+    },
+  });
+
+  const startEditingBody = () => {
+    setBodyValue(pr.body);
+    setEditingBody(true);
+  };
+
+  const saveBody = () => {
+    if (bodyValue === pr.body) {
+      setEditingBody(false);
+      return;
+    }
+    bodyMutation.mutate(bodyValue);
+  };
 
   const reviewRequestsQuery = useQuery({
     queryKey: ["pr", "reviewRequests", cwd, prNumber],
@@ -217,28 +254,103 @@ function PanelOverviewContent({
         }}
       >
         <div
-          style={{
-            fontSize: "11px",
-            fontWeight: 600,
-            color: "var(--text-tertiary)",
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
-            marginBottom: "6px",
-          }}
+          className="flex items-center justify-between"
+          style={{ marginBottom: "6px" }}
         >
-          Description
-        </div>
-        <div style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.5 }}>
-          {pr.body ? (
-            <MarkdownBody
-              content={pr.body}
-              repo={repo}
-            />
-          ) : (
-            <span style={{ fontStyle: "italic" }}>No description provided.</span>
+          <div
+            style={{
+              fontSize: "11px",
+              fontWeight: 600,
+              color: "var(--text-tertiary)",
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+            }}
+          >
+            Description
+          </div>
+          {canEdit && !editingBody && (
+            <button
+              type="button"
+              onClick={startEditingBody}
+              className="text-text-ghost hover:text-text-secondary flex cursor-pointer items-center gap-1 transition-colors"
+              style={{ fontSize: "10px" }}
+            >
+              <Pencil size={10} />
+              Edit
+            </button>
           )}
         </div>
-        {reactions?.prNodeId && (
+        {editingBody ? (
+          <div>
+            <textarea
+              ref={textareaRef}
+              autoFocus
+              value={bodyValue}
+              onChange={(e) => setBodyValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setEditingBody(false);
+                  setBodyValue(pr.body);
+                }
+                if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  e.preventDefault();
+                  saveBody();
+                }
+              }}
+              disabled={bodyMutation.isPending}
+              rows={8}
+              className="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-primary w-full resize-y rounded-md border px-3 py-2 text-xs leading-relaxed focus:outline-none"
+              placeholder="Add a description..."
+            />
+            <div
+              className="flex items-center justify-between"
+              style={{ marginTop: "6px" }}
+            >
+              <span className="text-text-ghost text-[10px]">
+                {navigator.platform.includes("Mac") ? "Cmd" : "Ctrl"}+Enter to save
+              </span>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingBody(false);
+                    setBodyValue(pr.body);
+                  }}
+                  disabled={bodyMutation.isPending}
+                  className="text-text-tertiary hover:text-text-primary cursor-pointer rounded-sm px-2 py-0.5 text-[11px] transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={saveBody}
+                  disabled={bodyMutation.isPending}
+                  className="bg-accent-muted text-accent-text hover:bg-accent-muted/80 cursor-pointer rounded-sm px-2.5 py-0.5 text-[11px] font-medium transition-colors disabled:opacity-50"
+                >
+                  {bodyMutation.isPending ? <Spinner className="h-3 w-3" /> : "Save"}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+            {pr.body ? (
+              <MarkdownBody
+                content={pr.body}
+                repo={repo}
+              />
+            ) : (
+              <span
+                onClick={canEdit ? startEditingBody : undefined}
+                className={canEdit ? "cursor-pointer hover:text-text-secondary transition-colors" : ""}
+                style={{ fontStyle: "italic" }}
+              >
+                {canEdit ? "Click to add a description..." : "No description provided."}
+              </span>
+            )}
+          </div>
+        )}
+        {!editingBody && reactions?.prNodeId && (
           <div style={{ marginTop: "8px" }}>
             <ReactionBar
               reactions={reactions.prBody}

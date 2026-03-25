@@ -352,6 +352,10 @@ export interface IpcApi {
     args: { cwd: string; prNumber: number; title: string };
     result: void;
   };
+  "pr.updateBody": {
+    args: { cwd: string; prNumber: number; body: string };
+    result: void;
+  };
   "pr.repoLabels": {
     args: { cwd: string };
     result: Array<{ name: string; color: string; description: string }>;
