@@ -207,16 +207,14 @@ function CommentThread({
 
       {/* Quick reply button (when not already replying) */}
       {!showReply && !collapsed && prNumber && (
-        <div className="border-border border-t px-3 py-1.5">
-          <button
-            type="button"
-            onClick={() => setShowReply(true)}
-            className="text-text-tertiary hover:text-text-primary flex cursor-pointer items-center gap-1 text-[10px]"
-          >
-            <Reply size={10} />
-            Reply
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowReply(true)}
+          className="border-border text-text-tertiary hover:text-text-primary hover:bg-bg-raised/50 flex w-full cursor-pointer items-center gap-1 border-t px-3 py-1.5 text-[10px]"
+        >
+          <Reply size={10} />
+          Reply
+        </button>
       )}
     </div>
   );
