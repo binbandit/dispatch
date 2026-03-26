@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-import { BADGE_COUNT_CHANNEL, IPC_CHANNEL } from "../shared/ipc";
+import { ANALYTICS_CHANNEL, BADGE_COUNT_CHANNEL, IPC_CHANNEL } from "../shared/ipc";
 
 type IpcResponse = { ok: true; data: unknown } | { ok: false; error: string };
 
@@ -55,6 +55,25 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.on("navigate", handler);
     return () => {
       ipcRenderer.removeListener("navigate", handler);
+    };
+  },
+
+  /**
+   * Listen for analytics events sent from the main process.
+   * Returns a cleanup function to remove the listener.
+   */
+  onAnalyticsTrack(
+    callback: (payload: { event: string; properties?: Record<string, string | number | boolean> }) => void,
+  ): () => void {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { event: string; properties?: Record<string, string | number | boolean> },
+    ) => {
+      callback(payload);
+    };
+    ipcRenderer.on(ANALYTICS_CHANNEL, handler);
+    return () => {
+      ipcRenderer.removeListener(ANALYTICS_CHANNEL, handler);
     };
   },
 });

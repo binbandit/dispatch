@@ -10,6 +10,12 @@ declare global {
     onNavigate(
       callback: (route: { view: string; prNumber?: number; workspacePath?: string }) => void,
     ): () => void;
+    onAnalyticsTrack(
+      callback: (payload: {
+        event: string;
+        properties?: Record<string, string | number | boolean>;
+      }) => void,
+    ): () => void;
   }
 
   var api: ElectronApi;

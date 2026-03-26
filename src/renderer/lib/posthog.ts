@@ -65,6 +65,20 @@ export function trackPage(view: string): void {
 }
 
 /**
+ * Forward analytics events from the main process to PostHog.
+ *
+ * Call once after PostHog is initialized. The opt-in check is handled by
+ * `track()` — if PostHog isn't initialized, events are silently dropped.
+ * Returns a cleanup function to remove the listener.
+ */
+export function listenForMainProcessEvents(): () => void {
+  const { api } = globalThis as typeof globalThis & { api: ElectronApi };
+  return api.onAnalyticsTrack((payload) => {
+    track(payload.event, payload.properties);
+  });
+}
+
+/**
  * Shut down PostHog.
  */
 export function shutdownPostHog(): void {

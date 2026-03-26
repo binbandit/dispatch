@@ -20,6 +20,7 @@ const execFile = promisify(execFileCb);
 import { BADGE_COUNT_CHANNEL } from "../shared/ipc";
 import { closeDatabase, initDatabase } from "./db/database";
 import { registerIpcHandler } from "./ipc-handler";
+import { trackFromMain } from "./services/analytics";
 import { getExternalUrl, openExternalUrl } from "./services/external-links";
 import { type TrayState, startPolling, stopPolling } from "./services/tray-poller";
 
@@ -112,10 +113,14 @@ async function getGhToken(host: string): Promise<string | null> {
     const token = stdout.trim() || null;
     tokenCache.set(host, { token, fetchedAt: Date.now() });
     return token;
-  } catch {
+  } catch (error) {
     // gh auth not configured for this host — cache the miss to avoid repeated
     // shell-outs for domains that will never have a token (e.g. third-party CDNs).
     tokenCache.set(host, { token: null, fetchedAt: Date.now() });
+    const msg = String((error as Error)?.message ?? "");
+    if (!msg.includes("ENOENT")) {
+      trackFromMain("gh_cli_error", { subcommand: "auth", category: "token_fetch" });
+    }
   }
   return null;
 }

@@ -6,6 +6,7 @@ import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { useNotificationPolling } from "../hooks/use-notification-polling";
 import { FileNavProvider } from "../lib/file-nav-context";
 import { useKeybindings } from "../lib/keybinding-context";
+import { listenForMainProcessEvents } from "../lib/posthog";
 import { RouterProvider, useRouter } from "../lib/router";
 import { useWorkspace } from "../lib/workspace-context";
 import { CommandPalette } from "./command-palette";
@@ -57,6 +58,9 @@ function AppShell() {
     { ...getBinding("views.releases"), handler: () => navigate({ view: "releases" }) },
   ]);
   useNotificationPolling();
+
+  // Forward analytics events from main process to PostHog
+  useEffect(() => listenForMainProcessEvents(), []);
 
   // Listen for navigation events from main process (tray menu, notification clicks)
   useEffect(() => {
