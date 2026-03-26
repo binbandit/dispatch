@@ -82,140 +82,135 @@ export function CompactPrHeader({
   };
 
   return (
-    <div className="border-border bg-bg-surface flex h-9 shrink-0 items-center gap-2 border-b px-4">
-      {/* Author avatar + login */}
-      <GitHubAvatar
-        login={pr.author.login}
-        size={20}
-        className="border-border-strong shrink-0 border"
-      />
-      <span className="text-text-secondary shrink-0 font-mono text-[11px]">{pr.author.login}</span>
-
-      {/* Draft badge */}
-      {pr.isDraft && (
-        <span className="bg-warning-muted text-warning shrink-0 rounded-xs px-1.5 py-0.5 text-[10px] font-semibold">
-          Draft
-        </span>
-      )}
-
-      {/* PR Title — most prominent element (14px, 700) */}
-      {editing ? (
-        <input
-          ref={inputRef}
-          autoFocus
-          type="text"
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              saveTitle();
-            } else if (e.key === "Escape") {
-              cancelEditing();
-            }
-          }}
-          onBlur={saveTitle}
-          disabled={titleMutation.isPending}
-          className="text-text-primary border-primary bg-bg-root min-w-0 flex-1 rounded-sm border px-1.5 focus:outline-none"
-          style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "-0.02em", height: "26px" }}
+    <div className="border-border bg-bg-surface shrink-0 border-b px-4 py-2">
+      {/* Row 1: Avatar + name + draft badge + title + buttons */}
+      <div className="flex h-[22px] items-center gap-2">
+        <GitHubAvatar
+          login={pr.author.login}
+          size={20}
+          className="border-border-strong shrink-0 border"
         />
-      ) : (
-        <span
-          onClick={startEditing}
-          className={`text-text-primary min-w-0 flex-1 truncate ${canEdit ? "hover:bg-bg-raised cursor-pointer rounded-sm px-1.5 -mx-1.5 transition-colors" : ""}`}
-          style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "-0.02em" }}
-          title={canEdit ? "Click to edit title" : undefined}
+        <span className="text-text-secondary shrink-0 font-mono text-[11px]">{pr.author.login}</span>
+
+        {pr.isDraft && (
+          <span className="bg-warning-muted text-warning shrink-0 rounded-xs px-1.5 py-0.5 text-[10px] font-semibold">
+            Draft
+          </span>
+        )}
+
+        {editing ? (
+          <input
+            ref={inputRef}
+            autoFocus
+            type="text"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                saveTitle();
+              } else if (e.key === "Escape") {
+                cancelEditing();
+              }
+            }}
+            onBlur={saveTitle}
+            disabled={titleMutation.isPending}
+            className="text-text-primary border-primary bg-bg-root min-w-0 flex-1 rounded-sm border px-1.5 focus:outline-none"
+            style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "-0.02em", height: "22px" }}
+          />
+        ) : (
+          <span
+            onClick={startEditing}
+            className={`text-text-primary min-w-0 flex-1 truncate ${canEdit ? "hover:bg-bg-raised cursor-pointer rounded-sm px-1.5 -mx-1.5 transition-colors" : ""}`}
+            style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "-0.02em" }}
+            title={canEdit ? "Click to edit title" : undefined}
+          >
+            {pr.title}
+          </span>
+        )}
+
+        {/* Refresh PR data */}
+        <button
+          type="button"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors disabled:cursor-default disabled:opacity-50"
+          title="Refresh PR"
         >
-          {pr.title}
-        </span>
-      )}
+          <RefreshCw
+            size={13}
+            className={isRefreshing ? "animate-spin" : ""}
+          />
+        </button>
 
-      {/* PR number */}
-      <span className="text-text-tertiary shrink-0 font-mono text-[11px]">#{pr.number}</span>
+        {/* Copy PR number */}
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard.writeText(`#${pr.number}`);
+            toastManager.add({ title: `Copied #${pr.number}`, type: "success" });
+          }}
+          className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors"
+          title="Copy PR number"
+        >
+          <Copy size={13} />
+        </button>
 
-      {/* Meta inline */}
-      <div className="flex shrink-0 items-center gap-[5px]">
-        {/* Branch badge */}
+        {/* Copy PR link */}
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard.writeText(pr.url);
+            toastManager.add({ title: "PR URL copied", type: "success" });
+          }}
+          className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors"
+          title="Copy PR link"
+        >
+          <Link size={13} />
+        </button>
+
+        {/* External link */}
+        <button
+          type="button"
+          onClick={() => void openExternal(pr.url)}
+          className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors"
+          title="Open on GitHub"
+        >
+          <ExternalLink size={13} />
+        </button>
+
+        {/* Panel toggle */}
+        {showPanelToggle && (
+          <button
+            type="button"
+            onClick={onTogglePanel}
+            className={`flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-sm border transition-colors ${
+              panelOpen
+                ? "bg-accent-muted text-accent-text border-border-accent"
+                : "text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border border-transparent"
+            }`}
+            title={panelOpen ? "Hide panel" : "Show panel (i)"}
+          >
+            <PanelRight size={14} />
+          </button>
+        )}
+      </div>
+
+      {/* Row 2: PR number + branch + stats — aligned with author name (20px avatar + 8px gap) */}
+      <div className="flex items-center gap-[5px] pt-0.5 pl-7">
+        <span className="text-text-tertiary shrink-0 font-mono text-[11px]">#{pr.number}</span>
+        <span className="text-text-ghost text-[9px]">·</span>
         <span
           className="border-border bg-bg-raised text-accent-text shrink-0 rounded-sm border font-mono text-[10px]"
           style={{ padding: "0 5px" }}
         >
           {pr.headRefName}
         </span>
-        <span className="text-text-ghost text-[9px]">•</span>
+        <span className="text-text-ghost text-[9px]">·</span>
         <span className="text-success font-mono text-[10px]">+{totalAdditions}</span>
-        <span className="text-text-ghost text-[9px]">•</span>
+        <span className="text-text-ghost text-[9px]">·</span>
         <span className="text-destructive font-mono text-[10px]">-{totalDeletions}</span>
       </div>
-
-      {/* Spacer */}
-      <div className="flex-1" />
-
-      {/* Refresh PR data */}
-      <button
-        type="button"
-        onClick={onRefresh}
-        disabled={isRefreshing}
-        className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[26px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors disabled:cursor-default disabled:opacity-50"
-        title="Refresh PR"
-      >
-        <RefreshCw
-          size={13}
-          className={isRefreshing ? "animate-spin" : ""}
-        />
-      </button>
-
-      {/* Copy PR number */}
-      <button
-        type="button"
-        onClick={() => {
-          void navigator.clipboard.writeText(`#${pr.number}`);
-          toastManager.add({ title: `Copied #${pr.number}`, type: "success" });
-        }}
-        className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[26px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors"
-        title="Copy PR number"
-      >
-        <Copy size={13} />
-      </button>
-
-      {/* Copy PR link */}
-      <button
-        type="button"
-        onClick={() => {
-          void navigator.clipboard.writeText(pr.url);
-          toastManager.add({ title: "PR URL copied", type: "success" });
-        }}
-        className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[26px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors"
-        title="Copy PR link"
-      >
-        <Link size={13} />
-      </button>
-
-      {/* External link */}
-      <button
-        type="button"
-        onClick={() => void openExternal(pr.url)}
-        className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[26px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors"
-        title="Open on GitHub"
-      >
-        <ExternalLink size={13} />
-      </button>
-
-      {/* Panel toggle */}
-      {showPanelToggle && (
-        <button
-          type="button"
-          onClick={onTogglePanel}
-          className={`flex h-[26px] w-[26px] shrink-0 cursor-pointer items-center justify-center rounded-sm border transition-colors ${
-            panelOpen
-              ? "bg-accent-muted text-accent-text border-border-accent"
-              : "text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border border-transparent"
-          }`}
-          title={panelOpen ? "Hide panel" : "Show panel (i)"}
-        >
-          <PanelRight size={14} />
-        </button>
-      )}
     </div>
   );
 }
