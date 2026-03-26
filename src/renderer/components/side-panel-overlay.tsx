@@ -4,9 +4,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Check, GitMerge, Loader2, Pencil, X, XCircle } from "lucide-react";
+import { Check, GitCommitHorizontal, GitMerge, Loader2, Pencil, X, XCircle } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { useFileNav } from "../lib/file-nav-context";
 import { ipc } from "../lib/ipc";
 import { summarizePrChecks } from "../lib/pr-check-status";
 import { queryClient } from "../lib/query-client";
@@ -342,7 +343,9 @@ function PanelOverviewContent({
             ) : (
               <span
                 onClick={canEdit ? startEditingBody : undefined}
-                className={canEdit ? "cursor-pointer hover:text-text-secondary transition-colors" : ""}
+                className={
+                  canEdit ? "hover:text-text-secondary cursor-pointer transition-colors" : ""
+                }
                 style={{ fontStyle: "italic" }}
               >
                 {canEdit ? "Click to add a description..." : "No description provided."}
@@ -856,6 +859,7 @@ function dedupeReviews(
 
 function PanelCommitsContent({ prNumber }: { prNumber: number }) {
   const { cwd } = useWorkspace();
+  const { selectedCommit, setSelectedCommit } = useFileNav();
 
   const commitsQuery = useQuery({
     queryKey: ["pr", "commits", cwd, prNumber],
@@ -864,6 +868,17 @@ function PanelCommitsContent({ prNumber }: { prNumber: number }) {
   });
 
   const commits = commitsQuery.data ?? [];
+
+  const handleCommitClick = useCallback(
+    (commit: { oid: string; message: string }) => {
+      if (selectedCommit?.oid === commit.oid) {
+        setSelectedCommit(null);
+      } else {
+        setSelectedCommit({ oid: commit.oid, message: commit.message });
+      }
+    },
+    [selectedCommit, setSelectedCommit],
+  );
 
   if (commitsQuery.isLoading) {
     return (
@@ -877,31 +892,58 @@ function PanelCommitsContent({ prNumber }: { prNumber: number }) {
     return <p className="text-text-tertiary text-xs">No commits.</p>;
   }
 
+  const isActive = (oid: string) => selectedCommit?.oid === oid;
+
   return (
     <div>
-      {commits.map((commit, i) => (
-        <div
-          key={commit.oid}
-          className="flex items-start gap-2"
-          style={{
-            padding: "8px 0",
-            borderBottom: i < commits.length - 1 ? "1px solid var(--border-subtle)" : "none",
-          }}
+      {selectedCommit && (
+        <button
+          type="button"
+          onClick={() => setSelectedCommit(null)}
+          className="text-accent-text hover:text-accent mb-1 flex w-full cursor-pointer items-center gap-1.5 rounded-md px-1 py-1 text-[10px] font-medium transition-colors"
         >
-          <span
-            className="text-info bg-info-muted shrink-0 rounded-sm font-mono text-[10px]"
-            style={{ padding: "1px 5px" }}
+          <GitCommitHorizontal size={11} />
+          View all changes
+        </button>
+      )}
+      {commits.map((commit, i) => {
+        const isMerge = /^Merge (branch|pull request|remote-tracking|upstream)[\s/]/.test(commit.message);
+        return (
+          <button
+            type="button"
+            key={commit.oid}
+            onClick={() => handleCommitClick(commit)}
+            className={`flex w-full cursor-pointer items-start gap-2 rounded-md text-left transition-colors ${
+              isActive(commit.oid)
+                ? "bg-accent-muted"
+                : isMerge
+                  ? "opacity-45 hover:bg-bg-raised hover:opacity-100"
+                  : "hover:bg-bg-raised"
+            }`}
+            style={{
+              padding: "8px 6px",
+              borderBottom: i < commits.length - 1 ? "1px solid var(--border-subtle)" : "none",
+            }}
           >
-            {commit.oid.slice(0, 7)}
-          </span>
-          <div className="min-w-0 flex-1">
-            <div className="text-text-primary text-xs">{commit.message.split("\n")[0]}</div>
-            <div className="text-text-tertiary mt-0.5 text-[10px]">
-              {commit.author} · {relativeTime(new Date(commit.committedDate))}
+            <span
+              className={`shrink-0 rounded-sm font-mono text-[10px] ${
+                isActive(commit.oid)
+                  ? "bg-accent-muted text-accent-text"
+                  : "text-info bg-info-muted"
+              }`}
+              style={{ padding: "1px 5px" }}
+            >
+              {commit.oid.slice(0, 7)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-text-primary text-xs">{commit.message.split("\n")[0]}</div>
+              <div className="text-text-tertiary mt-0.5 text-[10px]">
+                {commit.author} · {relativeTime(new Date(commit.committedDate))}
+              </div>
             </div>
-          </div>
-        </div>
-      ))}
+          </button>
+        );
+      })}
     </div>
   );
 }

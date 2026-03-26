@@ -215,6 +215,15 @@ export async function diff(cwd: string, fromRef: string, toRef: string): Promise
   return stdout;
 }
 
+/** Get the patch (unified diff) for a single commit. */
+export async function commitDiff(cwd: string, sha: string): Promise<string> {
+  const { stdout } = await execFile("git", ["show", "--format=", "--patch", sha], {
+    cwd,
+    timeout: 15_000,
+  });
+  return stdout;
+}
+
 // ---------------------------------------------------------------------------
 // Repository info
 // ---------------------------------------------------------------------------

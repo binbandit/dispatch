@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { ArrowLeft, GitCommitHorizontal, Search } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 import { usePreference } from "../hooks/use-preference";
@@ -30,7 +30,7 @@ interface ReviewSidebarProps {
 
 export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarProps) {
   const { cwd } = useWorkspace();
-  const { currentFileIndex, setCurrentFileIndex } = useFileNav();
+  const { currentFileIndex, setCurrentFileIndex, selectedCommit, setSelectedCommit } = useFileNav();
   const repoName = cwd.split("/").pop() ?? "";
 
   // Diff data (shared query key with PrDetailView — React Query dedupes)
@@ -40,23 +40,36 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
     staleTime: 60_000,
   });
 
+  // Commit-specific diff (only fetched when a commit is selected)
+  const commitDiffQuery = useQuery({
+    queryKey: ["git", "commitDiff", cwd, selectedCommit?.oid],
+    queryFn: () => ipc("git.commitDiff", { cwd, sha: selectedCommit!.oid }),
+    enabled: !!selectedCommit,
+    staleTime: 60_000,
+  });
+
+  const rawDiff = selectedCommit ? commitDiffQuery.data : diffQuery.data;
+  const isLoadingDiff = selectedCommit ? commitDiffQuery.isLoading : diffQuery.isLoading;
+
   const files: DiffFile[] = useMemo(() => {
-    if (!diffQuery.data) {
+    if (!rawDiff) {
       return [];
     }
-    return parseDiff(diffQuery.data);
-  }, [diffQuery.data]);
+    return parseDiff(rawDiff);
+  }, [rawDiff]);
 
   // View mode — user toggle overrides the saved preference (or auto default)
+  // Force tree mode when viewing a specific commit
   const defaultFileNav = usePreference("defaultFileNav");
   const [viewModeOverride, setViewModeOverride] = useState<"triage" | "tree" | null>(null);
-  const viewMode: "triage" | "tree" =
-    viewModeOverride ??
-    (defaultFileNav === "triage" || defaultFileNav === "tree"
-      ? defaultFileNav
-      : files.length > 5
-        ? "triage"
-        : "tree");
+  const viewMode: "triage" | "tree" = selectedCommit
+    ? "tree"
+    : (viewModeOverride ??
+      (defaultFileNav === "triage" || defaultFileNav === "tree"
+        ? defaultFileNav
+        : files.length > 5
+          ? "triage"
+          : "tree"));
 
   // Viewed files
   const viewedQuery = useQuery({
@@ -143,38 +156,68 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
         hideWhenEmpty
       />
 
-      {/* View toggle */}
-      <div
-        className="flex items-center gap-1.5"
-        style={{ padding: "6px 10px 2px" }}
-      >
-        <div className="bg-bg-raised flex gap-px rounded-md p-0.5">
+      {/* Commit view banner */}
+      {selectedCommit && (
+        <div
+          className="border-border-subtle flex items-center gap-2 border-b px-3 py-2"
+          style={{ background: "rgba(91, 164, 230, 0.06)" }}
+        >
+          <GitCommitHorizontal
+            size={12}
+            className="text-info shrink-0"
+          />
+          <div className="min-w-0 flex-1">
+            <div className="text-text-primary truncate text-[11px] font-medium">
+              {selectedCommit.message.split("\n")[0]}
+            </div>
+            <div className="text-text-tertiary font-mono text-[10px]">
+              {selectedCommit.oid.slice(0, 7)}
+            </div>
+          </div>
           <button
             type="button"
-            onClick={() => setViewModeOverride("triage")}
-            className={`cursor-pointer rounded-sm text-[10px] font-medium select-none ${
-              viewMode === "triage"
-                ? "bg-accent-muted text-text-primary shadow-sm"
-                : "text-text-tertiary hover:text-text-primary"
-            }`}
-            style={{ padding: "3px 10px" }}
+            onClick={() => setSelectedCommit(null)}
+            className="text-info hover:text-text-primary shrink-0 cursor-pointer text-[10px] font-medium transition-colors"
           >
-            Triage
-          </button>
-          <button
-            type="button"
-            onClick={() => setViewModeOverride("tree")}
-            className={`cursor-pointer rounded-sm text-[10px] font-medium select-none ${
-              viewMode === "tree"
-                ? "bg-accent-muted text-text-primary shadow-sm"
-                : "text-text-tertiary hover:text-text-primary"
-            }`}
-            style={{ padding: "3px 10px" }}
-          >
-            Tree
+            <ArrowLeft size={12} />
           </button>
         </div>
-      </div>
+      )}
+
+      {/* View toggle — hidden when viewing a specific commit */}
+      {!selectedCommit && (
+        <div
+          className="flex items-center gap-1.5"
+          style={{ padding: "6px 10px 2px" }}
+        >
+          <div className="bg-bg-raised flex gap-px rounded-md p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewModeOverride("triage")}
+              className={`cursor-pointer rounded-sm text-[10px] font-medium select-none ${
+                viewMode === "triage"
+                  ? "bg-accent-muted text-text-primary shadow-sm"
+                  : "text-text-tertiary hover:text-text-primary"
+              }`}
+              style={{ padding: "3px 10px" }}
+            >
+              Triage
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewModeOverride("tree")}
+              className={`cursor-pointer rounded-sm text-[10px] font-medium select-none ${
+                viewMode === "tree"
+                  ? "bg-accent-muted text-text-primary shadow-sm"
+                  : "text-text-tertiary hover:text-text-primary"
+              }`}
+              style={{ padding: "3px 10px" }}
+            >
+              Tree
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* File search */}
       <div className="px-3 pt-2 pb-1.5">
@@ -195,7 +238,7 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
       </div>
 
       {/* File list */}
-      {diffQuery.isLoading ? (
+      {isLoadingDiff ? (
         <FileTreeSkeleton />
       ) : (
         <div className="flex-1 overflow-y-auto">
@@ -213,28 +256,33 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
                 files={files}
                 currentFileIndex={currentFileIndex}
                 onSelectFile={setCurrentFileIndex}
-                viewedFiles={viewedFiles}
-                commentCounts={fileCommentCounts}
+                viewedFiles={selectedCommit ? new Set() : viewedFiles}
+                commentCounts={selectedCommit ? new Map() : fileCommentCounts}
                 cwd={cwd}
                 prNumber={prNumber}
-                onToggleViewed={(filePath, viewed) => {
-                  ipc("review.setFileViewed", {
-                    repo: repoName,
-                    prNumber,
-                    filePath,
-                    viewed,
-                  }).then(() => {
-                    viewedQuery.refetch();
-                  });
-                }}
+                onToggleViewed={
+                  selectedCommit
+                    ? undefined
+                    : (filePath, viewed) => {
+                        ipc("review.setFileViewed", {
+                          repo: repoName,
+                          prNumber,
+                          filePath,
+                          viewed,
+                        }).then(() => {
+                          viewedQuery.refetch();
+                        });
+                      }
+                }
               />
             </div>
           )}
         </div>
       )}
 
-      {/* Merge readiness card */}
-      {pr &&
+      {/* Merge readiness card — hidden when viewing a specific commit */}
+      {!selectedCommit &&
+        pr &&
         (() => {
           const checkSummary = summarizePrChecks(checksList);
 

@@ -4,6 +4,7 @@ import type { ReviewComment } from "./inline-comment";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { ArrowLeft, GitCommitHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
@@ -50,7 +51,7 @@ export function PrDetailView({ prNumber }: PrDetailViewProps) {
 
 function PrDetail({ prNumber }: { prNumber: number }) {
   const { cwd } = useWorkspace();
-  const { currentFileIndex, setCurrentFileIndex } = useFileNav();
+  const { currentFileIndex, setCurrentFileIndex, selectedCommit, setSelectedCommit } = useFileNav();
   const defaultDiffView = usePreference("defaultDiffView");
   const [diffMode, setDiffMode] = useState<"all" | "since-review">("all");
   const [viewModeOverride, setViewModeOverride] = useState<DiffMode | null>(null);
@@ -94,13 +95,16 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   });
   const hasMarkedPrActivityRef = useRef(false);
 
-  // Reset flag when PR changes (render-time ref adjustment)
+  // Reset flags when PR changes (render-time ref adjustment)
   const prevCwdRef = useRef(cwd);
   const prevPrNumberRef = useRef(prNumber);
   if (prevCwdRef.current !== cwd || prevPrNumberRef.current !== prNumber) {
     prevCwdRef.current = cwd;
     prevPrNumberRef.current = prNumber;
     hasMarkedPrActivityRef.current = false;
+    if (selectedCommit) {
+      setSelectedCommit(null);
+    }
   }
 
   useEffect(() => {
@@ -133,6 +137,14 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     staleTime: 60_000,
   });
 
+  // Commit-specific diff (only fetched when a commit is selected)
+  const commitDiffQuery = useQuery({
+    queryKey: ["git", "commitDiff", cwd, selectedCommit?.oid],
+    queryFn: () => ipc("git.commitDiff", { cwd, sha: selectedCommit!.oid }),
+    enabled: !!selectedCommit,
+    staleTime: 60_000,
+  });
+
   // Review rounds
   const repoName = cwd.split("/").pop() ?? "";
   const lastShaQuery = useQuery({
@@ -146,18 +158,23 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const incrementalDiffQuery = useQuery({
     queryKey: ["git", "diff", cwd, lastSha, headSha],
     queryFn: () => ipc("git.diff", { cwd, fromRef: lastSha ?? "", toRef: headSha }),
-    enabled: diffMode === "since-review" && !!lastSha && !!headSha && lastSha !== headSha,
+    enabled:
+      !selectedCommit &&
+      diffMode === "since-review" &&
+      !!lastSha &&
+      !!headSha &&
+      lastSha !== headSha,
     staleTime: 60_000,
   });
 
-  // Save review SHA is available for the toolbar's "mark reviewed" action
-  // Currently the toolbar uses a "Viewed" toggle per-file instead
-
-  // Parse diff
-  const rawDiff =
-    diffMode === "since-review" && incrementalDiffQuery.data
+  // Parse diff — commit diff takes priority when selected
+  const rawDiff = selectedCommit
+    ? commitDiffQuery.data
+    : diffMode === "since-review" && incrementalDiffQuery.data
       ? incrementalDiffQuery.data
       : diffQuery.data;
+
+  const isLoadingDiff = selectedCommit ? commitDiffQuery.isLoading : diffQuery.isLoading;
 
   const files: DiffFile[] = useMemo(() => {
     if (!rawDiff) {
@@ -166,7 +183,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     return parseDiff(rawDiff);
   }, [rawDiff]);
 
-  // PR review comments (inline on code)
+  // PR review comments (inline on code) — empty when viewing a commit
   const commentsQuery = useQuery({
     queryKey: ["pr", "comments", cwd, prNumber],
     queryFn: () => ipc("pr.comments", { cwd, prNumber }),
@@ -180,6 +197,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     staleTime: 30_000,
   });
 
+  const emptyCommentsMap = useMemo(() => new Map<string, ReviewComment[]>(), []);
   const commentsMap = useMemo(() => {
     const map = new Map<string, ReviewComment[]>();
     for (const c of commentsQuery.data ?? []) {
@@ -194,13 +212,14 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     return map;
   }, [commentsQuery.data]);
 
-  // CI annotations
+  // CI annotations — empty when viewing a commit
   const annotationsQuery = useQuery({
     queryKey: ["checks", "annotations", cwd, prNumber],
     queryFn: () => ipc("checks.annotations", { cwd, prNumber }),
     staleTime: 30_000,
   });
 
+  const emptyAnnotationsMap = useMemo(() => new Map<string, Annotation[]>(), []);
   const annotationsMap = useMemo(() => {
     const map = new Map<string, Annotation[]>();
     for (const a of annotationsQuery.data ?? []) {
@@ -243,10 +262,11 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   }
 
   // Full file content (for "show full file" mode)
+  const fullFileRef = selectedCommit ? selectedCommit.oid : headSha || "HEAD";
   const fullFileQuery = useQuery({
-    queryKey: ["gh", "fileAtRef", cwd, headSha, currentFilePath],
-    queryFn: () => ipc("gh.fileAtRef", { cwd, ref: headSha || "HEAD", filePath: currentFilePath }),
-    enabled: showFullFile && !!currentFilePath && !!headSha,
+    queryKey: ["gh", "fileAtRef", cwd, fullFileRef, currentFilePath],
+    queryFn: () => ipc("gh.fileAtRef", { cwd, ref: fullFileRef, filePath: currentFilePath }),
+    enabled: showFullFile && !!currentFilePath && !!fullFileRef,
     staleTime: 120_000,
   });
 
@@ -316,7 +336,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
 
   // Toggle viewed state for current file via `v` key
   const handleToggleViewed = useCallback(() => {
-    if (!currentFilePath) {
+    if (!currentFilePath || selectedCommit) {
       return;
     }
     const isCurrentlyViewed = viewedQuery.data?.includes(currentFilePath) ?? false;
@@ -330,7 +350,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       .catch(() => {
         toastManager.add({ title: "Failed to update viewed state", type: "error" });
       });
-  }, [currentFilePath, prNumber, repoName, viewedQuery]);
+  }, [currentFilePath, prNumber, repoName, selectedCommit, viewedQuery]);
 
   // Keyboard shortcuts — centralized via useKeyboardShortcuts
   const { getBinding } = useKeybindings();
@@ -381,6 +401,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     }
     return ids;
   }, [reviewThreadsQuery.data]);
+  const emptyResolvedIds = useMemo(() => new Set<string>(), []);
 
   // Check if the current user has been re-requested for review (e.g. after new commits)
   const reviewRequestsQuery = useQuery({
@@ -448,6 +469,41 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         canEdit={canPush}
       />
 
+      {/* Commit view banner */}
+      {selectedCommit && (
+        <div
+          className="border-border-subtle flex shrink-0 items-center gap-2 border-b px-3"
+          style={{
+            height: "28px",
+            background: "rgba(91, 164, 230, 0.06)",
+          }}
+        >
+          <GitCommitHorizontal
+            size={12}
+            className="text-info shrink-0"
+          />
+          <span className="text-info text-[11px] font-medium">Viewing commit</span>
+          <span
+            className="text-info bg-info-muted shrink-0 rounded-sm font-mono text-[10px]"
+            style={{ padding: "1px 5px" }}
+          >
+            {selectedCommit.oid.slice(0, 7)}
+          </span>
+          <span className="text-text-secondary min-w-0 truncate text-[11px]">
+            {selectedCommit.message.split("\n")[0]}
+          </span>
+          <div className="flex-1" />
+          <button
+            type="button"
+            onClick={() => setSelectedCommit(null)}
+            className="text-info hover:text-text-primary flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-medium transition-colors hover:bg-[rgba(91,164,230,0.1)]"
+          >
+            <ArrowLeft size={11} />
+            All changes
+          </button>
+        </div>
+      )}
+
       {/* Diff viewer area (relative for overlay positioning) */}
       <div className="relative flex flex-1 overflow-hidden">
         <div className="flex flex-1 flex-col overflow-hidden">
@@ -457,18 +513,22 @@ function PrDetail({ prNumber }: { prNumber: number }) {
             totalFiles={files.length}
             onPrev={goToPrevFile}
             onNext={goToNextFile}
-            diffMode={diffMode}
+            diffMode={selectedCommit ? "all" : diffMode}
             onDiffModeChange={setDiffMode}
-            hasLastReview={!!lastSha && lastSha !== headSha}
+            hasLastReview={!selectedCommit && !!lastSha && lastSha !== headSha}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             showFullFile={showFullFile}
             onToggleFullFile={() => setShowFullFile((v) => !v)}
             isViewed={
-              currentFilePath ? (viewedQuery.data?.includes(currentFilePath) ?? false) : false
+              selectedCommit
+                ? false
+                : currentFilePath
+                  ? (viewedQuery.data?.includes(currentFilePath) ?? false)
+                  : false
             }
             onToggleViewed={() => {
-              if (currentFilePath) {
+              if (currentFilePath && !selectedCommit) {
                 const isCurrentlyViewed = viewedQuery.data?.includes(currentFilePath) ?? false;
                 ipc("review.setFileViewed", {
                   repo: repoName,
@@ -482,9 +542,10 @@ function PrDetail({ prNumber }: { prNumber: number }) {
                   });
               }
             }}
+            hideReviewControls={!!selectedCommit}
           />
 
-          {diffQuery.isLoading ? (
+          {isLoadingDiff ? (
             <div className="flex flex-1 items-center justify-center">
               <Spinner className="text-primary h-4 w-4" />
             </div>
@@ -493,16 +554,18 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               file={currentFile}
               highlighter={highlighter}
               language={inferLanguage(getDiffFilePath(currentFile))}
-              comments={commentsMap}
-              annotations={annotationsMap}
+              comments={selectedCommit ? emptyCommentsMap : commentsMap}
+              annotations={selectedCommit ? emptyAnnotationsMap : annotationsMap}
               prNumber={prNumber}
-              activeComposer={activeComposer}
-              onCommentRange={setActiveComposer}
-              onCloseComposer={() => setActiveComposer(null)}
+              activeComposer={selectedCommit ? null : activeComposer}
+              onCommentRange={selectedCommit ? undefined : setActiveComposer}
+              onCloseComposer={selectedCommit ? undefined : () => setActiveComposer(null)}
               fullFileContent={showFullFile ? (fullFileQuery.data ?? null) : null}
               diffMode={viewMode}
-              resolvedThreadIds={resolvedThreadIds}
-              reviewCommentReactions={reactionsQuery.data?.reviewComments}
+              resolvedThreadIds={selectedCommit ? emptyResolvedIds : resolvedThreadIds}
+              reviewCommentReactions={
+                selectedCommit ? undefined : reactionsQuery.data?.reviewComments
+              }
             />
           ) : (
             <div className="flex flex-1 items-center justify-center">
@@ -529,22 +592,24 @@ function PrDetail({ prNumber }: { prNumber: number }) {
           canEdit={canPush}
         />
 
-        {/* Floating review bar */}
-        <FloatingReviewBar
-          viewedCount={viewedCount}
-          totalFiles={files.length}
-          commentCount={totalCommentCount}
-          checkSummary={pr.statusCheckRollup}
-          isAuthor={isAuthor}
-          isDraft={pr.isDraft}
-          pr={pr}
-          cwd={cwd}
-          prNumber={prNumber}
-          canAdmin={canPush}
-          hasMergeQueue={hasMergeQueue}
-          currentUserReview={currentUserReview}
-          isReRequested={isReRequested}
-        />
+        {/* Floating review bar — hidden when viewing a specific commit */}
+        {!selectedCommit && (
+          <FloatingReviewBar
+            viewedCount={viewedCount}
+            totalFiles={files.length}
+            commentCount={totalCommentCount}
+            checkSummary={pr.statusCheckRollup}
+            isAuthor={isAuthor}
+            isDraft={pr.isDraft}
+            pr={pr}
+            cwd={cwd}
+            prNumber={prNumber}
+            canAdmin={canPush}
+            hasMergeQueue={hasMergeQueue}
+            currentUserReview={currentUserReview}
+            isReRequested={isReRequested}
+          />
+        )}
       </div>
     </div>
   );

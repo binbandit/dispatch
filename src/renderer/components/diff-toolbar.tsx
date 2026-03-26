@@ -27,6 +27,7 @@ export function DiffToolbar({
   onToggleFullFile,
   isViewed,
   onToggleViewed,
+  hideReviewControls,
 }: {
   currentFile: DiffFile | null;
   currentIndex: number;
@@ -42,6 +43,7 @@ export function DiffToolbar({
   onToggleFullFile: () => void;
   isViewed: boolean;
   onToggleViewed: () => void;
+  hideReviewControls?: boolean;
 }) {
   const filePath = currentFile ? getDiffFilePath(currentFile) : "";
   const fileName = filePath.split("/").pop() ?? "";
@@ -57,8 +59,8 @@ export function DiffToolbar({
 
       <div className="flex-1" />
 
-      {/* "Since review" callout */}
-      {hasLastReview && diffMode === "since-review" && (
+      {/* "Since review" callout — hidden in commit view */}
+      {!hideReviewControls && hasLastReview && diffMode === "since-review" && (
         <span className="bg-purple-muted text-purple flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium">
           Since last review
           <button
@@ -71,7 +73,7 @@ export function DiffToolbar({
         </span>
       )}
 
-      {hasLastReview && diffMode === "all" && (
+      {!hideReviewControls && hasLastReview && diffMode === "all" && (
         <button
           type="button"
           onClick={() => onDiffModeChange("since-review")}
@@ -111,9 +113,7 @@ export function DiffToolbar({
           type="button"
           onClick={onToggleFullFile}
           className={`flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
-            showFullFile
-              ? "bg-bg-elevated text-text-primary shadow-sm"
-              : "text-text-tertiary"
+            showFullFile ? "bg-bg-elevated text-text-primary shadow-sm" : "text-text-tertiary"
           }`}
         >
           <FileText size={11} />
@@ -121,29 +121,33 @@ export function DiffToolbar({
         </button>
       </div>
 
-      <div className="bg-border h-4 w-px" />
+      {/* Viewed toggle — hidden in commit view */}
+      {!hideReviewControls && (
+        <>
+          <div className="bg-border h-4 w-px" />
 
-      {/* Viewed toggle */}
-      <button
-        type="button"
-        onClick={onToggleViewed}
-        className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] transition-colors ${
-          isViewed
-            ? "bg-accent-muted border-border-accent text-accent-text"
-            : "border-border bg-bg-raised text-text-secondary hover:text-text-primary"
-        }`}
-      >
-        {isViewed && (
-          <Check
-            size={11}
-            className="text-accent-text"
-          />
-        )}
-        Viewed
-        <Kbd className="border-border bg-bg-raised text-text-ghost h-[14px] min-w-[14px] rounded-[2px] border px-1 font-mono text-[9px]">
-          v
-        </Kbd>
-      </button>
+          <button
+            type="button"
+            onClick={onToggleViewed}
+            className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] transition-colors ${
+              isViewed
+                ? "bg-accent-muted border-border-accent text-accent-text"
+                : "border-border bg-bg-raised text-text-secondary hover:text-text-primary"
+            }`}
+          >
+            {isViewed && (
+              <Check
+                size={11}
+                className="text-accent-text"
+              />
+            )}
+            Viewed
+            <Kbd className="border-border bg-bg-raised text-text-ghost h-[14px] min-w-[14px] rounded-[2px] border px-1 font-mono text-[9px]">
+              v
+            </Kbd>
+          </button>
+        </>
+      )}
 
       <div className="bg-border h-4 w-px" />
 
