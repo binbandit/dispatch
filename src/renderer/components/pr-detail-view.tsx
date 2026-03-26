@@ -57,7 +57,11 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const [viewModeOverride, setViewModeOverride] = useState<DiffMode | null>(null);
   const viewMode: DiffMode =
     viewModeOverride ??
-    (defaultDiffView === "split" ? "split" : defaultDiffView === "full-file" ? "full-file" : "unified");
+    (defaultDiffView === "split"
+      ? "split"
+      : defaultDiffView === "full-file"
+        ? "full-file"
+        : "unified");
   const setViewMode = setViewModeOverride;
   const showFullFile = viewMode === "full-file";
   const [activeComposer, setActiveComposer] = useState<CommentRange | null>(null);

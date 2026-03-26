@@ -63,7 +63,10 @@ contextBridge.exposeInMainWorld("api", {
    * Returns a cleanup function to remove the listener.
    */
   onAnalyticsTrack(
-    callback: (payload: { event: string; properties?: Record<string, string | number | boolean> }) => void,
+    callback: (payload: {
+      event: string;
+      properties?: Record<string, string | number | boolean>;
+    }) => void,
   ): () => void {
     const handler = (
       _event: Electron.IpcRendererEvent,

@@ -1,6 +1,7 @@
+import type { DiffFile } from "./diff-parser";
+
 import { describe, expect, it } from "vitest";
 
-import type { DiffFile } from "./diff-parser";
 import { classifyFiles } from "./triage-classifier";
 
 function createDiffFile(overrides: Partial<DiffFile> = {}): DiffFile {

@@ -291,7 +291,9 @@ function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
           <PrStatusIcon pr={pr} />
           <span className="min-w-0 flex-1 truncate">{pr.title}</span>
           <span className="text-text-ghost shrink-0 font-mono text-[10px]">#{pr.number}</span>
-          <span className="text-text-ghost shrink-0 text-[10px]">{formatAuthorName(pr.author, nameFormat)}</span>
+          <span className="text-text-ghost shrink-0 text-[10px]">
+            {formatAuthorName(pr.author, nameFormat)}
+          </span>
         </CommandItem>
       ))}
     </CommandGroup>

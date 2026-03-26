@@ -21,7 +21,11 @@ interface QueueZoneProps {
   hideWhenEmpty?: boolean;
 }
 
-function resolveQueueDot(pr: GhPrListItemCore): { dotColor: string; pulse: boolean; label: string } {
+function resolveQueueDot(pr: GhPrListItemCore): {
+  dotColor: string;
+  pulse: boolean;
+  label: string;
+} {
   if (pr.state === "CLOSED") {
     return { dotColor: "bg-destructive", pulse: false, label: "Closed" };
   }
@@ -103,7 +107,9 @@ export function QueueZone({ queuePrs, activePrNumber, onBack, onSelectPr }: Queu
                 />
                 {/* Content */}
                 <div className="min-w-0 flex-1">
-                  <div className="text-text-primary truncate text-[11px] font-medium">{pr.title}</div>
+                  <div className="text-text-primary truncate text-[11px] font-medium">
+                    {pr.title}
+                  </div>
                   <div className="text-text-tertiary mt-0.5 flex items-center gap-1 font-mono text-[10px]">
                     <span>#{pr.number}</span>
                     <span className="text-text-ghost">&middot;</span>

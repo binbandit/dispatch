@@ -32,7 +32,7 @@ describe("cn utility", () => {
   });
 
   it("handles complex Tailwind conflicts", () => {
-    expect(cn("text-red-500 text-blue-500")).toBe("text-blue-500");
+    expect(cn("text-blue-500 text-red-500")).toBe("text-blue-500");
     expect(cn("bg-gray-100 bg-white")).toBe("bg-white");
   });
 
@@ -45,7 +45,7 @@ describe("cn utility", () => {
   });
 
   it("handles whitespace", () => {
-    expect(cn("  foo  ", "  bar  ")).toBe("foo bar");
+    expect(cn("foo", "bar")).toBe("foo bar");
   });
 
   it("handles multiple arguments", () => {
@@ -59,15 +59,9 @@ describe("cn utility", () => {
   it("combines conditional and merge behavior", () => {
     const isActive = true;
     const isDisabled = false;
-    expect(
-      cn(
-        "base-class",
-        "px-2",
-        isActive && "active",
-        isDisabled && "disabled",
-        "px-4"
-      )
-    ).toBe("base-class active px-4");
+    expect(cn("base-class", "px-2", isActive && "active", isDisabled && "disabled", "px-4")).toBe(
+      "base-class active px-4",
+    );
   });
 
   describe("real-world button examples", () => {
@@ -75,23 +69,24 @@ describe("cn utility", () => {
       const baseClasses = "rounded px-4 py-2";
       const variantClasses = "bg-blue-500 text-white";
       const stateClasses = "hover:bg-blue-600";
-      
-      expect(cn(baseClasses, variantClasses, stateClasses))
-        .toBe("rounded px-4 py-2 bg-blue-500 text-white hover:bg-blue-600");
+
+      expect(cn(baseClasses, variantClasses, stateClasses)).toBe(
+        "rounded px-4 py-2 bg-blue-500 text-white hover:bg-blue-600",
+      );
     });
 
     it("handles size overrides", () => {
       const base = "px-4 py-2 text-base";
       const small = "px-2 py-1 text-sm";
-      
+
       expect(cn(base, small)).toBe("px-2 py-1 text-sm");
     });
 
     it("handles disabled state", () => {
       const isDisabled = true;
-      expect(
-        cn("bg-blue-500", isDisabled && "opacity-50 cursor-not-allowed")
-      ).toBe("bg-blue-500 opacity-50 cursor-not-allowed");
+      expect(cn("bg-blue-500", isDisabled && "cursor-not-allowed opacity-50")).toBe(
+        "bg-blue-500 opacity-50 cursor-not-allowed",
+      );
     });
   });
 

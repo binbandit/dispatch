@@ -370,9 +370,7 @@ describe("modifier combinations", () => {
   });
 
   it("supports multiple modifiers", () => {
-    const binding = DEFAULT_KEYBINDINGS.find(
-      (b) => b.modifiers && b.modifiers.length > 1,
-    );
+    const binding = DEFAULT_KEYBINDINGS.find((b) => b.modifiers && b.modifiers.length > 1);
     expect(binding).toBeDefined();
   });
 });

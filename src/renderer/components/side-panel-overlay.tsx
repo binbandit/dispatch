@@ -7,13 +7,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, GitCommitHorizontal, GitMerge, Loader2, Pencil, X, XCircle } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { formatAuthorName, useDisplayNameFormat } from "../hooks/use-display-name";
 import { useFileNav } from "../lib/file-nav-context";
 import { ipc } from "../lib/ipc";
 import { summarizePrChecks } from "../lib/pr-check-status";
 import { queryClient } from "../lib/query-client";
 import { useRouter } from "../lib/router";
 import { useWorkspace } from "../lib/workspace-context";
-import { formatAuthorName, useDisplayNameFormat } from "../hooks/use-display-name";
 import { useAiConfig } from "./ai-explanation";
 import { ConversationTab } from "./conversation-tab";
 import { GitHubAvatar } from "./github-avatar";
@@ -911,7 +911,9 @@ function PanelCommitsContent({ prNumber }: { prNumber: number }) {
         </button>
       )}
       {commits.map((commit, i) => {
-        const isMerge = /^Merge (branch|pull request|remote-tracking|upstream)[\s/]/.test(commit.message);
+        const isMerge = /^Merge (branch|pull request|remote-tracking|upstream)[\s/]/.test(
+          commit.message,
+        );
         return (
           <button
             type="button"
@@ -921,7 +923,7 @@ function PanelCommitsContent({ prNumber }: { prNumber: number }) {
               isActive(commit.oid)
                 ? "bg-accent-muted"
                 : isMerge
-                  ? "opacity-45 hover:bg-bg-raised hover:opacity-100"
+                  ? "hover:bg-bg-raised opacity-45 hover:opacity-100"
                   : "hover:bg-bg-raised"
             }`}
             style={{

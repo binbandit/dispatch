@@ -1,12 +1,12 @@
 /**
  * Merge strategy resolution logic
- * 
+ *
  * Determines the correct flags for `gh pr merge` based on:
  * - Merge queue presence
  * - Requirements met status
  * - Admin privileges
  * - Explicit admin override
- * 
+ *
  * Key invariant: `admin` and `auto` are mutually exclusive.
  */
 
@@ -28,7 +28,7 @@ export interface MergeStrategyOutput {
 
 /**
  * Resolves merge flags based on context.
- * 
+ *
  * Rules:
  * 1. Merge queue + main button → auto-merge (queue it)
  * 2. Merge queue + explicit admin → admin merge (bypass queue)

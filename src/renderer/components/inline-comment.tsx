@@ -900,24 +900,28 @@ function SuggestionBlock({ suggestion, language }: { suggestion: string; languag
         >
           {lines.map((line, i) => {
             const lineTokens = tokensByLine?.[i];
-            const content = lineTokens ? (
-              lineTokens.map((token, ti) => (
-                <span
-                  key={ti}
-                  style={{ color: token.color }}
-                >
-                  {token.content}
-                </span>
-              ))
-            ) : (
-              (line.startsWith("+") || line.startsWith("-") ? line.slice(1) : line)
-            );
+            const content = lineTokens
+              ? lineTokens.map((token, ti) => (
+                  <span
+                    key={ti}
+                    style={{ color: token.color }}
+                  >
+                    {token.content}
+                  </span>
+                ))
+              : line.startsWith("+") || line.startsWith("-")
+                ? line.slice(1)
+                : line;
 
             if (line.startsWith("-")) {
               return (
                 <div
                   key={i}
-                  style={{ textDecoration: "line-through", opacity: 0.7, background: "rgba(248,81,73,0.1)" }}
+                  style={{
+                    textDecoration: "line-through",
+                    opacity: 0.7,
+                    background: "rgba(248,81,73,0.1)",
+                  }}
                 >
                   {content}
                 </div>

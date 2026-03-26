@@ -19,10 +19,13 @@ describe("sendNotification", () => {
 
       sendNotification("Test Title", "Test Body");
 
-      expect(NotificationSpy).toHaveBeenCalledWith("Test Title", expect.objectContaining({
-        body: "Test Body",
-        silent: false,
-      }));
+      expect(NotificationSpy).toHaveBeenCalledWith(
+        "Test Title",
+        expect.objectContaining({
+          body: "Test Body",
+          silent: false,
+        }),
+      );
     });
 
     it("uses generic tag by default", () => {
@@ -32,9 +35,12 @@ describe("sendNotification", () => {
 
       sendNotification("Title", "Body");
 
-      expect(NotificationSpy).toHaveBeenCalledWith("Title", expect.objectContaining({
-        tag: "dispatch",
-      }));
+      expect(NotificationSpy).toHaveBeenCalledWith(
+        "Title",
+        expect.objectContaining({
+          tag: "dispatch",
+        }),
+      );
     });
 
     it("uses review tag for review type", () => {
@@ -44,9 +50,12 @@ describe("sendNotification", () => {
 
       sendNotification("Review Requested", "PR #123", "review");
 
-      expect(NotificationSpy).toHaveBeenCalledWith("Review Requested", expect.objectContaining({
-        tag: "dispatch-review",
-      }));
+      expect(NotificationSpy).toHaveBeenCalledWith(
+        "Review Requested",
+        expect.objectContaining({
+          tag: "dispatch-review",
+        }),
+      );
     });
 
     it("uses ci-fail tag for CI failure type", () => {
@@ -56,9 +65,12 @@ describe("sendNotification", () => {
 
       sendNotification("CI Failed", "PR #123", "ci-fail");
 
-      expect(NotificationSpy).toHaveBeenCalledWith("CI Failed", expect.objectContaining({
-        tag: "dispatch-ci",
-      }));
+      expect(NotificationSpy).toHaveBeenCalledWith(
+        "CI Failed",
+        expect.objectContaining({
+          tag: "dispatch-ci",
+        }),
+      );
     });
 
     it("uses approve tag for approve type", () => {
@@ -68,9 +80,12 @@ describe("sendNotification", () => {
 
       sendNotification("PR Approved", "PR #123", "approve");
 
-      expect(NotificationSpy).toHaveBeenCalledWith("PR Approved", expect.objectContaining({
-        tag: "dispatch-approve",
-      }));
+      expect(NotificationSpy).toHaveBeenCalledWith(
+        "PR Approved",
+        expect.objectContaining({
+          tag: "dispatch-approve",
+        }),
+      );
     });
 
     it("uses merge tag for merge type", () => {
@@ -80,9 +95,12 @@ describe("sendNotification", () => {
 
       sendNotification("PR Merged", "PR #123", "merge");
 
-      expect(NotificationSpy).toHaveBeenCalledWith("PR Merged", expect.objectContaining({
-        tag: "dispatch-merge",
-      }));
+      expect(NotificationSpy).toHaveBeenCalledWith(
+        "PR Merged",
+        expect.objectContaining({
+          tag: "dispatch-merge",
+        }),
+      );
     });
 
     it("sets silent to false", () => {
@@ -92,9 +110,12 @@ describe("sendNotification", () => {
 
       sendNotification("Title", "Body");
 
-      expect(NotificationSpy).toHaveBeenCalledWith("Title", expect.objectContaining({
-        silent: false,
-      }));
+      expect(NotificationSpy).toHaveBeenCalledWith(
+        "Title",
+        expect.objectContaining({
+          silent: false,
+        }),
+      );
     });
   });
 
@@ -141,7 +162,7 @@ describe("sendNotification", () => {
       });
 
       // Wait a bit to ensure notification wasn't called
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await new Promise((resolve) => setTimeout(resolve, 50));
       expect(NotificationSpy).not.toHaveBeenCalled();
     });
 
@@ -202,9 +223,12 @@ describe("sendNotification", () => {
 
         sendNotification("Title", "Body", type);
 
-        expect(NotificationSpy).toHaveBeenCalledWith("Title", expect.objectContaining({
-          tag: expectedTag,
-        }));
+        expect(NotificationSpy).toHaveBeenCalledWith(
+          "Title",
+          expect.objectContaining({
+            tag: expectedTag,
+          }),
+        );
       });
     }
   });
@@ -227,9 +251,12 @@ describe("sendNotification", () => {
 
       sendNotification("Title", "");
 
-      expect(NotificationSpy).toHaveBeenCalledWith("Title", expect.objectContaining({
-        body: "",
-      }));
+      expect(NotificationSpy).toHaveBeenCalledWith(
+        "Title",
+        expect.objectContaining({
+          body: "",
+        }),
+      );
     });
 
     it("handles very long title", () => {
@@ -251,9 +278,12 @@ describe("sendNotification", () => {
       const longBody = "B".repeat(1000);
       sendNotification("Title", longBody);
 
-      expect(NotificationSpy).toHaveBeenCalledWith("Title", expect.objectContaining({
-        body: longBody,
-      }));
+      expect(NotificationSpy).toHaveBeenCalledWith(
+        "Title",
+        expect.objectContaining({
+          body: longBody,
+        }),
+      );
     });
 
     it("handles special characters in title", () => {
@@ -261,9 +291,12 @@ describe("sendNotification", () => {
       vi.stubGlobal("Notification", NotificationSpy);
       (Notification as any).permission = "granted";
 
-      sendNotification("Title with <html> & \"quotes\"", "Body");
+      sendNotification('Title with <html> & "quotes"', "Body");
 
-      expect(NotificationSpy).toHaveBeenCalledWith("Title with <html> & \"quotes\"", expect.anything());
+      expect(NotificationSpy).toHaveBeenCalledWith(
+        'Title with <html> & "quotes"',
+        expect.anything(),
+      );
     });
 
     it("handles special characters in body", () => {
@@ -273,9 +306,12 @@ describe("sendNotification", () => {
 
       sendNotification("Title", "Body with <script> & 'quotes'");
 
-      expect(NotificationSpy).toHaveBeenCalledWith("Title", expect.objectContaining({
-        body: "Body with <script> & 'quotes'",
-      }));
+      expect(NotificationSpy).toHaveBeenCalledWith(
+        "Title",
+        expect.objectContaining({
+          body: "Body with <script> & 'quotes'",
+        }),
+      );
     });
 
     it("handles unicode characters", () => {
@@ -285,9 +321,12 @@ describe("sendNotification", () => {
 
       sendNotification("✅ PR Approved", "🎉 Ready to merge");
 
-      expect(NotificationSpy).toHaveBeenCalledWith("✅ PR Approved", expect.objectContaining({
-        body: "🎉 Ready to merge",
-      }));
+      expect(NotificationSpy).toHaveBeenCalledWith(
+        "✅ PR Approved",
+        expect.objectContaining({
+          body: "🎉 Ready to merge",
+        }),
+      );
     });
   });
 
@@ -300,7 +339,7 @@ describe("sendNotification", () => {
       sendNotification(
         "Review requested",
         "Alice requested your review on PR #123: Add new feature",
-        "review"
+        "review",
       );
 
       expect(NotificationSpy).toHaveBeenCalledWith(
@@ -308,7 +347,7 @@ describe("sendNotification", () => {
         expect.objectContaining({
           body: "Alice requested your review on PR #123: Add new feature",
           tag: "dispatch-review",
-        })
+        }),
       );
     });
 
@@ -317,18 +356,14 @@ describe("sendNotification", () => {
       vi.stubGlobal("Notification", NotificationSpy);
       (Notification as any).permission = "granted";
 
-      sendNotification(
-        "CI Failed",
-        "PR #456: Tests failed on main branch",
-        "ci-fail"
-      );
+      sendNotification("CI Failed", "PR #456: Tests failed on main branch", "ci-fail");
 
       expect(NotificationSpy).toHaveBeenCalledWith(
         "CI Failed",
         expect.objectContaining({
           body: "PR #456: Tests failed on main branch",
           tag: "dispatch-ci",
-        })
+        }),
       );
     });
 
@@ -337,18 +372,14 @@ describe("sendNotification", () => {
       vi.stubGlobal("Notification", NotificationSpy);
       (Notification as any).permission = "granted";
 
-      sendNotification(
-        "PR Approved",
-        "Bob approved your PR #789",
-        "approve"
-      );
+      sendNotification("PR Approved", "Bob approved your PR #789", "approve");
 
       expect(NotificationSpy).toHaveBeenCalledWith(
         "PR Approved",
         expect.objectContaining({
           body: "Bob approved your PR #789",
           tag: "dispatch-approve",
-        })
+        }),
       );
     });
 
@@ -357,18 +388,14 @@ describe("sendNotification", () => {
       vi.stubGlobal("Notification", NotificationSpy);
       (Notification as any).permission = "granted";
 
-      sendNotification(
-        "PR Merged",
-        "PR #101: Feature X has been merged to main",
-        "merge"
-      );
+      sendNotification("PR Merged", "PR #101: Feature X has been merged to main", "merge");
 
       expect(NotificationSpy).toHaveBeenCalledWith(
         "PR Merged",
         expect.objectContaining({
           body: "PR #101: Feature X has been merged to main",
           tag: "dispatch-merge",
-        })
+        }),
       );
     });
   });

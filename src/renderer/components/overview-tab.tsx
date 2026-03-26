@@ -86,7 +86,9 @@ export function OverviewTab({
             login={pr.author.login}
             size={18}
           />
-          <span className="text-text-primary text-[11px] font-medium">{formatAuthorName(pr.author, nameFormat)}</span>
+          <span className="text-text-primary text-[11px] font-medium">
+            {formatAuthorName(pr.author, nameFormat)}
+          </span>
           <span className="text-text-ghost text-[10px]">authored</span>
         </div>
         {pr.body ? (

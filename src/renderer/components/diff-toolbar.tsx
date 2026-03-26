@@ -109,7 +109,9 @@ export function DiffToolbar({
           type="button"
           onClick={() => onViewModeChange("full-file")}
           className={`flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
-            viewMode === "full-file" ? "bg-bg-elevated text-text-primary shadow-sm" : "text-text-tertiary"
+            viewMode === "full-file"
+              ? "bg-bg-elevated text-text-primary shadow-sm"
+              : "text-text-tertiary"
           }`}
         >
           <FileText size={11} />

@@ -229,7 +229,7 @@ describe("inferLanguage", () => {
   describe("performance", () => {
     it("handles large number of inferences quickly", () => {
       const files = Array.from({ length: 1000 }, (_, i) => `file${i}.ts`);
-      
+
       const start = performance.now();
       for (const file of files) {
         inferLanguage(file);

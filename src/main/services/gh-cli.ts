@@ -626,10 +626,9 @@ const PR_DETAIL_FIELDS = [
 ].join(",");
 
 export async function getPrDetail(cwd: string, prNumber: number): Promise<GhPrDetail> {
-  const { stdout } = await ghExec(
-    ["pr", "view", String(prNumber), "--json", PR_DETAIL_FIELDS],
-    { cwd },
-  );
+  const { stdout } = await ghExec(["pr", "view", String(prNumber), "--json", PR_DETAIL_FIELDS], {
+    cwd,
+  });
   return parseJsonOutput<GhPrDetail>(stdout);
 }
 
@@ -850,10 +849,10 @@ export async function mergePr(
 }
 
 export async function updatePrBranch(cwd: string, prNumber: number): Promise<void> {
-  await ghExec(
-    ["api", `repos/{owner}/{repo}/pulls/${prNumber}/update-branch`, "-X", "PUT"],
-    { cwd, timeout: 30_000 },
-  );
+  await ghExec(["api", `repos/{owner}/{repo}/pulls/${prNumber}/update-branch`, "-X", "PUT"], {
+    cwd,
+    timeout: 30_000,
+  });
   invalidatePrListCaches(cwd);
 }
 

@@ -5,7 +5,6 @@ import { MenuItem, MenuPopup, MenuSeparator } from "@/components/ui/menu";
 import { toastManager } from "@/components/ui/toast";
 import { clamp, relativeTime } from "@/shared/format";
 import { ContextMenu } from "@base-ui/react/context-menu";
-import { formatAuthorName, useDisplayNameFormat } from "../hooks/use-display-name";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Check,
@@ -20,6 +19,7 @@ import {
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
+import { formatAuthorName, useDisplayNameFormat } from "../hooks/use-display-name";
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { ipc } from "../lib/ipc";
 import { useKeybindings } from "../lib/keybinding-context";

@@ -6,7 +6,7 @@ describe("resolveMergeStrategy", () => {
   describe("type safety and input validation", () => {
     it("accepts all valid MergeStrategy types", () => {
       const strategies: Array<"merge" | "squash" | "rebase"> = ["merge", "squash", "rebase"];
-      
+
       for (const strategy of strategies) {
         expect(() => {
           resolveMergeStrategy({
@@ -21,7 +21,7 @@ describe("resolveMergeStrategy", () => {
 
     it("handles all boolean combinations without errors", () => {
       const booleans = [true, false];
-      
+
       for (const hasMergeQueue of booleans) {
         for (const requirementsMet of booleans) {
           for (const canAdmin of booleans) {
@@ -818,19 +818,40 @@ describe("resolveMergeStrategy", () => {
     it("produces valid gh pr merge command flags", () => {
       const testCases = [
         {
-          input: { hasMergeQueue: true, requirementsMet: true, canAdmin: false, strategy: "squash" as const },
+          input: {
+            hasMergeQueue: true,
+            requirementsMet: true,
+            canAdmin: false,
+            strategy: "squash" as const,
+          },
           expectedFlags: ["--squash", "--auto"],
         },
         {
-          input: { hasMergeQueue: true, requirementsMet: false, canAdmin: true, explicitAdmin: true, strategy: "squash" as const },
+          input: {
+            hasMergeQueue: true,
+            requirementsMet: false,
+            canAdmin: true,
+            explicitAdmin: true,
+            strategy: "squash" as const,
+          },
           expectedFlags: ["--squash", "--admin"],
         },
         {
-          input: { hasMergeQueue: false, requirementsMet: true, canAdmin: false, strategy: "merge" as const },
+          input: {
+            hasMergeQueue: false,
+            requirementsMet: true,
+            canAdmin: false,
+            strategy: "merge" as const,
+          },
           expectedFlags: ["--merge"],
         },
         {
-          input: { hasMergeQueue: false, requirementsMet: false, canAdmin: true, strategy: "rebase" as const },
+          input: {
+            hasMergeQueue: false,
+            requirementsMet: false,
+            canAdmin: true,
+            strategy: "rebase" as const,
+          },
           expectedFlags: ["--rebase", "--admin"],
         },
       ];
@@ -861,7 +882,7 @@ describe("resolveMergeStrategy", () => {
         const result = resolveMergeStrategy({ ...config, strategy: "squash" });
         const hasAdmin = result.admin === true;
         const hasAuto = result.auto === true;
-        
+
         // The production bug: both flags present
         expect(hasAdmin && hasAuto).toBe(false);
       }
@@ -966,7 +987,7 @@ describe("resolveMergeStrategy", () => {
   describe("strategy selection", () => {
     it("merge queue overrides all strategies to squash", () => {
       const strategies = ["merge", "squash", "rebase"] as const;
-      
+
       for (const strategy of strategies) {
         const result = resolveMergeStrategy({
           hasMergeQueue: true,
@@ -981,7 +1002,7 @@ describe("resolveMergeStrategy", () => {
 
     it("standard mode preserves user choice", () => {
       const strategies = ["merge", "squash", "rebase"] as const;
-      
+
       for (const strategy of strategies) {
         const result = resolveMergeStrategy({
           hasMergeQueue: false,
@@ -996,7 +1017,7 @@ describe("resolveMergeStrategy", () => {
 
     it("admin override preserves strategy in standard mode", () => {
       const strategies = ["merge", "squash", "rebase"] as const;
-      
+
       for (const strategy of strategies) {
         const result = resolveMergeStrategy({
           hasMergeQueue: false,
@@ -1177,7 +1198,7 @@ describe("resolveMergeStrategy", () => {
 
       expect(noQueue.auto).toBe(false);
       expect(noQueue.strategy).toBe("merge");
-      
+
       expect(withQueue.auto).toBe(true);
       expect(withQueue.strategy).toBe("squash");
     });
@@ -1236,7 +1257,7 @@ describe("resolveMergeStrategy", () => {
       };
 
       const results = Array.from({ length: 100 }, () => resolveMergeStrategy(input));
-      
+
       // All results should be identical
       for (let i = 1; i < results.length; i++) {
         expect(results[i]).toEqual(results[0]);
@@ -1252,9 +1273,9 @@ describe("resolveMergeStrategy", () => {
       };
 
       const inputCopy = { ...input };
-      
+
       resolveMergeStrategy(input);
-      
+
       expect(input).toEqual(inputCopy);
     });
   });
