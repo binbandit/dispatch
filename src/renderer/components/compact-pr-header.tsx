@@ -5,6 +5,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Copy, ExternalLink, Link, PanelRight, RefreshCw } from "lucide-react";
 import { useRef, useState } from "react";
 
+import { formatAuthorName, useDisplayNameFormat } from "../hooks/use-display-name";
 import { ipc } from "../lib/ipc";
 import { openExternal } from "../lib/open-external";
 import { queryClient } from "../lib/query-client";
@@ -44,6 +45,7 @@ export function CompactPrHeader({
   canEdit,
 }: CompactPrHeaderProps) {
   const { cwd } = useWorkspace();
+  const nameFormat = useDisplayNameFormat();
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(pr.title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -55,7 +57,11 @@ export function CompactPrHeader({
       setEditing(false);
     },
     onError: (err: Error) => {
-      toastManager.add({ title: "Failed to update title", description: err.message, type: "error" });
+      toastManager.add({
+        title: "Failed to update title",
+        description: err.message,
+        type: "error",
+      });
     },
   });
 
@@ -90,7 +96,9 @@ export function CompactPrHeader({
           size={20}
           className="border-border-strong shrink-0 border"
         />
-        <span className="text-text-secondary shrink-0 font-mono text-[11px]">{pr.author.login}</span>
+        <span className="text-text-secondary shrink-0 font-mono text-[11px]">
+          {formatAuthorName(pr.author, nameFormat)}
+        </span>
 
         {pr.isDraft && (
           <span className="bg-warning-muted text-warning shrink-0 rounded-xs px-1.5 py-0.5 text-[10px] font-semibold">
@@ -121,7 +129,7 @@ export function CompactPrHeader({
         ) : (
           <span
             onClick={startEditing}
-            className={`text-text-primary min-w-0 flex-1 truncate ${canEdit ? "hover:bg-bg-raised cursor-pointer rounded-sm px-1.5 -mx-1.5 transition-colors" : ""}`}
+            className={`text-text-primary min-w-0 flex-1 truncate ${canEdit ? "hover:bg-bg-raised -mx-1.5 cursor-pointer rounded-sm px-1.5 transition-colors" : ""}`}
             style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "-0.02em" }}
             title={canEdit ? "Click to edit title" : undefined}
           >

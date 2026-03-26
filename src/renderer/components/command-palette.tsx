@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 
+import { formatAuthorName, useDisplayNameFormat } from "../hooks/use-display-name";
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { useFileNav } from "../lib/file-nav-context";
 import { ipc } from "../lib/ipc";
@@ -162,6 +163,7 @@ function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
   const filters = useCommandFilters();
   const { cwd } = useWorkspace();
   const { navigate } = useRouter();
+  const nameFormat = useDisplayNameFormat();
 
   const reviewQuery = useQuery({
     queryKey: ["pr", "list", cwd, "reviewRequested"],
@@ -192,12 +194,7 @@ function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
   const enrichmentMap = useMemo(() => {
     const map = new Map<number, GhPrEnrichment>();
     for (const filter of ["reviewRequested", "authored", "all"]) {
-      const cached = queryClient.getQueryData<GhPrEnrichment[]>([
-        "pr",
-        "enrichment",
-        cwd,
-        filter,
-      ]);
+      const cached = queryClient.getQueryData<GhPrEnrichment[]>(["pr", "enrichment", cwd, filter]);
       if (cached) {
         for (const e of cached) map.set(e.number, e);
       }
@@ -225,9 +222,7 @@ function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
     if (filters.branch) {
       const b = filters.branch.toLowerCase();
       filtered = filtered.filter(
-        (p) =>
-          p.headRefName.toLowerCase().includes(b) ||
-          p.baseRefName.toLowerCase().includes(b),
+        (p) => p.headRefName.toLowerCase().includes(b) || p.baseRefName.toLowerCase().includes(b),
       );
     }
 
@@ -296,7 +291,7 @@ function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
           <PrStatusIcon pr={pr} />
           <span className="min-w-0 flex-1 truncate">{pr.title}</span>
           <span className="text-text-ghost shrink-0 font-mono text-[10px]">#{pr.number}</span>
-          <span className="text-text-ghost shrink-0 text-[10px]">{pr.author.login}</span>
+          <span className="text-text-ghost shrink-0 text-[10px]">{formatAuthorName(pr.author, nameFormat)}</span>
         </CommandItem>
       ))}
     </CommandGroup>
@@ -373,9 +368,7 @@ function FileGroup({ onSelect }: { onSelect: () => void }) {
     if (filters.file) {
       const f = filters.file.toLowerCase();
       filtered = filtered.filter(
-        (path) =>
-          path.toLowerCase().includes(f) ||
-          path.toLowerCase().endsWith(`.${f}`),
+        (path) => path.toLowerCase().includes(f) || path.toLowerCase().endsWith(`.${f}`),
       );
     }
 

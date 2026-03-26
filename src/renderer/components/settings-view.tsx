@@ -52,6 +52,7 @@ const PREF_KEYS = [
   "botUsernames",
   "defaultDiffView",
   "defaultFileNav",
+  "displayNameFormat",
 ];
 
 function getDefaultAiBaseUrl(provider: string): string {
@@ -302,6 +303,7 @@ export function SettingsView() {
   const checksPollInterval = prefs.checksPollInterval ?? "10";
   const defaultDiffView = prefs.defaultDiffView ?? "unified";
   const defaultFileNav = prefs.defaultFileNav ?? "auto";
+  const displayNameFormat = prefs.displayNameFormat ?? "name";
 
   const navSections = useMemo(
     () => (aiEnabled ? NAV_SECTIONS_BASE : NAV_SECTIONS_BASE.filter((s) => s.id !== "ai")),
@@ -629,6 +631,38 @@ export function SettingsView() {
                 </p>
               </section>
 
+              {/* Display Name Format */}
+              <section className="mt-8">
+                <h3 className="text-text-primary text-sm font-medium">Name Display</h3>
+                <p className="text-text-tertiary mt-0.5 text-xs">
+                  Show usernames or real names for PR authors and committers.
+                </p>
+                <div className="border-border bg-bg-raised mt-3 flex rounded-md border p-[2px]">
+                  {(
+                    [
+                      { value: "name", label: "Real Name" },
+                      { value: "login", label: "Username" },
+                    ] as const
+                  ).map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => savePref("displayNameFormat", value)}
+                      className={`flex-1 cursor-pointer rounded-sm px-3 py-1.5 text-xs ${
+                        displayNameFormat === value
+                          ? "bg-bg-elevated text-text-primary shadow-sm"
+                          : "text-text-tertiary hover:text-text-secondary"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-text-ghost mt-1.5 text-[10px]">
+                  Falls back to username when a real name is unavailable.
+                </p>
+              </section>
+
               {/* Polling intervals */}
               <section className="mt-8">
                 <h3 className="text-text-primary text-sm font-medium">Polling Intervals</h3>
@@ -821,8 +855,8 @@ export function SettingsView() {
 
               {/* Danger Zone */}
               <section className="mt-10">
-                <h3 className="text-[--danger] text-sm font-medium">Danger Zone</h3>
-                <div className="border-[--danger]/30 mt-3 rounded-lg border">
+                <h3 className="text-sm font-medium text-[--danger]">Danger Zone</h3>
+                <div className="mt-3 rounded-lg border border-[--danger]/30">
                   <div className="flex items-center justify-between p-4">
                     <div>
                       <p className="text-text-primary text-xs font-medium">
@@ -839,7 +873,7 @@ export function SettingsView() {
                         setShowNukeConfirm(true);
                         setNukeConfirmText("");
                       }}
-                      className="text-[--danger] border-[--danger]/30 hover:bg-[--danger-muted] ml-4 shrink-0 cursor-pointer rounded-md border px-3 py-1.5 text-xs font-medium transition-colors"
+                      className="ml-4 shrink-0 cursor-pointer rounded-md border border-[--danger]/30 px-3 py-1.5 text-xs font-medium text-[--danger] transition-colors hover:bg-[--danger-muted]"
                     >
                       Reset everything
                     </button>
@@ -867,9 +901,7 @@ export function SettingsView() {
                           className="text-[--danger]"
                         />
                       </div>
-                      <h3 className="text-text-primary text-sm font-semibold">
-                        Reset Dispatch?
-                      </h3>
+                      <h3 className="text-text-primary text-sm font-semibold">Reset Dispatch?</h3>
                     </div>
                     <p className="text-text-secondary mt-3 text-xs leading-relaxed">
                       This will permanently delete <strong>all</strong> app data and restart
@@ -901,7 +933,7 @@ export function SettingsView() {
                         onChange={(e) => setNukeConfirmText(e.target.value)}
                         placeholder="RESET"
                         autoFocus
-                        className="border-border bg-bg-raised text-text-primary placeholder:text-text-ghost focus:border-[--danger]/50 mt-1.5 w-full rounded-md border px-3 py-1.5 font-mono text-xs tracking-wider focus:outline-none"
+                        className="border-border bg-bg-raised text-text-primary placeholder:text-text-ghost mt-1.5 w-full rounded-md border px-3 py-1.5 font-mono text-xs tracking-wider focus:border-[--danger]/50 focus:outline-none"
                       />
                     </div>
                     <div className="mt-4 flex gap-2">

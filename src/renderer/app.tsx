@@ -7,6 +7,7 @@ import { EnvCheck } from "./components/env-check";
 import { Onboarding } from "./components/onboarding";
 import { SplashScreen } from "./components/splash-screen";
 import { ipc } from "./lib/ipc";
+import { KeybindingProvider } from "./lib/keybinding-context";
 import { initPostHog } from "./lib/posthog";
 import { queryClient } from "./lib/query-client";
 import { ThemeProvider } from "./lib/theme-context";
@@ -166,9 +167,11 @@ export function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <ToastProvider position="bottom-right">
-          <AppContent />
-        </ToastProvider>
+        <KeybindingProvider>
+          <ToastProvider position="bottom-right">
+            <AppContent />
+          </ToastProvider>
+        </KeybindingProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

@@ -4,6 +4,8 @@ import { relativeTime } from "@/shared/format";
 import { ArrowLeft } from "lucide-react";
 import { useCallback } from "react";
 
+import { formatAuthorName, useDisplayNameFormat } from "../hooks/use-display-name";
+
 /**
  * Queue zone — PR-REVIEW-REDESIGN.md § Queue zone
  *
@@ -39,6 +41,7 @@ function resolveQueueDot(pr: GhPrListItemCore): { dotColor: string; pulse: boole
 }
 
 export function QueueZone({ queuePrs, activePrNumber, onBack, onSelectPr }: QueueZoneProps) {
+  const nameFormat = useDisplayNameFormat();
   const hasQueue = queuePrs.length > 0;
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- re-fire when active PR changes
@@ -104,7 +107,7 @@ export function QueueZone({ queuePrs, activePrNumber, onBack, onSelectPr }: Queu
                   <div className="text-text-tertiary mt-0.5 flex items-center gap-1 font-mono text-[10px]">
                     <span>#{pr.number}</span>
                     <span className="text-text-ghost">&middot;</span>
-                    <span className="truncate">{pr.author.name || pr.author.login}</span>
+                    <span className="truncate">{formatAuthorName(pr.author, nameFormat)}</span>
                   </div>
                 </div>
                 {/* Time */}

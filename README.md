@@ -41,17 +41,17 @@ src/
 
 ## Tech Stack
 
-| Layer      | Tool                     |
-| ---------- | ------------------------ |
-| Runtime    | Electron 41              |
-| Bundler    | Vite 8                   |
-| UI         | React 19                 |
-| Styling    | Tailwind CSS 4           |
-| Language   | TypeScript 5.9           |
-| Testing    | Vitest                   |
-| Linting    | oxlint                   |
-| Formatting | oxfmt                    |
-| Icons      | Lucide React             |
+| Layer      | Tool                                      |
+| ---------- | ----------------------------------------- |
+| Runtime    | Electron 41                               |
+| Bundler    | Vite 8                                    |
+| UI         | React 19                                  |
+| Styling    | Tailwind CSS 4                            |
+| Language   | TypeScript 5.9                            |
+| Testing    | Vitest                                    |
+| Linting    | oxlint                                    |
+| Formatting | oxfmt                                     |
+| Icons      | Lucide React                              |
 | Fonts      | DM Sans, JetBrains Mono, Instrument Serif |
 
 ## Prerequisites

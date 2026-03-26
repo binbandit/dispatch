@@ -196,7 +196,9 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
     if (this.state.error) {
       return (
         <div className="bg-bg-root flex h-screen flex-col items-center justify-center gap-4">
-          <h1 className="font-heading text-text-primary text-3xl font-bold italic">Something went wrong</h1>
+          <h1 className="font-heading text-text-primary text-3xl font-bold italic">
+            Something went wrong
+          </h1>
           <p className="text-text-secondary max-w-md text-center text-[13px]">
             {this.state.error.message}
           </p>

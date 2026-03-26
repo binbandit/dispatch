@@ -13,6 +13,7 @@ import { summarizePrChecks } from "../lib/pr-check-status";
 import { queryClient } from "../lib/query-client";
 import { useRouter } from "../lib/router";
 import { useWorkspace } from "../lib/workspace-context";
+import { formatAuthorName, useDisplayNameFormat } from "../hooks/use-display-name";
 import { useAiConfig } from "./ai-explanation";
 import { ConversationTab } from "./conversation-tab";
 import { GitHubAvatar } from "./github-avatar";
@@ -169,6 +170,7 @@ function PanelOverviewContent({
 }) {
   const { cwd } = useWorkspace();
   const aiConfig = useAiConfig();
+  const nameFormat = useDisplayNameFormat();
   const [editingBody, setEditingBody] = useState(false);
   const [bodyValue, setBodyValue] = useState(pr.body);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -238,7 +240,7 @@ function PanelOverviewContent({
           login={pr.author.login}
           size={18}
         />
-        <span className="font-medium">{pr.author.login}</span>
+        <span className="font-medium">{formatAuthorName(pr.author, nameFormat)}</span>
         <span className="text-text-ghost font-mono text-[10px]">
           opened {relativeTime(new Date(pr.createdAt))}
         </span>

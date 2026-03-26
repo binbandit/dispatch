@@ -211,7 +211,6 @@ export function MergeButton({
                 cwd,
                 prNumber,
                 strategy: "squash",
-                auto: true,
               });
             }}
           >

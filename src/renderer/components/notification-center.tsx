@@ -10,11 +10,11 @@ import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertCircle, Bell, CheckCircle2, GitMerge, GitPullRequest } from "lucide-react";
 
-import { GitHubAvatar } from "./github-avatar";
 import { ipc } from "../lib/ipc";
 import { queryClient } from "../lib/query-client";
 import { useRouter } from "../lib/router";
 import { useWorkspace } from "../lib/workspace-context";
+import { GitHubAvatar } from "./github-avatar";
 
 /**
  * Notification center — Phase 3 §3.5
@@ -144,7 +144,9 @@ export function NotificationCenter() {
                             login={notification.authorLogin}
                             size={20}
                           />
-                          <div className={`bg-bg-elevated absolute -right-1 -bottom-1 flex h-3.5 w-3.5 items-center justify-center rounded-full`}>
+                          <div
+                            className={`bg-bg-elevated absolute -right-1 -bottom-1 flex h-3.5 w-3.5 items-center justify-center rounded-full`}
+                          >
                             <Icon
                               size={9}
                               className={color}

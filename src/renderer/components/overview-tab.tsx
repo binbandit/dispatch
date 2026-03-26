@@ -5,6 +5,7 @@ import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { XCircle } from "lucide-react";
 
+import { formatAuthorName, useDisplayNameFormat } from "../hooks/use-display-name";
 import { ipc } from "../lib/ipc";
 import { queryClient } from "../lib/query-client";
 import { useWorkspace } from "../lib/workspace-context";
@@ -28,7 +29,7 @@ export function OverviewTab({
   pr: {
     title: string;
     body: string;
-    author: { login: string };
+    author: { login: string; name?: string | null };
     reviewDecision: string;
     reviews: Array<{ author: { login: string }; state: string; submittedAt: string }>;
     files: Array<{ path: string; additions: number; deletions: number }>;
@@ -42,6 +43,7 @@ export function OverviewTab({
   diffSnippet: string;
 }) {
   const { cwd } = useWorkspace();
+  const nameFormat = useDisplayNameFormat();
 
   const reviewRequestsQuery = useQuery({
     queryKey: ["pr", "reviewRequests", cwd, prNumber],
@@ -84,7 +86,7 @@ export function OverviewTab({
             login={pr.author.login}
             size={18}
           />
-          <span className="text-text-primary text-[11px] font-medium">{pr.author.login}</span>
+          <span className="text-text-primary text-[11px] font-medium">{formatAuthorName(pr.author, nameFormat)}</span>
           <span className="text-text-ghost text-[10px]">authored</span>
         </div>
         {pr.body ? (

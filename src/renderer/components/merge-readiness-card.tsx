@@ -122,7 +122,6 @@ export function MergeReadinessCard({
           </div>
         ))}
       </div>
-
     </div>
   );
 }

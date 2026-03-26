@@ -5,6 +5,7 @@ import { MenuItem, MenuPopup, MenuSeparator } from "@/components/ui/menu";
 import { toastManager } from "@/components/ui/toast";
 import { clamp, relativeTime } from "@/shared/format";
 import { ContextMenu } from "@base-ui/react/context-menu";
+import { formatAuthorName, useDisplayNameFormat } from "../hooks/use-display-name";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Check,
@@ -18,6 +19,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
+
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { ipc } from "../lib/ipc";
 import { useKeybindings } from "../lib/keybinding-context";
@@ -460,24 +462,19 @@ function FilterButton({
     <button
       type="button"
       onClick={onClick}
-      className={`flex cursor-pointer items-center gap-1 rounded-sm px-2.5 py-[3px] text-[11px] font-medium select-none transition-colors ${
+      className={`flex cursor-pointer items-center gap-1 rounded-sm px-2.5 py-[3px] text-[11px] font-medium transition-colors select-none ${
         active
           ? "bg-bg-elevated text-text-primary shadow-sm"
           : "text-text-tertiary hover:text-text-primary"
       }`}
     >
       {label}
-      {count > 0 && (
-        <span className="text-accent-text font-mono text-[9px]">{count}</span>
-      )}
+      {count > 0 && <span className="text-accent-text font-mono text-[9px]">{count}</span>}
     </button>
   );
 }
 
-function prSizeLabel(
-  additions: number,
-  deletions: number,
-): { label: string; bgColor: string } {
+function prSizeLabel(additions: number, deletions: number): { label: string; bgColor: string } {
   const total = additions + deletions;
   if (total < 50) {
     return { label: "S", bgColor: "bg-success-muted text-success" };
@@ -512,6 +509,7 @@ function PrItem({
   onClick: () => void;
   cwd: string;
 }) {
+  const nameFormat = useDisplayNameFormat();
   const size = enrichment ? prSizeLabel(enrichment.additions, enrichment.deletions) : null;
 
   const approveMutation = useMutation({
@@ -590,7 +588,7 @@ function PrItem({
           <div className="text-text-tertiary mt-0.5 flex items-center gap-1 font-mono text-[10px]">
             <span>#{pr.number}</span>
             <span className="text-text-ghost">&middot;</span>
-            <span className="truncate">{pr.author.name || pr.author.login}</span>
+            <span className="truncate">{formatAuthorName(pr.author, nameFormat)}</span>
             {checkSummary.state !== "passing" && checkSummary.state !== "none" && (
               <>
                 <span className="text-text-ghost">&middot;</span>
@@ -609,9 +607,7 @@ function PrItem({
               {size.label}
             </span>
           )}
-          {hasNewActivity && !isActive && (
-            <span className="bg-primary h-1.5 w-1.5 rounded-full" />
-          )}
+          {hasNewActivity && !isActive && <span className="bg-primary h-1.5 w-1.5 rounded-full" />}
         </div>
       </ContextMenu.Trigger>
       <MenuPopup

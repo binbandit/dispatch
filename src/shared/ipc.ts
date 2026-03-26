@@ -80,7 +80,7 @@ export interface GhPrDetail {
   number: number;
   title: string;
   body: string;
-  author: { login: string };
+  author: { login: string; name?: string | null };
   headRefName: string;
   baseRefName: string;
   headRefOid: string;
