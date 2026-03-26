@@ -68,14 +68,28 @@ export function MergeButton({
       auto?: boolean;
       hasMergeQueue?: boolean;
     }) => ipc("pr.merge", args),
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
-      if (result.queued) {
-        toastManager.add({
-          title: `PR #${prNumber} added to merge queue`,
-          type: "success",
-        });
+      
+      // If using auto-merge, provide clearer feedback
+      if (variables.auto) {
+        if (result.queued) {
+          toastManager.add({
+            title: requirementsMet 
+              ? `PR #${prNumber} queued for merge`
+              : `PR #${prNumber} will auto-merge when ready`,
+            description: requirementsMet ? undefined : "Waiting for checks and approvals",
+            type: "success",
+          });
+        } else {
+          toastManager.add({
+            title: `PR #${prNumber} merged`,
+            description: "Branch deleted.",
+            type: "success",
+          });
+        }
       } else {
+        // Admin or standard merge
         toastManager.add({
           title: `PR #${prNumber} merged`,
           description: "Branch deleted.",
