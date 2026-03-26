@@ -28,10 +28,10 @@ import { type TrayState, startPolling, stopPolling } from "./services/tray-polle
 // ---------------------------------------------------------------------------
 
 const WINDOW_CONFIG: BrowserWindowConstructorOptions = {
-  width: 1200,
-  height: 800,
-  minWidth: 800,
-  minHeight: 600,
+  width: 1400,
+  height: 900,
+  minWidth: 960,
+  minHeight: 660,
   show: false,
   titleBarStyle: "hiddenInset",
   trafficLightPosition: { x: 16, y: 14 },
@@ -290,9 +290,7 @@ function updateTrayMenu(win: BrowserWindow, state: TrayState): void {
   if (authorPrs.length > 0) {
     menuItems.push({ label: "YOUR PRS", enabled: false });
     for (const pr of authorPrs.slice(0, 5)) {
-      const isFailing = pr.statusCheckRollup.some(
-        (c) => c.conclusion?.toUpperCase() === "FAILURE",
-      );
+      const isFailing = pr.statusCheckRollup.some((c) => c.conclusion?.toUpperCase() === "FAILURE");
       const isApproved = pr.reviewDecision === "APPROVED";
       const allPassing = pr.statusCheckRollup.every(
         (c) => c.conclusion?.toUpperCase() === "SUCCESS" || c.conclusion === null,
