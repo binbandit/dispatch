@@ -38,6 +38,7 @@ interface FloatingReviewBarProps {
   hasMergeQueue: boolean;
   currentUserReview: string | null;
   isReRequested: boolean;
+  panelOpen?: boolean;
 }
 
 export function FloatingReviewBar({
@@ -54,6 +55,7 @@ export function FloatingReviewBar({
   hasMergeQueue,
   currentUserReview,
   isReRequested,
+  panelOpen = false,
 }: FloatingReviewBarProps) {
   const checks = summarizePrChecks(checkSummary);
   const allPassing = checks.state === "passing";
@@ -63,7 +65,7 @@ export function FloatingReviewBar({
       style={{
         position: "absolute",
         bottom: "12px",
-        left: "50%",
+        left: panelOpen ? "calc(50% - 190px)" : "50%",
         transform: "translateX(-50%)",
         zIndex: 3,
         background: "var(--bar-glass)",
@@ -76,6 +78,7 @@ export function FloatingReviewBar({
         alignItems: "center",
         gap: "8px",
         boxShadow: "var(--shadow-lg), var(--shadow-glow)",
+        transition: "left 0.3s ease",
       }}
     >
       {/* Stats */}
@@ -492,9 +495,9 @@ function MergeBarButton({
   };
 
   const disabled = isDraft || !canMerge;
-  const mainBg = disabled ? "var(--bg-raised)" : "var(--accent)";
+  const mainBg = disabled ? "var(--bg-raised)" : "var(--success)";
   const mainColor = disabled ? "var(--text-tertiary)" : "var(--bg-root)";
-  const mainBorder = disabled ? "var(--border)" : "var(--accent)";
+  const mainBorder = disabled ? "var(--border)" : "var(--success)";
   const mainCursor = disabled ? "not-allowed" : "pointer";
 
   // Merge queue mode: "Merge when ready" with admin-only dropdown
