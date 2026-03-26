@@ -608,6 +608,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
             hasMergeQueue={hasMergeQueue}
             currentUserReview={currentUserReview}
             isReRequested={isReRequested}
+            panelOpen={panelOpen}
           />
         )}
       </div>
