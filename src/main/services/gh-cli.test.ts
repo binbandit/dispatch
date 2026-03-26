@@ -10,6 +10,21 @@ import {
 } from "./gh-cli";
 import { execFile } from "./shell";
 
+// Mock Electron app
+vi.mock("electron", () => ({
+  app: {
+    getPath: vi.fn(() => "/tmp/test-dispatch"),
+  },
+}));
+
+// Mock database module
+vi.mock("../db/repository", () => ({
+  cacheDisplayNames: vi.fn(),
+  getDisplayNames: vi.fn(() => new Map()),
+  getRepoAccount: vi.fn(() => null),
+  setRepoAccount: vi.fn(),
+}));
+
 vi.mock(import("./shell"), () => ({
   execFile: vi.fn(),
 }));
