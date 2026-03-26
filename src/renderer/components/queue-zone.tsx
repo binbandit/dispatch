@@ -1,15 +1,7 @@
 import type { GhPrListItemCore } from "@/shared/ipc";
-import type { LucideIcon } from "lucide-react";
 
-import {
-  AlertCircle,
-  ArrowLeft,
-  Check,
-  CircleDot,
-  GitMerge,
-  GitPullRequestClosed,
-  GitPullRequestDraft,
-} from "lucide-react";
+import { relativeTime } from "@/shared/format";
+import { ArrowLeft } from "lucide-react";
 import { useCallback } from "react";
 
 /**
@@ -27,27 +19,23 @@ interface QueueZoneProps {
   hideWhenEmpty?: boolean;
 }
 
-function resolveQueueIndicator(pr: GhPrListItemCore): {
-  icon: LucideIcon;
-  color: string;
-  label: string;
-} {
+function resolveQueueDot(pr: GhPrListItemCore): { dotColor: string; pulse: boolean; label: string } {
   if (pr.state === "CLOSED") {
-    return { icon: GitPullRequestClosed, color: "text-destructive", label: "Closed" };
+    return { dotColor: "bg-destructive", pulse: false, label: "Closed" };
   }
   if (pr.state === "MERGED") {
-    return { icon: GitMerge, color: "text-purple", label: "Merged" };
-  }
-  if (pr.isDraft) {
-    return { icon: GitPullRequestDraft, color: "text-text-ghost", label: "Draft" };
+    return { dotColor: "bg-purple", pulse: false, label: "Merged" };
   }
   if (pr.reviewDecision === "CHANGES_REQUESTED") {
-    return { icon: AlertCircle, color: "text-warning", label: "Changes requested" };
+    return { dotColor: "bg-warning", pulse: false, label: "Changes requested" };
   }
-  if (pr.reviewDecision === "APPROVED") {
-    return { icon: Check, color: "text-success", label: "Approved" };
+  if (!pr.isDraft && pr.reviewDecision === "APPROVED") {
+    return { dotColor: "bg-success", pulse: false, label: "Approved" };
   }
-  return { icon: CircleDot, color: "text-text-tertiary", label: "Open" };
+  if (pr.isDraft) {
+    return { dotColor: "bg-text-ghost", pulse: false, label: "Draft" };
+  }
+  return { dotColor: "bg-purple", pulse: false, label: "Review requested" };
 }
 
 export function QueueZone({ queuePrs, activePrNumber, onBack, onSelectPr }: QueueZoneProps) {
@@ -88,11 +76,10 @@ export function QueueZone({ queuePrs, activePrNumber, onBack, onSelectPr }: Queu
 
       {/* Queue list — hidden when empty and hideWhenEmpty is set */}
       {hasQueue && (
-        <div className="flex max-h-[120px] flex-col overflow-y-auto px-1 pb-1">
+        <div className="flex max-h-[160px] flex-col overflow-y-auto">
           {queuePrs.map((pr) => {
             const isActive = pr.number === activePrNumber;
-            const indicator = resolveQueueIndicator(pr);
-            const QueueIcon = indicator.icon;
+            const dot = resolveQueueDot(pr);
 
             return (
               <button
@@ -100,32 +87,29 @@ export function QueueZone({ queuePrs, activePrNumber, onBack, onSelectPr }: Queu
                 ref={isActive ? activeRef : undefined}
                 type="button"
                 onClick={() => onSelectPr(pr.number)}
-                className={`flex cursor-pointer items-center gap-1.5 rounded-sm border-l-2 text-left text-[11px] select-none ${
+                className={`flex w-full cursor-pointer items-start gap-2 border-l-2 px-3 py-1.5 text-left transition-colors ${
                   isActive
-                    ? "bg-accent-muted border-l-primary"
+                    ? "border-l-primary bg-accent-muted"
                     : "hover:bg-bg-raised border-l-transparent"
                 }`}
-                style={{ padding: "3px 8px" }}
               >
-                <span title={indicator.label}>
-                  <QueueIcon
-                    size={10}
-                    className={`shrink-0 ${indicator.color}`}
-                  />
-                </span>
-                <span
-                  className={`min-w-0 flex-1 truncate ${
-                    isActive ? "text-text-primary font-medium" : "text-text-secondary font-[450]"
-                  }`}
-                >
-                  {pr.title}
-                </span>
-                <span
-                  className={`shrink-0 font-mono text-[10px] ${
-                    isActive ? "text-accent-text" : "text-text-ghost"
-                  }`}
-                >
-                  #{pr.number}
+                {/* Status dot */}
+                <div
+                  className={`mt-[5px] h-1.5 w-1.5 shrink-0 rounded-full ${dot.dotColor} ${dot.pulse ? "animate-pulse" : ""}`}
+                  title={dot.label}
+                />
+                {/* Content */}
+                <div className="min-w-0 flex-1">
+                  <div className="text-text-primary truncate text-[11px] font-medium">{pr.title}</div>
+                  <div className="text-text-tertiary mt-0.5 flex items-center gap-1 font-mono text-[10px]">
+                    <span>#{pr.number}</span>
+                    <span className="text-text-ghost">&middot;</span>
+                    <span className="truncate">{pr.author.name || pr.author.login}</span>
+                  </div>
+                </div>
+                {/* Time */}
+                <span className="text-text-ghost mt-0.5 shrink-0 font-mono text-[10px]">
+                  {relativeTime(new Date(pr.updatedAt))}
                 </span>
               </button>
             );
