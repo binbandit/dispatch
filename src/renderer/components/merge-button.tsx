@@ -6,6 +6,7 @@ import { ChevronDown, GitMerge, RefreshCw, ShieldAlert, XCircle } from "lucide-r
 import { useEffect, useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
+import { resolveMergeStrategy } from "../lib/merge-strategy";
 import { summarizePrChecks } from "../lib/pr-check-status";
 import { queryClient } from "../lib/query-client";
 
@@ -182,7 +183,23 @@ export function MergeButton({
             size="sm"
             variant="ghost"
             className="text-warning hover:text-warning gap-1 text-[10px]"
-            onClick={() => mergeMutation.mutate({ cwd, prNumber, strategy, admin: true, hasMergeQueue: true })}
+            onClick={() => {
+              const resolved = resolveMergeStrategy({
+                hasMergeQueue: true,
+                requirementsMet,
+                canAdmin,
+                explicitAdmin: true,
+                strategy,
+              });
+              mergeMutation.mutate({
+                cwd,
+                prNumber,
+                strategy: resolved.strategy,
+                admin: resolved.admin,
+                auto: resolved.auto,
+                hasMergeQueue: true,
+              });
+            }}
             disabled={mergeMutation.isPending}
           >
             Skip queue
@@ -208,10 +225,18 @@ export function MergeButton({
             }`}
             disabled={!requirementsMet || mergeMutation.isPending}
             onClick={() => {
+              const resolved = resolveMergeStrategy({
+                hasMergeQueue: true,
+                requirementsMet,
+                canAdmin,
+                strategy: "squash",
+              });
               mergeMutation.mutate({
                 cwd,
                 prNumber,
-                strategy: "squash",
+                strategy: resolved.strategy,
+                admin: resolved.admin,
+                auto: resolved.auto,
                 hasMergeQueue: true,
               });
             }}
@@ -242,7 +267,21 @@ export function MergeButton({
               type="button"
               onClick={() => {
                 setMenuOpen(false);
-                mergeMutation.mutate({ cwd, prNumber, strategy: "squash", admin: true, hasMergeQueue: true });
+                const resolved = resolveMergeStrategy({
+                  hasMergeQueue: true,
+                  requirementsMet,
+                  canAdmin,
+                  explicitAdmin: true,
+                  strategy: "squash",
+                });
+                mergeMutation.mutate({
+                  cwd,
+                  prNumber,
+                  strategy: resolved.strategy,
+                  admin: resolved.admin,
+                  auto: resolved.auto,
+                  hasMergeQueue: true,
+                });
               }}
               disabled={mergeMutation.isPending}
               className="text-warning hover:bg-warning/10 flex w-full cursor-pointer items-center gap-1.5 rounded-sm px-3 py-1.5 text-left text-xs transition-colors"
@@ -317,11 +356,18 @@ export function MergeButton({
           }`}
           disabled={!canMerge || mergeMutation.isPending}
           onClick={() => {
+            const resolved = resolveMergeStrategy({
+              hasMergeQueue: false,
+              requirementsMet,
+              canAdmin,
+              strategy,
+            });
             mergeMutation.mutate({
               cwd,
               prNumber,
-              strategy,
-              admin: !requirementsMet && canAdmin ? true : undefined,
+              strategy: resolved.strategy,
+              admin: resolved.admin,
+              auto: resolved.auto,
             });
           }}
         >

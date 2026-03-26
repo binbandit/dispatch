@@ -15,6 +15,7 @@ import {
 import { useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
+import { resolveMergeStrategy } from "../lib/merge-strategy";
 import { summarizePrChecks } from "../lib/pr-check-status";
 import { queryClient } from "../lib/query-client";
 
@@ -461,14 +462,24 @@ function MergeBarButton({
   const menuRef = useRef<HTMLDivElement>(null);
 
   const mergeMutation = useMutation({
-    mutationFn: (args: { admin?: boolean } | void) =>
-      ipc("pr.merge", {
+    mutationFn: (args: { admin?: boolean } | void) => {
+      const resolved = resolveMergeStrategy({
+        hasMergeQueue,
+        requirementsMet,
+        canAdmin,
+        explicitAdmin: args?.admin,
+        strategy,
+      });
+
+      return ipc("pr.merge", {
         cwd,
         prNumber,
-        strategy: hasMergeQueue ? "squash" : strategy,
-        admin: (args && args.admin) ?? (!requirementsMet && canAdmin ? true : undefined),
-        auto: hasMergeQueue && !(args && args.admin),
-      }),
+        strategy: resolved.strategy,
+        admin: resolved.admin,
+        auto: resolved.auto,
+        hasMergeQueue,
+      });
+    },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       if (result.queued) {
