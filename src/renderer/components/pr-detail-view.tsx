@@ -56,9 +56,10 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const [diffMode, setDiffMode] = useState<"all" | "since-review">("all");
   const [viewModeOverride, setViewModeOverride] = useState<DiffMode | null>(null);
   const viewMode: DiffMode =
-    viewModeOverride ?? (defaultDiffView === "split" ? "split" : "unified");
+    viewModeOverride ??
+    (defaultDiffView === "split" ? "split" : defaultDiffView === "full-file" ? "full-file" : "unified");
   const setViewMode = setViewModeOverride;
-  const [showFullFile, setShowFullFile] = useState(false);
+  const showFullFile = viewMode === "full-file";
   const [activeComposer, setActiveComposer] = useState<CommentRange | null>(null);
 
   const highlighter = useSyntaxHighlighter();
@@ -518,8 +519,6 @@ function PrDetail({ prNumber }: { prNumber: number }) {
             hasLastReview={!selectedCommit && !!lastSha && lastSha !== headSha}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
-            showFullFile={showFullFile}
-            onToggleFullFile={() => setShowFullFile((v) => !v)}
             isViewed={
               selectedCommit
                 ? false

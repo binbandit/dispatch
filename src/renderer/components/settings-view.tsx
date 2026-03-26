@@ -581,7 +581,7 @@ export function SettingsView() {
                   How diffs are displayed when reviewing files.
                 </p>
                 <div className="border-border bg-bg-raised mt-3 flex rounded-md border p-[2px]">
-                  {(["unified", "split"] as const).map((s) => (
+                  {(["unified", "split", "full-file"] as const).map((s) => (
                     <button
                       key={s}
                       type="button"
@@ -592,7 +592,7 @@ export function SettingsView() {
                           : "text-text-tertiary hover:text-text-secondary"
                       }`}
                     >
-                      {s}
+                      {s === "full-file" ? "Full file" : s}
                     </button>
                   ))}
                 </div>

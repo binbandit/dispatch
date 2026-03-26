@@ -29,7 +29,7 @@ export interface CommentRange {
   endLine: number;
 }
 
-export type DiffMode = "unified" | "split";
+export type DiffMode = "unified" | "split" | "full-file";
 
 interface DiffViewerProps {
   file: DiffFile;

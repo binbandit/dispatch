@@ -23,8 +23,6 @@ export function DiffToolbar({
   hasLastReview,
   viewMode,
   onViewModeChange,
-  showFullFile,
-  onToggleFullFile,
   isViewed,
   onToggleViewed,
   hideReviewControls,
@@ -39,8 +37,6 @@ export function DiffToolbar({
   hasLastReview: boolean;
   viewMode: DiffMode;
   onViewModeChange: (mode: DiffMode) => void;
-  showFullFile: boolean;
-  onToggleFullFile: () => void;
   isViewed: boolean;
   onToggleViewed: () => void;
   hideReviewControls?: boolean;
@@ -111,9 +107,9 @@ export function DiffToolbar({
         </button>
         <button
           type="button"
-          onClick={onToggleFullFile}
+          onClick={() => onViewModeChange("full-file")}
           className={`flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
-            showFullFile ? "bg-bg-elevated text-text-primary shadow-sm" : "text-text-tertiary"
+            viewMode === "full-file" ? "bg-bg-elevated text-text-primary shadow-sm" : "text-text-tertiary"
           }`}
         >
           <FileText size={11} />
