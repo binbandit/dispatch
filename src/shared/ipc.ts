@@ -317,6 +317,7 @@ export interface IpcApi {
   "preferences.deleteMany": { args: { keys: string[] }; result: void };
   "app.openExternal": { args: { url: string }; result: void };
   "app.devRepoStatus": { args: void; result: DevRepoStatus };
+  "app.setTrafficLightPosition": { args: { x: number; y: number }; result: void };
   "app.nuke": { args: void; result: void };
 
   "env.check": { args: void; result: EnvStatus };

@@ -5,6 +5,11 @@ import { useRef, useState } from "react";
 
 import { ipc } from "../lib/ipc";
 
+/** Default traffic light position (no banner). */
+const TRAFFIC_LIGHT_DEFAULT = { x: 16, y: 14 };
+/** Traffic light position when banner is visible (centered in 36px banner). */
+const TRAFFIC_LIGHT_BANNER = { x: 16, y: 12 };
+
 /**
  * Dev-only repo update banner.
  *
@@ -50,6 +55,8 @@ export function UpdateBanner({
   if (prevVisibleRef.current !== visible) {
     prevVisibleRef.current = visible;
     onVisibilityChange?.(visible);
+    // Reposition macOS traffic lights to center in the banner or navbar
+    void ipc("app.setTrafficLightPosition", visible ? TRAFFIC_LIGHT_BANNER : TRAFFIC_LIGHT_DEFAULT);
   }
 
   if (!visible) {

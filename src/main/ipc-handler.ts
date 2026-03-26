@@ -42,6 +42,12 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
     app.relaunch();
     app.exit(0);
   },
+  "app.setTrafficLightPosition": async (args) => {
+    const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0];
+    if (win) {
+      win.setWindowButtonPosition({ x: args.x, y: args.y });
+    }
+  },
   "app.devRepoStatus": async () => {
     if (!process.env.VITE_DEV_SERVER_URL) {
       return {
