@@ -65,7 +65,7 @@ export function FloatingReviewBar({
       style={{
         position: "absolute",
         bottom: "12px",
-        left: panelOpen ? "calc(50% - 190px)" : "50%",
+        left: panelOpen ? "calc((100% - min(380px, 45%)) / 2)" : "50%",
         transform: "translateX(-50%)",
         zIndex: 3,
         background: "var(--bar-glass)",
@@ -284,6 +284,7 @@ function RequestChangesBarButton({ cwd, prNumber }: { cwd: string; prNumber: num
             left: 0,
             marginBottom: "6px",
             width: "280px",
+            maxWidth: "calc(100vw - 32px)",
             background: "var(--bg-elevated)",
             border: "1px solid var(--border)",
             borderRadius: "var(--radius-md)",

@@ -336,7 +336,7 @@ export function DiffViewer({
     >
       {/* Search bar — floating overlay top-right */}
       {searchOpen && (
-        <div className="border-border bg-bg-elevated sticky top-0 right-0 z-10 ml-auto flex w-80 items-center gap-1.5 rounded-bl-md border-b border-l px-3 py-1.5 shadow-lg">
+        <div className="border-border bg-bg-elevated sticky top-0 right-0 z-10 ml-auto flex w-80 max-w-full items-center gap-1.5 rounded-bl-md border-b border-l px-3 py-1.5 shadow-lg">
           <Search
             size={13}
             className="text-text-tertiary shrink-0"

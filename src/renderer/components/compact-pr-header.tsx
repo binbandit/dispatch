@@ -96,7 +96,7 @@ export function CompactPrHeader({
           size={20}
           className="border-border-strong shrink-0 border"
         />
-        <span className="text-text-secondary shrink-0 font-mono text-[11px]">
+        <span className="text-text-secondary min-w-0 shrink truncate font-mono text-[11px]">
           {formatAuthorName(pr.author, nameFormat)}
         </span>
 
@@ -209,15 +209,15 @@ export function CompactPrHeader({
         <span className="text-text-tertiary shrink-0 font-mono text-[11px]">#{pr.number}</span>
         <span className="text-text-ghost text-[9px]">·</span>
         <span
-          className="border-border bg-bg-raised text-accent-text shrink-0 rounded-sm border font-mono text-[10px]"
+          className="border-border bg-bg-raised text-accent-text min-w-0 truncate rounded-sm border font-mono text-[10px]"
           style={{ padding: "0 5px" }}
         >
           {pr.headRefName}
         </span>
         <span className="text-text-ghost text-[9px]">·</span>
-        <span className="text-success font-mono text-[10px]">+{totalAdditions}</span>
-        <span className="text-text-ghost text-[9px]">·</span>
-        <span className="text-destructive font-mono text-[10px]">-{totalDeletions}</span>
+        <span className="text-success shrink-0 font-mono text-[10px]">+{totalAdditions}</span>
+        <span className="text-text-ghost shrink-0 text-[9px]">·</span>
+        <span className="text-destructive shrink-0 font-mono text-[10px]">-{totalDeletions}</span>
       </div>
     </div>
   );

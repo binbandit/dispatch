@@ -46,7 +46,7 @@ export function DiffToolbar({
   const dirPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/") + 1) : "";
 
   return (
-    <div className="border-border-subtle bg-bg-surface flex h-8 shrink-0 items-center gap-2 border-b px-3">
+    <div className="border-border-subtle bg-bg-surface flex h-8 shrink-0 items-center gap-2 overflow-hidden border-b px-3">
       {/* File path */}
       <span className="text-text-tertiary min-w-0 truncate font-mono text-[11px] font-medium">
         {dirPath}

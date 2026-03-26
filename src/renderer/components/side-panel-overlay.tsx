@@ -70,7 +70,7 @@ export function SidePanelOverlay({
     <div
       className="bg-bg-surface flex shrink-0 flex-col"
       style={{
-        width: "380px",
+        width: "min(380px, 45%)",
         borderLeft: "1px solid var(--border)",
       }}
     >
