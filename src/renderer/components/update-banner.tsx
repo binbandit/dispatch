@@ -59,7 +59,7 @@ export function UpdateBanner({
   const commitLabel = status!.behindCount === 1 ? "1 commit" : `${status!.behindCount} commits`;
 
   return (
-    <div className="border-border-accent bg-accent-muted/90 flex min-h-9 shrink-0 items-center gap-3 border-b py-1.5 pr-4 pl-20 shadow-sm">
+    <div className="border-border-accent bg-accent-muted/90 flex min-h-9 shrink-0 items-center gap-3 border-b py-1.5 pr-4 pl-24 shadow-sm">
       <div className="bg-bg-root/45 border-border-accent flex h-6 w-6 shrink-0 items-center justify-center rounded-full border">
         <GitBranch
           size={13}
