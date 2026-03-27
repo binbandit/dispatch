@@ -17,7 +17,11 @@ export function fixPath(): void {
 
   try {
     // Ask the login shell for its PATH. `-ilc` = interactive login + command.
-    const shellPath = execFileSync(shell, ["-ilc", "echo $PATH"], {
+    // Use `printenv PATH` instead of `echo $PATH` — printenv is a standalone
+    // binary that reads the env var directly, so it returns colon-separated
+    // output regardless of shell (fish stores PATH as a list internally but
+    // exports it colon-separated to child processes).
+    const shellPath = execFileSync(shell, ["-ilc", "printenv PATH"], {
       encoding: "utf8",
       timeout: 5_000,
       // Prevent the shell from inheriting stdio (avoid tty errors)
