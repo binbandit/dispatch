@@ -3,6 +3,7 @@ import { BrowserWindow, app, dialog, ipcMain } from "electron";
 import { IPC_CHANNEL, type IpcApi, type IpcMethod } from "../shared/ipc";
 import { destroyDatabase } from "./db/database";
 import * as repo from "./db/repository";
+import { getRegistry, getSessionManager } from "./services/acp";
 import * as ai from "./services/ai";
 import { getAiConfig } from "./services/ai-config";
 import { openExternalUrl } from "./services/external-links";
@@ -94,7 +95,7 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
     const accounts = await ghCli.listAccounts();
 
     // Determine the host from the repo's git remote so we pick the right account
-    // even when the active account is on a different host.
+    // Even when the active account is on a different host.
     const repoHost = await ghCli.getRepoHost(args.cwd);
     if (repoHost) {
       const match = accounts.find((a) => a.host === repoHost);
@@ -183,16 +184,15 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   "pr.removeLabel": async (args) => {
     await ghCli.removePrLabel(args.cwd, args.prNumber, args.label);
   },
-  "pr.merge": async (args) => {
-    return ghCli.mergePr(
+  "pr.merge": async (args) =>
+    ghCli.mergePr(
       args.cwd,
       args.prNumber,
       args.strategy,
       args.admin,
       args.auto,
       args.hasMergeQueue,
-    );
-  },
+    ),
   "pr.updateBranch": async (args) => {
     await ghCli.updatePrBranch(args.cwd, args.prNumber);
   },
@@ -301,6 +301,44 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   // AI (3.3)
   "ai.config": async () => getAiConfig(),
   "ai.complete": async (args) => ai.complete(args),
+
+  // ACP (Agent Client Protocol)
+  "acp.agents.discover": async () => getRegistry().discover(),
+  "acp.agents.list": async () => getRegistry().listAgents(),
+  "acp.agents.setDefault": async (args) => {
+    getRegistry().setDefaultAgent(args.agentId);
+  },
+  "acp.session.create": async (args) => getSessionManager().createSession(args.cwd, args.agentId),
+  "acp.session.prompt": async (args) =>
+    getSessionManager().prompt(args.sessionId, [{ type: "text", text: args.text }]),
+  "acp.session.cancel": async (args) => {
+    await getSessionManager().cancel(args.sessionId);
+  },
+  "acp.session.close": async (args) => {
+    getSessionManager().closeSession(args.sessionId);
+  },
+  "acp.session.list": async () => getSessionManager().listSessions(),
+  "acp.permission.respond": async (args) => {
+    getSessionManager().resolvePermission(args.requestId, args.optionId);
+  },
+  "acp.complete": async (args) => {
+    // Try ACP first, fall back to direct API
+    const defaultAgent = getRegistry().getDefaultAgent();
+    if (defaultAgent) {
+      try {
+        const result = await getSessionManager().complete(args.cwd, args.text, args.agentId);
+        return { text: result.text, source: "acp" as const };
+      } catch (error) {
+        console.error("[acp.complete] ACP failed, falling back to direct API:", error);
+      }
+    }
+
+    // Fallback to direct API
+    const text = await ai.complete({
+      messages: [{ role: "user", content: args.text }],
+    });
+    return { text, source: "direct-api" as const };
+  },
 
   // Releases (3.4)
   "releases.list": async (args) => ghCli.listReleases(args.cwd, args.limit),

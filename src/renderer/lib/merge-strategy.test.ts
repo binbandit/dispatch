@@ -62,7 +62,7 @@ describe("resolveMergeStrategy", () => {
 
       for (const config of configs) {
         const result = resolveMergeStrategy({ ...config, strategy: "squash" });
-        expect(result.admin === true || result.admin === undefined).toBe(true);
+        expect(result.admin === true || result.admin === undefined).toBeTruthy();
       }
     });
 
@@ -76,7 +76,7 @@ describe("resolveMergeStrategy", () => {
 
       for (const config of configs) {
         const result = resolveMergeStrategy({ ...config, strategy: "squash" });
-        expect(typeof result.auto).toBe("boolean");
+        expectTypeOf(result.auto).toBeBoolean();
       }
     });
 
@@ -197,7 +197,7 @@ describe("resolveMergeStrategy", () => {
 
     it("NEVER auto-enables admin mode in merge queue", () => {
       // This is the critical bug we're preventing: even with admin privileges,
-      // clicking the main button should NOT bypass the queue
+      // Clicking the main button should NOT bypass the queue
       const result = resolveMergeStrategy({
         hasMergeQueue: true,
         requirementsMet: false,
@@ -207,7 +207,7 @@ describe("resolveMergeStrategy", () => {
       });
 
       expect(result.admin).toBeUndefined();
-      expect(result.auto).toBe(true);
+      expect(result.auto).toBeTruthy();
     });
   });
 
@@ -265,7 +265,7 @@ describe("resolveMergeStrategy", () => {
         strategy: "squash",
       });
 
-      expect(result.auto).toBe(false);
+      expect(result.auto).toBeFalsy();
     });
   });
 
@@ -288,7 +288,7 @@ describe("resolveMergeStrategy", () => {
 
         // Critical invariant: admin and auto must be mutually exclusive
         const bothTrue = result.admin === true && result.auto === true;
-        expect(bothTrue).toBe(false);
+        expect(bothTrue).toBeFalsy();
       }
     });
   });
@@ -319,7 +319,7 @@ describe("resolveMergeStrategy", () => {
       });
 
       expect(result.admin).toBeUndefined();
-      expect(result.auto).toBe(false);
+      expect(result.auto).toBeFalsy();
     });
 
     it("handles explicit admin with no privileges (should still fail gracefully)", () => {
@@ -332,8 +332,8 @@ describe("resolveMergeStrategy", () => {
       });
 
       // Even though user requested admin, they don't have privileges
-      expect(result.admin).toBe(true);
-      expect(result.auto).toBe(false);
+      expect(result.admin).toBeTruthy();
+      expect(result.auto).toBeFalsy();
     });
 
     it("handles undefined explicitAdmin (same as false)", () => {
@@ -346,7 +346,7 @@ describe("resolveMergeStrategy", () => {
       });
 
       expect(result.admin).toBeUndefined();
-      expect(result.auto).toBe(true);
+      expect(result.auto).toBeTruthy();
     });
   });
 
@@ -354,7 +354,7 @@ describe("resolveMergeStrategy", () => {
     it("BUG SCENARIO: merge queue + admin + requirements not met + main button click", () => {
       // This was the exact scenario that caused the production issue:
       // User with admin privileges clicked "Merge when ready" button
-      // on a PR with merge queue enabled but requirements not met.
+      // On a PR with merge queue enabled but requirements not met.
       // Expected: Queue the PR for auto-merge when ready
       // Bug: Immediately merged using --admin, bypassing the queue
       const result = resolveMergeStrategy({
@@ -366,11 +366,11 @@ describe("resolveMergeStrategy", () => {
       });
 
       expect(result.admin).toBeUndefined();
-      expect(result.auto).toBe(true);
+      expect(result.auto).toBeTruthy();
       expect(result.strategy).toBe("squash");
 
       // Verify the bug is fixed: should NEVER have both flags
-      expect(result.admin === true && result.auto === true).toBe(false);
+      expect(result.admin === true && result.auto === true).toBeFalsy();
     });
 
     it("BUG SCENARIO VARIANT: requirements met should still not use admin", () => {
@@ -383,7 +383,7 @@ describe("resolveMergeStrategy", () => {
       });
 
       expect(result.admin).toBeUndefined();
-      expect(result.auto).toBe(true);
+      expect(result.auto).toBeTruthy();
     });
 
     it("CORRECT SCENARIO: explicit admin dropdown should bypass queue", () => {
@@ -396,8 +396,8 @@ describe("resolveMergeStrategy", () => {
         strategy: "squash",
       });
 
-      expect(result.admin).toBe(true);
-      expect(result.auto).toBe(false);
+      expect(result.admin).toBeTruthy();
+      expect(result.auto).toBeFalsy();
       expect(result.strategy).toBe("squash");
     });
   });
@@ -424,7 +424,7 @@ describe("resolveMergeStrategy", () => {
                 });
 
                 // Core invariant: admin and auto are mutually exclusive
-                expect(result.admin === true && result.auto === true).toBe(false);
+                expect(result.admin === true && result.auto === true).toBeFalsy();
 
                 // Merge queue always forces squash
                 if (hasMergeQueue) {
@@ -436,9 +436,9 @@ describe("resolveMergeStrategy", () => {
                 // Auto only when merge queue AND not using admin
                 const useAdmin = explicitAdmin || (!hasMergeQueue && !requirementsMet && canAdmin);
                 if (hasMergeQueue && !useAdmin) {
-                  expect(result.auto).toBe(true);
+                  expect(result.auto).toBeTruthy();
                 } else {
-                  expect(result.auto).toBe(false);
+                  expect(result.auto).toBeFalsy();
                 }
 
                 testedCount++;
@@ -703,7 +703,7 @@ describe("resolveMergeStrategy", () => {
           strategy: "squash",
         });
 
-        expect(result.auto).toBe(false);
+        expect(result.auto).toBeFalsy();
       }
     });
   });
@@ -745,7 +745,7 @@ describe("resolveMergeStrategy", () => {
           strategy: "squash",
         });
 
-        expect(result.auto).toBe(false);
+        expect(result.auto).toBeFalsy();
       }
     });
 
@@ -789,7 +789,7 @@ describe("resolveMergeStrategy", () => {
           strategy: "squash",
         });
 
-        expect(result.admin).toBe(true);
+        expect(result.admin).toBeTruthy();
       }
     });
 
@@ -808,7 +808,7 @@ describe("resolveMergeStrategy", () => {
         });
 
         if (result.admin === true) {
-          expect(result.auto).toBe(false);
+          expect(result.auto).toBeFalsy();
         }
       }
     });
@@ -859,10 +859,14 @@ describe("resolveMergeStrategy", () => {
       for (const { input, expectedFlags } of testCases) {
         const result = resolveMergeStrategy(input);
         const actualFlags: string[] = [`--${result.strategy}`];
-        if (result.admin) actualFlags.push("--admin");
-        if (result.auto) actualFlags.push("--auto");
+        if (result.admin) {
+          actualFlags.push("--admin");
+        }
+        if (result.auto) {
+          actualFlags.push("--auto");
+        }
 
-        expect(actualFlags.sort()).toEqual(expectedFlags.sort());
+        expect(actualFlags.toSorted()).toEqual(expectedFlags.toSorted());
       }
     });
 
@@ -884,7 +888,7 @@ describe("resolveMergeStrategy", () => {
         const hasAuto = result.auto === true;
 
         // The production bug: both flags present
-        expect(hasAdmin && hasAuto).toBe(false);
+        expect(hasAdmin && hasAuto).toBeFalsy();
       }
     });
   });
@@ -899,7 +903,7 @@ describe("resolveMergeStrategy", () => {
       });
 
       // Should use auto-merge to queue it
-      expect(result.auto).toBe(true);
+      expect(result.auto).toBeTruthy();
       expect(result.admin).toBeUndefined();
     });
 
@@ -912,7 +916,7 @@ describe("resolveMergeStrategy", () => {
       });
 
       // Still uses auto-merge (GitHub will process it immediately)
-      expect(result.auto).toBe(true);
+      expect(result.auto).toBeTruthy();
       expect(result.admin).toBeUndefined();
     });
 
@@ -926,8 +930,8 @@ describe("resolveMergeStrategy", () => {
       });
 
       // Bypasses queue entirely
-      expect(result.admin).toBe(true);
-      expect(result.auto).toBe(false);
+      expect(result.admin).toBeTruthy();
+      expect(result.auto).toBeFalsy();
     });
 
     it("admin main button does NOT bypass queue", () => {
@@ -940,7 +944,7 @@ describe("resolveMergeStrategy", () => {
       });
 
       // Still queues it
-      expect(result.auto).toBe(true);
+      expect(result.auto).toBeTruthy();
       expect(result.admin).toBeUndefined();
     });
   });
@@ -954,7 +958,7 @@ describe("resolveMergeStrategy", () => {
         strategy: "squash",
       });
 
-      expect(result.auto).toBe(false);
+      expect(result.auto).toBeFalsy();
       expect(result.admin).toBeUndefined();
     });
 
@@ -966,8 +970,8 @@ describe("resolveMergeStrategy", () => {
         strategy: "squash",
       });
 
-      expect(result.admin).toBe(true);
-      expect(result.auto).toBe(false);
+      expect(result.admin).toBeTruthy();
+      expect(result.auto).toBeFalsy();
     });
 
     it("regular user cannot merge when requirements not met", () => {
@@ -979,7 +983,7 @@ describe("resolveMergeStrategy", () => {
       });
 
       expect(result.admin).toBeUndefined();
-      expect(result.auto).toBe(false);
+      expect(result.auto).toBeFalsy();
       // UI should disable the button in this case
     });
   });
@@ -1027,7 +1031,7 @@ describe("resolveMergeStrategy", () => {
         });
 
         expect(result.strategy).toBe(strategy);
-        expect(result.admin).toBe(true);
+        expect(result.admin).toBeTruthy();
       }
     });
   });
@@ -1052,7 +1056,7 @@ describe("resolveMergeStrategy", () => {
         strategy: "squash",
       });
 
-      expect(result.admin).toBe(true);
+      expect(result.admin).toBeTruthy();
     });
 
     it("canAdmin=false with explicitAdmin=true still sets admin flag", () => {
@@ -1065,7 +1069,7 @@ describe("resolveMergeStrategy", () => {
         strategy: "squash",
       });
 
-      expect(result.admin).toBe(true);
+      expect(result.admin).toBeTruthy();
     });
   });
 
@@ -1196,10 +1200,10 @@ describe("resolveMergeStrategy", () => {
         hasMergeQueue: true,
       });
 
-      expect(noQueue.auto).toBe(false);
+      expect(noQueue.auto).toBeFalsy();
       expect(noQueue.strategy).toBe("merge");
 
-      expect(withQueue.auto).toBe(true);
+      expect(withQueue.auto).toBeTruthy();
       expect(withQueue.strategy).toBe("squash");
     });
 
@@ -1221,7 +1225,7 @@ describe("resolveMergeStrategy", () => {
       });
 
       expect(requirementsMet.admin).toBeUndefined();
-      expect(requirementsNotMet.admin).toBe(true);
+      expect(requirementsNotMet.admin).toBeTruthy();
     });
 
     it("gaining admin privileges changes behavior", () => {
@@ -1242,7 +1246,7 @@ describe("resolveMergeStrategy", () => {
       });
 
       expect(noAdmin.admin).toBeUndefined();
-      expect(withAdmin.admin).toBe(true);
+      expect(withAdmin.admin).toBeTruthy();
     });
   });
 

@@ -206,9 +206,9 @@ index abc1234..def5678 100644
  }`;
 
     const files = parseDiff(raw);
-    const lines = files[0]!.hunks[0]!.lines;
+    const { lines } = files[0]!.hunks[0]!;
 
-    // hunk-header has no line numbers
+    // Hunk-header has no line numbers
     expect(lines[0]).toMatchObject({
       type: "hunk-header",
       oldLineNumber: null,
@@ -414,7 +414,7 @@ describe("computeWordDiff", () => {
     // "return value;" vs "return value || null;"
     // Common prefix: "return value" (12 chars)
     // Common suffix: ";" (1 char)
-    // old middle = "" (empty), new middle = " || null"
+    // Old middle = "" (empty), new middle = " || null"
     const result = computeWordDiff("return value;", "return value || null;");
     expect(result.oldSegments).toEqual([
       { text: "return value", type: "equal" },

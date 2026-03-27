@@ -20,6 +20,8 @@ export function formatAuthorName(
   author: { login: string; name?: string | null },
   format: NameFormat,
 ): string {
-  if (format === "name" && author.name) return author.name;
+  if (format === "name" && author.name) {
+    return author.name;
+  }
   return author.login;
 }

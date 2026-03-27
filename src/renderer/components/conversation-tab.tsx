@@ -204,7 +204,7 @@ function buildTimeline(
 
   // Reviews become status events
   for (const review of reviews) {
-    const state = review.state;
+    const { state } = review;
     let action = "reviewed";
     let dotColor = "var(--text-ghost)";
     let actionColor: string | undefined;

@@ -146,7 +146,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const commitDiffQuery = useQuery({
     queryKey: ["git", "commitDiff", cwd, selectedCommit?.oid],
     queryFn: () => ipc("git.commitDiff", { cwd, sha: selectedCommit!.oid }),
-    enabled: !!selectedCommit,
+    enabled: Boolean(selectedCommit),
     staleTime: 60_000,
   });
 
@@ -166,8 +166,8 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     enabled:
       !selectedCommit &&
       diffMode === "since-review" &&
-      !!lastSha &&
-      !!headSha &&
+      Boolean(lastSha) &&
+      Boolean(headSha) &&
       lastSha !== headSha,
     staleTime: 60_000,
   });
@@ -271,7 +271,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const fullFileQuery = useQuery({
     queryKey: ["gh", "fileAtRef", cwd, fullFileRef, currentFilePath],
     queryFn: () => ipc("gh.fileAtRef", { cwd, ref: fullFileRef, filePath: currentFilePath }),
-    enabled: showFullFile && !!currentFilePath && !!fullFileRef,
+    enabled: showFullFile && Boolean(currentFilePath) && Boolean(fullFileRef),
     staleTime: 120_000,
   });
 
@@ -293,13 +293,13 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       // Find this reviewer's inline comments (ones with path + line)
       const reviewerComments = allComments
         .filter((c) => c.user.login === login && c.path && c.line)
-        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        .toSorted((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
 
       if (reviewerComments.length > 0) {
         const firstComment = reviewerComments[0]!;
         // Find the file index for this comment
         const fileIndex = files.findIndex((f) => getDiffFilePath(f) === firstComment.path);
-        if (fileIndex >= 0) {
+        if (fileIndex !== -1) {
           setCurrentFileIndex(fileIndex);
         }
       } else {
@@ -317,13 +317,14 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   );
 
   // Clean up highlight timer on unmount
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       if (highlightTimerRef.current) {
         clearTimeout(highlightTimerRef.current);
       }
-    };
-  }, []);
+    },
+    [],
+  );
 
   // File navigation
   const goToPrevFile = useCallback(() => {
@@ -441,8 +442,9 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const currentUserReview = currentUser
     ? (pr.reviews
         .filter((r) => r.author.login === currentUser)
-        .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())[0]
-        ?.state ?? null)
+        .toSorted(
+          (a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime(),
+        )[0]?.state ?? null)
     : null;
 
   const isReRequested =
@@ -520,7 +522,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
             onNext={goToNextFile}
             diffMode={selectedCommit ? "all" : diffMode}
             onDiffModeChange={setDiffMode}
-            hasLastReview={!selectedCommit && !!lastSha && lastSha !== headSha}
+            hasLastReview={!selectedCommit && Boolean(lastSha) && lastSha !== headSha}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
             isViewed={
@@ -545,7 +547,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
                   });
               }
             }}
-            hideReviewControls={!!selectedCommit}
+            hideReviewControls={Boolean(selectedCommit)}
           />
 
           {isLoadingDiff ? (

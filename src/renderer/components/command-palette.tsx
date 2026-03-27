@@ -148,10 +148,18 @@ type PrSize = "xs" | "s" | "m" | "l" | "xl";
 
 function classifyPrSize(additions: number, deletions: number): PrSize {
   const total = additions + deletions;
-  if (total < 10) return "xs";
-  if (total < 50) return "s";
-  if (total < 200) return "m";
-  if (total < 500) return "l";
+  if (total < 10) {
+    return "xs";
+  }
+  if (total < 50) {
+    return "s";
+  }
+  if (total < 200) {
+    return "m";
+  }
+  if (total < 500) {
+    return "l";
+  }
   return "xl";
 }
 
@@ -196,11 +204,13 @@ function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
     for (const filter of ["reviewRequested", "authored", "all"]) {
       const cached = queryClient.getQueryData<GhPrEnrichment[]>(["pr", "enrichment", cwd, filter]);
       if (cached) {
-        for (const e of cached) map.set(e.number, e);
+        for (const e of cached) {
+          map.set(e.number, e);
+        }
       }
     }
     return map;
-  }, [cwd, prs]); // re-derive when prs change (proxy for cache freshness)
+  }, [cwd, prs]); // Re-derive when prs change (proxy for cache freshness)
 
   const visible = useMemo(() => {
     let filtered = prs.slice(0, 15);
@@ -218,7 +228,7 @@ function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
       filtered = filtered.filter((p) => p.author.login.toLowerCase().includes(a));
     }
 
-    // branch:name
+    // Branch:name
     if (filters.branch) {
       const b = filters.branch.toLowerCase();
       filtered = filtered.filter(
@@ -226,41 +236,50 @@ function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
       );
     }
 
-    // is: / state: / review: filters
+    // Is: / state: / review: filters
     for (const flag of filters.is) {
       switch (flag) {
-        case "draft":
+        case "draft": {
           filtered = filtered.filter((p) => p.isDraft);
           break;
-        case "open":
+        }
+        case "open": {
           filtered = filtered.filter((p) => p.state === "OPEN");
           break;
-        case "merged":
+        }
+        case "merged": {
           filtered = filtered.filter((p) => p.state === "MERGED");
           break;
-        case "closed":
+        }
+        case "closed": {
           filtered = filtered.filter((p) => p.state === "CLOSED");
           break;
-        case "approved":
+        }
+        case "approved": {
           filtered = filtered.filter((p) => p.reviewDecision === "APPROVED");
           break;
+        }
         case "changes-requested":
-        case "changes":
+        case "changes": {
           filtered = filtered.filter((p) => p.reviewDecision === "CHANGES_REQUESTED");
           break;
+        }
         case "review-required":
-        case "pending":
+        case "pending": {
           filtered = filtered.filter((p) => p.reviewDecision === "REVIEW_REQUIRED");
           break;
+        }
       }
     }
 
-    // size:xs/s/m/l/xl (requires enrichment data)
+    // Size:xs/s/m/l/xl (requires enrichment data)
     if (filters.size) {
       const target = filters.size as PrSize;
       filtered = filtered.filter((p) => {
         const e = enrichmentMap.get(p.number);
-        if (!e) return false; // no enrichment yet — hide rather than guess
+        if (!e) {
+          return false;
+        } // No enrichment yet — hide rather than guess
         return classifyPrSize(e.additions, e.deletions) === target;
       });
     }
@@ -275,7 +294,9 @@ function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
     return filtered;
   }, [prs, filters, enrichmentMap]);
 
-  if (visible.length === 0) return null;
+  if (visible.length === 0) {
+    return null;
+  }
 
   return (
     <CommandGroup>
@@ -353,7 +374,9 @@ function FileGroup({ onSelect }: { onSelect: () => void }) {
   });
 
   const files = useMemo(() => {
-    if (!diffQuery.data) return [];
+    if (!diffQuery.data) {
+      return [];
+    }
     const paths: string[] = [];
     for (const line of diffQuery.data.split("\n")) {
       if (line.startsWith("+++ b/")) {
@@ -366,7 +389,7 @@ function FileGroup({ onSelect }: { onSelect: () => void }) {
   const visible = useMemo(() => {
     let filtered = files;
 
-    // file:/ext: filter — match extension or path segment
+    // File:/ext: filter — match extension or path segment
     if (filters.file) {
       const f = filters.file.toLowerCase();
       filtered = filtered.filter(
@@ -382,7 +405,9 @@ function FileGroup({ onSelect }: { onSelect: () => void }) {
     return filtered;
   }, [files, filters]);
 
-  if (!prNumber || visible.length === 0) return null;
+  if (!prNumber || visible.length === 0) {
+    return null;
+  }
 
   return (
     <CommandGroup>
@@ -433,7 +458,9 @@ function ReviewActionsGroup({ onSelect }: { onSelect: () => void }) {
   const repoSlug = useRepoSlug();
 
   const prNumber = route.view === "review" ? route.prNumber : null;
-  if (!prNumber) return null;
+  if (!prNumber) {
+    return null;
+  }
 
   // PR-specific filters should NOT hide action commands
   // (e.g. `#3350` should still show actions for the current PR)
@@ -511,7 +538,9 @@ function ReviewActionsGroup({ onSelect }: { onSelect: () => void }) {
   ];
 
   const visible = query ? items.filter((i) => commandMatch(i.label, query)) : items;
-  if (visible.length === 0) return null;
+  if (visible.length === 0) {
+    return null;
+  }
 
   return (
     <CommandGroup>
@@ -593,7 +622,9 @@ function NavigationGroup({ onSelect }: { onSelect: () => void }) {
   ];
 
   const visible = query ? items.filter((i) => commandMatch(i.label, query)) : items;
-  if (visible.length === 0) return null;
+  if (visible.length === 0) {
+    return null;
+  }
 
   return (
     <CommandGroup>
@@ -636,7 +667,9 @@ function WorkspaceGroup({ onSelect }: { onSelect: () => void }) {
     : workspaces;
   const showAddRepo = commandMatch(addRepoLabel, query);
 
-  if (visibleWorkspaces.length === 0 && !showAddRepo) return null;
+  if (visibleWorkspaces.length === 0 && !showAddRepo) {
+    return null;
+  }
 
   return (
     <CommandGroup>
@@ -704,11 +737,15 @@ function WorkflowGroup({ onSelect }: { onSelect: () => void }) {
   const workflows = (workflowsQuery.data ?? []).filter((w) => w.state === "active");
 
   const visible = useMemo(() => {
-    if (!query) return workflows;
+    if (!query) {
+      return workflows;
+    }
     return workflows.filter((wf) => commandMatch(wf.name, query));
   }, [workflows, query]);
 
-  if (visible.length === 0) return null;
+  if (visible.length === 0) {
+    return null;
+  }
 
   return (
     <CommandGroup>
@@ -778,7 +815,9 @@ function GitGroup({ onSelect }: { onSelect: () => void }) {
   ];
 
   const visible = query ? items.filter((i) => commandMatch(i.label, query)) : items;
-  if (visible.length === 0) return null;
+  if (visible.length === 0) {
+    return null;
+  }
 
   return (
     <CommandGroup>
@@ -869,7 +908,9 @@ function SystemGroup({ onSelect }: { onSelect: () => void }) {
   ];
 
   const visible = query ? items.filter((i) => commandMatch(i.label, query)) : items;
-  if (visible.length === 0) return null;
+  if (visible.length === 0) {
+    return null;
+  }
 
   return (
     <CommandGroup>

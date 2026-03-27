@@ -37,7 +37,9 @@ export function KeyRecorder({
   }, []);
 
   useEffect(() => {
-    if (!recording) return;
+    if (!recording) {
+      return;
+    }
 
     function onKeyDown(event: KeyboardEvent) {
       event.preventDefault();
@@ -50,13 +52,23 @@ export function KeyRecorder({
       }
 
       // Ignore modifier-only presses — wait for an actual key
-      if (MODIFIER_KEYS.has(event.key)) return;
+      if (MODIFIER_KEYS.has(event.key)) {
+        return;
+      }
 
       const modifiers: Modifier[] = [];
-      if (event.metaKey) modifiers.push("meta");
-      if (event.shiftKey) modifiers.push("shift");
-      if (event.altKey) modifiers.push("alt");
-      if (event.ctrlKey) modifiers.push("ctrl");
+      if (event.metaKey) {
+        modifiers.push("meta");
+      }
+      if (event.shiftKey) {
+        modifiers.push("shift");
+      }
+      if (event.altKey) {
+        modifiers.push("alt");
+      }
+      if (event.ctrlKey) {
+        modifiers.push("ctrl");
+      }
 
       onRecord(event.key, modifiers.length > 0 ? modifiers : undefined);
       setRecording(false);

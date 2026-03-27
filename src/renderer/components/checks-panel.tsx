@@ -244,23 +244,32 @@ function AiFailureExplainer({
       // Take the last 200 lines (where errors typically are)
       const logTail = logText.split("\n").slice(-200).join("\n");
 
-      return ipc("ai.complete", {
-        provider: config.provider ?? undefined,
-        model: config.model ?? undefined,
-        baseUrl: config.baseUrl ?? undefined,
-        messages: [
-          {
-            role: "system",
-            content:
-              "A CI/CD pipeline has failed. Explain the failure in plain English and suggest a fix. Be concise (3-4 sentences max).",
-          },
-          {
-            role: "user",
-            content: `Check name: ${checkName}\nStatus: Failed\n\nLog output (last 200 lines):\n${logTail}`,
-          },
-        ],
-        maxTokens: 512,
-      });
+      const prompt = `A CI/CD pipeline has failed. Explain the failure in plain English and suggest a fix. Be concise (3-4 sentences max).\n\nCheck name: ${checkName}\nStatus: Failed\n\nLog output (last 200 lines):\n${logTail}`;
+
+      // Try ACP first
+      try {
+        const acpResult = await ipc("acp.complete", { cwd, text: prompt });
+        return acpResult.text;
+      } catch {
+        // Fall back to direct API
+        return ipc("ai.complete", {
+          provider: config.provider ?? undefined,
+          model: config.model ?? undefined,
+          baseUrl: config.baseUrl ?? undefined,
+          messages: [
+            {
+              role: "system",
+              content:
+                "A CI/CD pipeline has failed. Explain the failure in plain English and suggest a fix. Be concise (3-4 sentences max).",
+            },
+            {
+              role: "user",
+              content: `Check name: ${checkName}\nStatus: Failed\n\nLog output (last 200 lines):\n${logTail}`,
+            },
+          ],
+          maxTokens: 512,
+        });
+      }
     },
     onSuccess: (text) => {
       setExplanation(text);

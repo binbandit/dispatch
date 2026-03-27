@@ -21,8 +21,8 @@ describe("Merge Toast Messages - User Feedback Contract", () => {
         type: "success",
       };
 
-      expect(usingAutoFlag).toBe(true);
-      expect(requirementsMet).toBe(false);
+      expect(usingAutoFlag).toBeTruthy();
+      expect(requirementsMet).toBeFalsy();
       expect(expectedMessage.title).toContain("Auto-merge enabled");
       expect(expectedMessage.description).toContain("Will merge when checks pass");
     });
@@ -38,9 +38,9 @@ describe("Merge Toast Messages - User Feedback Contract", () => {
         type: "success",
       };
 
-      expect(usingAutoFlag).toBe(true);
-      expect(requirementsMet).toBe(true);
-      expect(queued).toBe(true);
+      expect(usingAutoFlag).toBeTruthy();
+      expect(requirementsMet).toBeTruthy();
+      expect(queued).toBeTruthy();
       expect(expectedMessage.title).toContain("queued for merge");
     });
 
@@ -56,9 +56,9 @@ describe("Merge Toast Messages - User Feedback Contract", () => {
         type: "success",
       };
 
-      expect(usingAutoFlag).toBe(true);
-      expect(requirementsMet).toBe(true);
-      expect(queued).toBe(false);
+      expect(usingAutoFlag).toBeTruthy();
+      expect(requirementsMet).toBeTruthy();
+      expect(queued).toBeFalsy();
       expect(expectedMessage.title).toBe("PR #123 merged");
     });
   });
@@ -75,8 +75,8 @@ describe("Merge Toast Messages - User Feedback Contract", () => {
         type: "success",
       };
 
-      expect(usingAutoFlag).toBe(false);
-      expect(usingAdminFlag).toBe(true);
+      expect(usingAutoFlag).toBeFalsy();
+      expect(usingAdminFlag).toBeTruthy();
       expect(expectedMessage.title).toBe("PR #123 merged");
     });
   });
@@ -94,9 +94,9 @@ describe("Merge Toast Messages - User Feedback Contract", () => {
         type: "success",
       };
 
-      expect(usingAutoFlag).toBe(false);
-      expect(usingAdminFlag).toBe(false);
-      expect(requirementsMet).toBe(true);
+      expect(usingAutoFlag).toBeFalsy();
+      expect(usingAdminFlag).toBeFalsy();
+      expect(requirementsMet).toBeTruthy();
       expect(expectedMessage.title).toBe("PR #123 merged");
     });
   });
@@ -116,8 +116,8 @@ describe("Merge Toast Messages - User Feedback Contract", () => {
       };
 
       expect(clickedButton).toBe("Merge when ready");
-      expect(requirementsMet).toBe(false);
-      expect(usingAutoFlag).toBe(true);
+      expect(requirementsMet).toBeFalsy();
+      expect(usingAutoFlag).toBeTruthy();
       expect(correctMessage.title).toContain("Auto-merge enabled");
       expect(correctMessage.title).not.toContain("merged");
     });
@@ -130,7 +130,7 @@ describe("Merge Toast Messages - User Feedback Contract", () => {
 
       const buttonShouldBeDisabled = autoMergeRequest !== null;
 
-      expect(buttonShouldBeDisabled).toBe(true);
+      expect(buttonShouldBeDisabled).toBeTruthy();
       expect(autoMergeRequest).toBeDefined();
     });
 
@@ -139,7 +139,7 @@ describe("Merge Toast Messages - User Feedback Contract", () => {
 
       const buttonShouldBeDisabled = autoMergeRequest !== null;
 
-      expect(buttonShouldBeDisabled).toBe(false);
+      expect(buttonShouldBeDisabled).toBeFalsy();
     });
   });
 
@@ -153,7 +153,7 @@ describe("Merge Toast Messages - User Feedback Contract", () => {
       const finalStep = steps[1];
       const requirementsMet = finalStep.checks === "passing" && finalStep.approved === true;
 
-      expect(requirementsMet).toBe(false);
+      expect(requirementsMet).toBeFalsy();
       // Should show: "Auto-merge enabled for PR #123"
     });
 
@@ -162,9 +162,9 @@ describe("Merge Toast Messages - User Feedback Contract", () => {
       const approved = true;
       const requirementsMet = checks === "passing" && approved === true;
 
-      expect(requirementsMet).toBe(true);
+      expect(requirementsMet).toBeTruthy();
       // Should show: "PR #123 queued for merge" or "PR #123 merged"
-      // depending on if merge queue processes it immediately
+      // Depending on if merge queue processes it immediately
     });
 
     it("Scenario 3: Failing checks -> Admin bypass (Merge now)", () => {
@@ -173,8 +173,8 @@ describe("Merge Toast Messages - User Feedback Contract", () => {
       const usingAdminFlag = true;
       const usingAutoFlag = false;
 
-      expect(usingAdminFlag).toBe(true);
-      expect(usingAutoFlag).toBe(false);
+      expect(usingAdminFlag).toBeTruthy();
+      expect(usingAutoFlag).toBeFalsy();
       // Should show: "PR #123 merged" (immediate)
     });
 
@@ -185,7 +185,7 @@ describe("Merge Toast Messages - User Feedback Contract", () => {
       };
       const buttonDisabled = autoMergeRequest !== null;
 
-      expect(buttonDisabled).toBe(true);
+      expect(buttonDisabled).toBeTruthy();
       // Button should be disabled, no action possible
     });
   });

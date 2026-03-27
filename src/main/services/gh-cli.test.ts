@@ -11,14 +11,14 @@ import {
 import { execFile } from "./shell";
 
 // Mock Electron app
-vi.mock("electron", () => ({
+vi.mock(import("electron"), () => ({
   app: {
     getPath: vi.fn(() => "/tmp/test-dispatch"),
   },
 }));
 
 // Mock database module
-vi.mock("../db/repository", () => ({
+vi.mock(import("../db/repository"), () => ({
   cacheDisplayNames: vi.fn(),
   getDisplayNames: vi.fn(() => new Map()),
   getRepoAccount: vi.fn(() => null),

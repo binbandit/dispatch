@@ -192,7 +192,7 @@ index abc123..def456 100644
     });
 
     it("handles diff with very long lines", () => {
-      const longLine = "x".repeat(10000);
+      const longLine = "x".repeat(10_000);
       const diff = `diff --git a/file.ts b/file.ts
 --- a/file.ts
 +++ b/file.ts

@@ -44,7 +44,7 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
   const commitDiffQuery = useQuery({
     queryKey: ["git", "commitDiff", cwd, selectedCommit?.oid],
     queryFn: () => ipc("git.commitDiff", { cwd, sha: selectedCommit!.oid }),
-    enabled: !!selectedCommit,
+    enabled: Boolean(selectedCommit),
     staleTime: 60_000,
   });
 
@@ -282,7 +282,7 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
         (() => {
           const checkSummary = summarizePrChecks(checksList);
 
-          // reviewDecision is empty when branch protection doesn't require reviews.
+          // ReviewDecision is empty when branch protection doesn't require reviews.
           // Fall back to checking the reviews array for an actual approval.
           let hasApproval = pr.reviewDecision === "APPROVED";
           if (!hasApproval) {

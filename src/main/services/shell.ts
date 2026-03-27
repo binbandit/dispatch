@@ -38,7 +38,7 @@ export async function execFile(
  */
 export async function whichVersion(tool: string): Promise<string | null> {
   try {
-    const { stdout } = await execFile(tool, ["--version"], { timeout: 5_000 });
+    const { stdout } = await execFile(tool, ["--version"], { timeout: 5000 });
     return stdout;
   } catch {
     return null;

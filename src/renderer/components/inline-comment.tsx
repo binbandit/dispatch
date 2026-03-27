@@ -79,7 +79,7 @@ export function InlineComment({
   const { minimizedSet, toggleMinimized } = useMinimizedComments(repoKey, prNumber ?? 0);
 
   const roots = comments.filter((c) => !c.in_reply_to_id);
-  const replies = comments.filter((c) => !!c.in_reply_to_id);
+  const replies = comments.filter((c) => Boolean(c.in_reply_to_id));
 
   const botRoots = roots.filter((c) => isBot(c.user.login));
   const humanRoots = roots.filter((c) => !isBot(c.user.login));
@@ -838,7 +838,7 @@ function SuggestionBlock({ suggestion, language }: { suggestion: string; languag
 
   // Tokenize lines for syntax highlighting.
   // Strip +/- prefixes, join into full code block for context-aware highlighting,
-  // then map per-line tokens back.
+  // Then map per-line tokens back.
   const tokensByLine = useMemo(() => {
     if (!highlighter || language === "text") {
       return null;

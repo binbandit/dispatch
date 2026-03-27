@@ -4,13 +4,16 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Sparkles, X } from "lucide-react";
 import { useState } from "react";
 
+import { useAcpStream } from "../hooks/use-acp-stream";
 import { ipc } from "../lib/ipc";
+import { useWorkspace } from "../lib/workspace-context";
+import { AcpStreamDisplay } from "./acp-stream-display";
 
 /**
  * AI inline code explanation — Phase 3 §3.3.2
  *
- * Renders below selected code in the diff. Shows streaming-style
- * AI explanation in a copper-bordered card.
+ * Renders below selected code in the diff.
+ * Uses ACP agent with streaming when available, falls back to direct API.
  */
 
 interface AiExplanationProps {
@@ -62,31 +65,63 @@ export { useAiConfig };
 
 export function AiExplanation({ filePath, codeSnippet, language, onDismiss }: AiExplanationProps) {
   const config = useAiConfig();
+  const { cwd } = useWorkspace();
   const [result, setResult] = useState<string | null>(null);
+  const [useAcp, setUseAcp] = useState(false);
+  const stream = useAcpStream();
 
   const explainMutation = useMutation({
-    mutationFn: () =>
-      ipc("ai.complete", {
-        provider: config.provider ?? undefined,
-        model: config.model ?? undefined,
-        baseUrl: config.baseUrl ?? undefined,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a code review assistant. Explain what the following code change does and why it might have been made. Be concise (2-3 sentences max).",
-          },
-          {
-            role: "user",
-            content: `File: ${filePath}\n\nCode:\n\`\`\`${language}\n${codeSnippet}\n\`\`\``,
-          },
-        ],
-        maxTokens: 256,
-      }),
+    mutationFn: async () => {
+      const prompt = `You are a code review assistant. Explain what the following code change does and why it might have been made. Be concise (2-3 sentences max).\n\nFile: ${filePath}\n\nCode:\n\`\`\`${language}\n${codeSnippet}\n\`\`\``;
+
+      // Try ACP with streaming
+      try {
+        const session = await ipc("acp.session.create", { cwd });
+        setUseAcp(true);
+        stream.start(session.sessionId);
+
+        await ipc("acp.session.prompt", {
+          sessionId: session.sessionId,
+          text: prompt,
+        });
+
+        stream.stop();
+        return "acp";
+      } catch {
+        // Fall back to direct API
+        stream.reset();
+        setUseAcp(false);
+
+        return ipc("ai.complete", {
+          provider: config.provider ?? undefined,
+          model: config.model ?? undefined,
+          baseUrl: config.baseUrl ?? undefined,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a code review assistant. Explain what the following code change does and why it might have been made. Be concise (2-3 sentences max).",
+            },
+            {
+              role: "user",
+              content: `File: ${filePath}\n\nCode:\n\`\`\`${language}\n${codeSnippet}\n\`\`\``,
+            },
+          ],
+          maxTokens: 256,
+        });
+      }
+    },
     onSuccess: (text) => {
-      setResult(text);
+      if (text === "acp") {
+        setResult(stream.text);
+      } else {
+        setResult(text);
+      }
     },
   });
+
+  const displayText = useAcp && stream.streaming ? stream.text : result;
+  const isStreaming = useAcp && stream.streaming;
 
   if (!config.isConfigured) {
     return (
@@ -122,8 +157,15 @@ export function AiExplanation({ filePath, codeSnippet, language, onDismiss }: Ai
         </button>
       </div>
       <div className="px-3 pb-3">
-        {result ? (
-          <p className="text-text-secondary text-xs leading-relaxed">{result}</p>
+        {isStreaming ? (
+          <AcpStreamDisplay
+            text={stream.text}
+            tools={stream.tools}
+            streaming={stream.streaming}
+            className="text-xs leading-relaxed"
+          />
+        ) : displayText ? (
+          <p className="text-text-secondary text-xs leading-relaxed">{displayText}</p>
         ) : explainMutation.isPending ? (
           <div className="flex items-center gap-2 py-2">
             <Spinner className="text-primary h-3 w-3" />

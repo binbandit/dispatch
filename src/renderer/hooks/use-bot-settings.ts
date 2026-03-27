@@ -20,7 +20,9 @@ export const DEFAULT_BOT_USERNAMES = [
 ];
 
 export function parseJsonArray(value: string | null | undefined): string[] {
-  if (!value) return [];
+  if (!value) {
+    return [];
+  }
   try {
     const parsed = JSON.parse(value);
     return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === "string") : [];
@@ -46,18 +48,22 @@ export function useBotSettings() {
 
     return (login: string): boolean => {
       const lower = login.toLowerCase();
-      if (usernameSet.has(lower)) return true;
+      if (usernameSet.has(lower)) {
+        return true;
+      }
       return DEFAULT_BOT_PATTERNS.some((p) => p.test(login));
     };
   }, [customUsernames]);
 
-  const isBotPr = useMemo(() => {
-    return (title: string): boolean => {
-      if (titleTags.length === 0) return false;
-      const lower = title.toLowerCase();
-      return titleTags.some((tag) => lower.includes(tag.toLowerCase()));
-    };
-  }, [titleTags]);
+  const isBotPr = useMemo(
+    () =>
+      (title: string): boolean => {
+        if (titleTags.length === 0) return false;
+        const lower = title.toLowerCase();
+        return titleTags.some((tag) => lower.includes(tag.toLowerCase()));
+      },
+    [titleTags],
+  );
 
   return { isBot, isBotPr, titleTags, customUsernames };
 }

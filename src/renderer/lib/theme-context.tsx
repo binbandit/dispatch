@@ -40,15 +40,15 @@ function applyTheme(resolved: ResolvedTheme) {
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    return (localStorage.getItem("dispatch-theme") as Theme) ?? "dark";
-  });
-  const [codeThemeDark, setCodeThemeDark] = useState<string>(() => {
-    return localStorage.getItem("dispatch-code-theme-dark") ?? DEFAULT_CODE_THEME_DARK;
-  });
-  const [codeThemeLight, setCodeThemeLight] = useState<string>(() => {
-    return localStorage.getItem("dispatch-code-theme-light") ?? DEFAULT_CODE_THEME_LIGHT;
-  });
+  const [theme, setThemeState] = useState<Theme>(
+    () => (localStorage.getItem("dispatch-theme") as Theme) ?? "dark",
+  );
+  const [codeThemeDark, setCodeThemeDark] = useState<string>(
+    () => localStorage.getItem("dispatch-code-theme-dark") ?? DEFAULT_CODE_THEME_DARK,
+  );
+  const [codeThemeLight, setCodeThemeLight] = useState<string>(
+    () => localStorage.getItem("dispatch-code-theme-light") ?? DEFAULT_CODE_THEME_LIGHT,
+  );
 
   const resolved = resolveTheme(theme);
   const codeTheme = resolved === "light" ? codeThemeLight : codeThemeDark;
@@ -85,7 +85,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Listen for system theme changes when preference is "system"
   useEffect(() => {
-    if (theme !== "system") return;
+    if (theme !== "system") {
+      return;
+    }
     const mq = globalThis.matchMedia("(prefers-color-scheme: light)");
     const handler = () => applyTheme(resolveTheme("system"));
     mq.addEventListener("change", handler);

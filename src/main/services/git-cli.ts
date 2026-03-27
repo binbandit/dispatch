@@ -33,7 +33,7 @@ export async function blame(args: {
       ["blame", "-L", `${args.line},${args.line}`, args.ref, "--porcelain", "--", args.file],
       { cwd: args.cwd },
     );
-    stdout = result.stdout;
+    ({ stdout } = result);
   } catch {
     // Line out of range, file doesn't exist at ref, etc.
     return { sha: "", author: "", date: "", summary: "" };

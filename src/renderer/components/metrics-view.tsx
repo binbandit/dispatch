@@ -50,13 +50,12 @@ export function MetricsView() {
       merged.length > 0
         ? merged.reduce((sum, p) => sum + (p.timeToMerge ?? 0), 0) / merged.length
         : 0;
-    const avgReviewTime =
-      cycleData.filter((p) => p.timeToFirstReview).length > 0
-        ? cycleData
-            .filter((p) => p.timeToFirstReview)
-            .reduce((sum, p) => sum + (p.timeToFirstReview ?? 0), 0) /
-          cycleData.filter((p) => p.timeToFirstReview).length
-        : 0;
+    const avgReviewTime = cycleData.some((p) => p.timeToFirstReview)
+      ? cycleData
+          .filter((p) => p.timeToFirstReview)
+          .reduce((sum, p) => sum + (p.timeToFirstReview ?? 0), 0) /
+        cycleData.filter((p) => p.timeToFirstReview).length
+      : 0;
     const days = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : 90;
     const throughput = merged.length / (days / 7);
 
@@ -89,7 +88,7 @@ export function MetricsView() {
     }
     return [...counts.entries()]
       .map(([author, prCount]) => ({ author, prCount }))
-      .sort((a, b) => b.prCount - a.prCount);
+      .toSorted((a, b) => b.prCount - a.prCount);
   }, [cycleData]);
 
   const [graphMode, setGraphMode] = useState<"reviews" | "prs">("reviews");

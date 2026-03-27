@@ -47,9 +47,9 @@ async function pollForCwd(cwd: string): Promise<TrayState> {
       listPrs(cwd, "authored"),
     ]);
     state = { reviewPrs, authorPrs, lastUpdated: new Date() };
-  } catch (err) {
+  } catch (error) {
     // Don't break the tray if gh is unavailable, but log for debugging
-    console.error("[tray-poller] poll failed:", (err as Error).message);
+    console.error("[tray-poller] poll failed:", (error as Error).message);
   }
   return state;
 }

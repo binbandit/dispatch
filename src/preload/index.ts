@@ -1,6 +1,12 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-import { ANALYTICS_CHANNEL, BADGE_COUNT_CHANNEL, IPC_CHANNEL } from "../shared/ipc";
+import {
+  ACP_PERMISSION_CHANNEL,
+  ACP_UPDATE_CHANNEL,
+  ANALYTICS_CHANNEL,
+  BADGE_COUNT_CHANNEL,
+  IPC_CHANNEL,
+} from "../shared/ipc";
 
 type IpcResponse = { ok: true; data: unknown } | { ok: false; error: string };
 
@@ -77,6 +83,59 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.on(ANALYTICS_CHANNEL, handler);
     return () => {
       ipcRenderer.removeListener(ANALYTICS_CHANNEL, handler);
+    };
+  },
+
+  /**
+   * Listen for ACP session update events (streaming content, tool calls).
+   * Returns a cleanup function to remove the listener.
+   */
+  onAcpUpdate(
+    callback: (event: {
+      sessionId: string;
+      update: { sessionUpdate: string; [key: string]: unknown };
+    }) => void,
+  ): () => void {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: { sessionId: string; update: { sessionUpdate: string; [key: string]: unknown } },
+    ) => {
+      callback(payload);
+    };
+    ipcRenderer.on(ACP_UPDATE_CHANNEL, handler);
+    return () => {
+      ipcRenderer.removeListener(ACP_UPDATE_CHANNEL, handler);
+    };
+  },
+
+  /**
+   * Listen for ACP permission requests from agents.
+   * Returns a cleanup function to remove the listener.
+   */
+  onAcpPermission(
+    callback: (event: {
+      requestId: string;
+      sessionId: string;
+      toolCallId: string;
+      toolName: string;
+      options: Array<{ optionId: string; name: string; kind: string }>;
+    }) => void,
+  ): () => void {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      payload: {
+        requestId: string;
+        sessionId: string;
+        toolCallId: string;
+        toolName: string;
+        options: Array<{ optionId: string; name: string; kind: string }>;
+      },
+    ) => {
+      callback(payload);
+    };
+    ipcRenderer.on(ACP_PERMISSION_CHANNEL, handler);
+    return () => {
+      ipcRenderer.removeListener(ACP_PERMISSION_CHANNEL, handler);
     };
   },
 });

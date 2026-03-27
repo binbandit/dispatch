@@ -1,7 +1,7 @@
-type PrStatusCheck = {
+interface PrStatusCheck {
   status?: string | null;
   conclusion: string | null;
-};
+}
 
 export type PrCheckSummaryState = "failing" | "pending" | "passing" | "neutral" | "none";
 

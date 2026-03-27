@@ -67,18 +67,20 @@ const CATEGORY_ORDER: ShortcutCategory[] = ["Navigation", "Actions", "Search", "
 export function KeyboardShortcutsDialog({ open, onClose }: KeyboardShortcutsDialogProps) {
   const { getBinding } = useKeybindings();
 
-  const sections = useMemo(() => {
-    return CATEGORY_ORDER.map((category) => ({
-      title: category,
-      shortcuts: DISPLAY_ROWS.filter((row) => row.category === category).map((row) => ({
-        keys: row.ids.map((id) => {
-          const binding = getBinding(id);
-          return formatKeybinding(binding.key, binding.modifiers);
-        }),
-        description: row.label,
+  const sections = useMemo(
+    () =>
+      CATEGORY_ORDER.map((category) => ({
+        title: category,
+        shortcuts: DISPLAY_ROWS.filter((row) => row.category === category).map((row) => ({
+          keys: row.ids.map((id) => {
+            const binding = getBinding(id);
+            return formatKeybinding(binding.key, binding.modifiers);
+          }),
+          description: row.label,
+        })),
       })),
-    }));
-  }, [getBinding]);
+    [getBinding],
+  );
 
   if (!open) {
     return null;

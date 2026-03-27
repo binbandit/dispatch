@@ -59,7 +59,7 @@ function buildTree(files: DiffFile[]): TreeNode[] {
     }
 
     const parts = dirPath.split("/");
-    const name = parts[parts.length - 1] ?? dirPath;
+    const name = parts.at(-1) ?? dirPath;
     const node: TreeNode = {
       name,
       path: dirPath,
@@ -85,7 +85,7 @@ function buildTree(files: DiffFile[]): TreeNode[] {
     const file = files[i]!;
     const filePath = getDiffFilePath(file);
     const parts = filePath.split("/");
-    const name = parts[parts.length - 1] ?? filePath;
+    const name = parts.at(-1) ?? filePath;
 
     const node: TreeNode = {
       name,
@@ -182,29 +182,38 @@ interface ContextMenuState {
 
 function getStatusIcon(status?: string) {
   switch (status) {
-    case "added":
+    case "added": {
       return FilePlus2;
-    case "deleted":
+    }
+    case "deleted": {
       return FileX2;
-    case "modified":
+    }
+    case "modified": {
       return FileEdit;
-    default:
+    }
+    default: {
       return FileText;
+    }
   }
 }
 
 function getStatusColor(status?: string): string {
   switch (status) {
-    case "added":
+    case "added": {
       return "text-success";
-    case "deleted":
+    }
+    case "deleted": {
       return "text-destructive";
-    case "modified":
+    }
+    case "modified": {
       return "text-warning";
-    case "renamed":
+    }
+    case "renamed": {
       return "text-info";
-    default:
+    }
+    default: {
       return "text-text-ghost";
+    }
   }
 }
 

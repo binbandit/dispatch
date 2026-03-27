@@ -168,7 +168,7 @@ function AnchoredToasts(): React.ReactElement {
         {toasts.map((toast) => {
           const Icon = toast.type ? TOAST_ICONS[toast.type as keyof typeof TOAST_ICONS] : null;
           const tooltipStyle = (toast.data as { tooltipStyle?: boolean })?.tooltipStyle ?? false;
-          const positionerProps = toast.positionerProps;
+          const { positionerProps } = toast;
 
           if (!positionerProps?.anchor) {
             return null;

@@ -44,23 +44,23 @@ function preprocess(md: string, repo?: string): string {
     }
     // #123 → link to issue/PR
     if (repo) {
-      parts[i] = parts[i]!.replace(
+      parts[i] = parts[i]!.replaceAll(
         /(^|[^&\w])#(\d+)\b/g,
         (_m, prefix: string, num: string) =>
           `${prefix}[#${num}](https://github.com/${repo}/issues/${num})`,
       );
     }
     // @username → link to profile
-    parts[i] = parts[i]!.replace(
+    parts[i] = parts[i]!.replaceAll(
       /(^|[^/\w[\]])@([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?)\b/g,
       (_m, prefix: string, username: string) =>
         `${prefix}[@${username}](https://github.com/${username})`,
     );
     // GitHub alerts: > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING], > [!CAUTION]
-    parts[i] = parts[i]!.replace(
+    parts[i] = parts[i]!.replaceAll(
       /^> \[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\n((?:> .*\n?)*)/gm,
       (_m, type: string, body: string) => {
-        const cleanBody = body.replace(/^> ?/gm, "").trim();
+        const cleanBody = body.replaceAll(/^> ?/gm, "").trim();
         return `<div class="gh-alert gh-alert-${type.toLowerCase()}">\n<p class="gh-alert-title">${type}</p>\n\n${cleanBody}\n\n</div>\n`;
       },
     );

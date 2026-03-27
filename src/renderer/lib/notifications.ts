@@ -38,8 +38,8 @@ export function sendNotification(
       tag: config.tag,
       // Electron automatically uses the app icon for notifications on macOS.
       // On Windows/Linux, we can specify an icon path — the renderer doesn't
-      // have direct filesystem access in sandbox mode, so we rely on the
-      // default app icon set in BrowserWindow config.
+      // Have direct filesystem access in sandbox mode, so we rely on the
+      // Default app icon set in BrowserWindow config.
     });
   };
 

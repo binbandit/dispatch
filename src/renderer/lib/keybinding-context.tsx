@@ -48,7 +48,9 @@ export function KeybindingProvider({ children }: { children: ReactNode }) {
   // Load authoritative value from SQLite on mount
   useEffect(() => {
     ipc("preferences.get", { key: PREF_KEY }).then((value) => {
-      if (!value) return;
+      if (!value) {
+        return;
+      }
       try {
         const parsed = JSON.parse(value) as KeybindingOverrides;
         setOverrides(parsed);

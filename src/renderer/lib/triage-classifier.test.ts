@@ -285,11 +285,11 @@ describe("classifyFiles", () => {
   describe("complex scenarios", () => {
     it("handles mixed file types correctly", () => {
       const files = [
-        createDiffFile({ newPath: "src/app.ts" }), // changed
-        createDiffFile({ newPath: "src/utils.test.ts" }), // low risk (test)
-        createDiffFile({ newPath: "src/config.ts" }), // attention (has comment)
-        createDiffFile({ newPath: "package-lock.json" }), // low risk (lockfile)
-        createDiffFile({ newPath: "src/types.d.ts" }), // low risk (type def)
+        createDiffFile({ newPath: "src/app.ts" }), // Changed
+        createDiffFile({ newPath: "src/utils.test.ts" }), // Low risk (test)
+        createDiffFile({ newPath: "src/config.ts" }), // Attention (has comment)
+        createDiffFile({ newPath: "package-lock.json" }), // Low risk (lockfile)
+        createDiffFile({ newPath: "src/types.d.ts" }), // Low risk (type def)
       ];
       const commentCounts = new Map([["src/config.ts", 2]]);
       const annotationPaths = new Set<string>();

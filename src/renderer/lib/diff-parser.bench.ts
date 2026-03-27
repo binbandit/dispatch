@@ -22,9 +22,9 @@ describe("diff parser performance", () => {
     parseDiff(generateDiff(1000));
   });
   bench("parse 10,000 lines", () => {
-    parseDiff(generateDiff(10000));
+    parseDiff(generateDiff(10_000));
   });
   bench("parse 50,000 lines", () => {
-    parseDiff(generateDiff(50000));
+    parseDiff(generateDiff(50_000));
   });
 });

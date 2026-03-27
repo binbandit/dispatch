@@ -20,6 +20,7 @@ const execFile = promisify(execFileCb);
 import { BADGE_COUNT_CHANNEL } from "../shared/ipc";
 import { closeDatabase, initDatabase } from "./db/database";
 import { registerIpcHandler } from "./ipc-handler";
+import { initAcp, shutdownAcp } from "./services/acp";
 import { trackFromMain } from "./services/analytics";
 import { getExternalUrl, openExternalUrl } from "./services/external-links";
 import { type TrayState, startPolling, stopPolling } from "./services/tray-poller";
@@ -108,14 +109,14 @@ async function getGhToken(host: string): Promise<string | null> {
   }
   try {
     const { stdout } = await execFile("gh", ["auth", "token", "--hostname", host], {
-      timeout: 5_000,
+      timeout: 5000,
     });
     const token = stdout.trim() || null;
     tokenCache.set(host, { token, fetchedAt: Date.now() });
     return token;
   } catch (error) {
-    // gh auth not configured for this host — cache the miss to avoid repeated
-    // shell-outs for domains that will never have a token (e.g. third-party CDNs).
+    // Gh auth not configured for this host — cache the miss to avoid repeated
+    // Shell-outs for domains that will never have a token (e.g. third-party CDNs).
     tokenCache.set(host, { token: null, fetchedAt: Date.now() });
     const msg = String((error as Error)?.message ?? "");
     if (!msg.includes("ENOENT")) {
@@ -146,7 +147,7 @@ function setupImageAuth(): void {
       }
 
       // Resolve the GitHub host for token lookup (maps CDN domains like
-      // avatars.githubusercontent.com → github.com, leaves enterprise hosts as-is).
+      // Avatars.githubusercontent.com → github.com, leaves enterprise hosts as-is).
       const url = new URL(details.url);
       const tokenHost = resolveGitHubHost(url.hostname);
 
@@ -178,7 +179,7 @@ function createWindow(): BrowserWindow {
   configureExternalNavigation(win);
   setupImageAuth();
 
-  // macOS: hide instead of quit on close (tray keeps running)
+  // MacOS: hide instead of quit on close (tray keeps running)
   win.on("close", (event) => {
     if (process.platform === "darwin" && !isQuitting) {
       event.preventDefault();
@@ -243,7 +244,7 @@ function updateTrayMenu(win: BrowserWindow, state: TrayState): void {
   const { reviewPrs, authorPrs } = state;
   const reviewCount = reviewPrs.length;
 
-  // macOS: show count next to tray icon
+  // MacOS: show count next to tray icon
   if (process.platform === "darwin") {
     tray.setTitle(reviewCount > 0 ? `${reviewCount}` : "");
   }
@@ -440,6 +441,9 @@ app.whenReady().then(() => {
   // Create main window
   const win = createWindow();
 
+  // Initialize ACP (Agent Client Protocol) subsystem
+  initAcp(win);
+
   // System tray with live PR data
   setupTray(win);
 
@@ -462,7 +466,7 @@ app.whenReady().then(() => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     } else {
-      // macOS: clicking dock icon shows the hidden window
+      // MacOS: clicking dock icon shows the hidden window
       const activeWin = BrowserWindow.getAllWindows()[0];
       if (activeWin) {
         showAndFocusWindow(activeWin);
@@ -481,6 +485,7 @@ app.on("before-quit", () => {
   isQuitting = true;
   stopPolling();
   globalShortcut.unregisterAll();
+  void shutdownAcp();
   closeDatabase();
 });
 

@@ -69,7 +69,7 @@ export function MentionTextarea({
   const contributorsQuery = useQuery({
     queryKey: ["pr", "contributors", cwd, prNumber],
     queryFn: () => ipc("pr.contributors", { cwd, prNumber: prNumber ?? 0 }),
-    enabled: !!prNumber,
+    enabled: Boolean(prNumber),
     staleTime: 120_000,
   });
 

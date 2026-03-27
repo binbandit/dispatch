@@ -6,12 +6,14 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Bot,
   Check,
+  Cpu,
   GitMerge,
   Info,
   Keyboard,
   Monitor,
   Moon,
   Palette,
+  RefreshCw,
   RotateCcw,
   Shield,
   Sparkles,
@@ -155,7 +157,9 @@ const CodeThemePreview = memo(function CodeThemePreview({ themeId }: { themeId: 
         lang: "typescript",
         theme: themeId,
       });
-      if (!cancelled) setHtml(result);
+      if (!cancelled) {
+        setHtml(result);
+      }
     })();
     return () => {
       cancelled = true;
@@ -173,7 +177,7 @@ const CodeThemePreview = memo(function CodeThemePreview({ themeId }: { themeId: 
   return (
     <div
       className="[&_code]:!font-mono [&_pre]:!rounded-md [&_pre]:!border [&_pre]:!border-[--border] [&_pre]:!p-3 [&_pre]:!text-[12.5px] [&_pre]:!leading-[20px]"
-      // biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki output is safe
+      // Biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki output is safe
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );
@@ -203,7 +207,9 @@ function CodeThemeCard({
         lang: "typescript",
         theme: theme.id,
       } as Parameters<Highlighter["codeToTokens"]>[1]);
-      if (cancelled) return;
+      if (cancelled) {
+        return;
+      }
       // Collect unique non-bg colors from the first line
       const seen = new Set<string>();
       const result: string[] = [];
@@ -213,7 +219,9 @@ function CodeThemeCard({
           seen.add(c);
           result.push(c);
         }
-        if (result.length >= 4) break;
+        if (result.length >= 4) {
+          break;
+        }
       }
       setColors(result);
     })();
@@ -265,6 +273,7 @@ const NAV_SECTIONS_BASE = [
   { id: "keybindings", label: "Keybindings", icon: Keyboard },
   { id: "general", label: "General", icon: GitMerge },
   { id: "bots", label: "Bots", icon: Bot },
+  { id: "agents", label: "Agents (ACP)", icon: Cpu },
   { id: "ai", label: "AI Provider", icon: Sparkles },
   { id: "privacy", label: "Privacy", icon: Shield },
   { id: "about", label: "About", icon: Info },
@@ -719,6 +728,8 @@ export function SettingsView() {
             />
           )}
 
+          {activeSection === "agents" && <AgentSettings />}
+
           {activeSection === "ai" && aiEnabled && (
             <>
               <h2 className="text-text-primary text-base font-semibold">AI Provider</h2>
@@ -966,6 +977,119 @@ export function SettingsView() {
 }
 
 // ---------------------------------------------------------------------------
+// Agent (ACP) settings section
+// ---------------------------------------------------------------------------
+
+function AgentSettings() {
+  const agentsQuery = useQuery({
+    queryKey: ["acp", "agents"],
+    queryFn: () => ipc("acp.agents.list"),
+    staleTime: 30_000,
+  });
+
+  const discoverMutation = useMutation({
+    mutationFn: () => ipc("acp.agents.discover"),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acp", "agents"] });
+    },
+  });
+
+  const setDefaultMutation = useMutation({
+    mutationFn: (agentId: string) => ipc("acp.agents.setDefault", { agentId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["acp", "agents"] });
+    },
+  });
+
+  const agents = agentsQuery.data ?? [];
+  const availableAgents = agents.filter((a) => a.available);
+
+  return (
+    <>
+      <h2 className="text-text-primary text-base font-semibold">Agents (ACP)</h2>
+      <p className="text-text-tertiary mt-0.5 text-xs">
+        Connect to AI coding agents via the{" "}
+        <span className="text-text-secondary font-medium">Agent Client Protocol</span>. Agents run
+        as local processes and manage their own authentication.
+      </p>
+
+      <div className="mt-4">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={discoverMutation.isPending}
+            onClick={() => discoverMutation.mutate()}
+            className="border-border bg-bg-root text-text-primary hover:bg-bg-raised flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs transition-colors disabled:opacity-50"
+          >
+            <RefreshCw
+              size={12}
+              className={discoverMutation.isPending ? "animate-spin" : ""}
+            />
+            Scan for agents
+          </button>
+          {discoverMutation.isSuccess && (
+            <span className="text-text-tertiary text-[10px]">
+              Found {availableAgents.length} agent{availableAgents.length !== 1 ? "s" : ""}
+            </span>
+          )}
+        </div>
+
+        {agents.length > 0 && (
+          <div className="border-border mt-3 divide-y divide-[#25231f] rounded-lg border">
+            {agents.map((agent) => (
+              <div
+                key={agent.id}
+                className="flex items-center gap-3 px-3 py-2.5"
+              >
+                <div
+                  className={`h-2 w-2 rounded-full ${agent.available ? "bg-green-500" : "bg-neutral-600"}`}
+                />
+                <div className="flex-1">
+                  <div className="text-text-primary text-xs font-medium">{agent.name}</div>
+                  <div className="text-text-ghost mt-0.5 font-mono text-[10px]">
+                    {agent.binaryPath ?? agent.npmPackage ?? "Not found"}
+                  </div>
+                </div>
+                {agent.available && (
+                  <button
+                    type="button"
+                    onClick={() => setDefaultMutation.mutate(agent.id)}
+                    className="border-primary/30 text-primary hover:bg-primary/10 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors"
+                  >
+                    Set default
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {agents.length === 0 && !discoverMutation.isPending && (
+          <div className="text-text-tertiary mt-4 text-xs">
+            No agents discovered yet. Click &quot;Scan for agents&quot; to search your system, or
+            install an ACP-compatible agent:
+            <div className="text-text-ghost mt-2 flex flex-col gap-1 font-mono text-[10px]">
+              <span>npx @agentclientprotocol/claude-agent-acp</span>
+              <span>codex-acp</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <section className="mt-6">
+        <h3 className="text-text-secondary text-xs font-medium">How it works</h3>
+        <p className="text-text-tertiary mt-1 text-[11px] leading-relaxed">
+          When an ACP agent is available, AI features (summaries, explanations, check analysis) use
+          the agent instead of calling LLM APIs directly. The agent manages its own model, auth, and
+          tools. If no agent is available, Dispatch falls back to the direct AI provider configured
+          below.
+        </p>
+      </section>
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Bot settings section
 // ---------------------------------------------------------------------------
 
@@ -1090,7 +1214,9 @@ function TagInput({
           }
         }}
         onBlur={() => {
-          if (input.trim()) addTag(input);
+          if (input.trim()) {
+            addTag(input);
+          }
         }}
         placeholder={tags.length === 0 ? placeholder : ""}
         className="text-text-primary placeholder:text-text-tertiary min-w-[80px] flex-1 bg-transparent text-xs focus:outline-none"

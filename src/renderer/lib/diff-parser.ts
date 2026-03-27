@@ -1,36 +1,36 @@
 export type DiffFileStatus = "added" | "deleted" | "modified" | "renamed";
 
-export type DiffFile = {
+export interface DiffFile {
   oldPath: string;
   newPath: string;
   status: DiffFileStatus;
   hunks: DiffHunk[];
   additions: number;
   deletions: number;
-};
+}
 
-export type DiffHunk = {
+export interface DiffHunk {
   header: string;
   oldStart: number;
   oldCount: number;
   newStart: number;
   newCount: number;
   lines: DiffLine[];
-};
+}
 
 export type DiffLineType = "context" | "add" | "del" | "hunk-header";
 
-export type DiffLine = {
+export interface DiffLine {
   type: DiffLineType;
   content: string;
   oldLineNumber: number | null;
   newLineNumber: number | null;
-};
+}
 
-export type Segment = {
+export interface Segment {
   text: string;
   type: "equal" | "change";
-};
+}
 
 const DIFF_NULL_PATH = "/dev/null";
 
@@ -137,7 +137,7 @@ function parseFileSection(section: string): DiffFile | null {
       continue;
     }
 
-    const currentHunk = hunks[hunks.length - 1];
+    const currentHunk = hunks.at(-1);
     if (!currentHunk) {
       i++;
       continue;
@@ -149,14 +149,14 @@ function parseFileSection(section: string): DiffFile | null {
         type: "add",
         content: line.slice(1),
         oldLineNumber: null,
-        newLineNumber: null, // assigned below
+        newLineNumber: null, // Assigned below
       });
     } else if (line.startsWith("-")) {
       deletions++;
       currentHunk.lines.push({
         type: "del",
         content: line.slice(1),
-        oldLineNumber: null, // assigned below
+        oldLineNumber: null, // Assigned below
         newLineNumber: null,
       });
     } else if (line.startsWith(" ")) {
@@ -166,7 +166,7 @@ function parseFileSection(section: string): DiffFile | null {
         oldLineNumber: null,
         newLineNumber: null,
       });
-    } else if (line === "\\ No newline at end of file") {
+    } else if (line === String.raw`\ No newline at end of file`) {
       // Skip this marker
     }
 
@@ -206,7 +206,7 @@ function parseFileSection(section: string): DiffFile | null {
 
   // If we couldn't find --- / +++ lines, try to extract paths from the
   // "diff --git a/path b/path" header. This handles rename-only, mode-change,
-  // and other diffs that lack content headers.
+  // And other diffs that lack content headers.
   if (!oldPath && !newPath) {
     const gitLine = lines[0] ?? "";
     const gitMatch = gitLine.match(/^diff --git a\/(.+?) b\/(.+?)$/);

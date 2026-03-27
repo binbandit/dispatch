@@ -156,37 +156,44 @@ export function parseCommandQuery(raw: string): ParsedCommandQuery {
       const key = m[3].toLowerCase();
       const val = m[4];
       switch (key) {
-        case "pr":
+        case "pr": {
           result.pr = Number.parseInt(val, 10);
           break;
-        case "author":
+        }
+        case "author": {
           result.author = val;
           break;
-        case "branch":
+        }
+        case "branch": {
           result.branch = val;
           break;
+        }
         case "is":
         case "state":
-        case "review":
+        case "review": {
           result.is.push(val.toLowerCase());
           break;
-        case "size":
+        }
+        case "size": {
           result.size = val.toLowerCase();
           break;
-        case "label":
+        }
+        case "label": {
           result.label = val;
           break;
+        }
         case "file":
-        case "ext":
+        case "ext": {
           result.file = val;
           break;
+        }
       }
     }
     text = text.replace(full, "");
     result.hasFilters = true;
   }
 
-  result.text = text.replace(/\s+/g, " ").trim();
+  result.text = text.replaceAll(/\s+/g, " ").trim();
   return result;
 }
 

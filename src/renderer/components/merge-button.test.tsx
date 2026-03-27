@@ -11,12 +11,12 @@ import { ipc } from "../lib/ipc";
 import { MergeButton } from "./merge-button";
 
 // Mock IPC
-vi.mock("../lib/ipc", () => ({
+vi.mock(import("../lib/ipc"), () => ({
   ipc: vi.fn(),
 }));
 
 // Mock toast manager
-vi.mock("@/components/ui/toast", () => ({
+vi.mock(import("@/components/ui/toast"), () => ({
   toastManager: {
     add: vi.fn(),
   },
@@ -234,7 +234,9 @@ describe("MergeButton - Toast messages", () => {
 
     // Click admin dropdown
     const chevronButton = screen.getAllByRole("button")[1];
-    if (!chevronButton) throw new Error("Chevron button not found");
+    if (!chevronButton) {
+      throw new Error("Chevron button not found");
+    }
     await userEvent.click(chevronButton);
 
     // Click "Merge now (admin)"
@@ -272,7 +274,9 @@ describe("MergeButton - Admin behavior with auto-merge already enabled", () => {
 
     // But admin dropdown should be available
     const chevronButton = screen.getAllByRole("button")[1];
-    if (!chevronButton) throw new Error("Chevron button not found");
+    if (!chevronButton) {
+      throw new Error("Chevron button not found");
+    }
     expect(chevronButton).not.toBeDisabled();
 
     await userEvent.click(chevronButton);

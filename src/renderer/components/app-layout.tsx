@@ -9,6 +9,7 @@ import { useKeybindings } from "../lib/keybinding-context";
 import { listenForMainProcessEvents } from "../lib/posthog";
 import { RouterProvider, useRouter } from "../lib/router";
 import { useWorkspace } from "../lib/workspace-context";
+import { AcpPermissionListener } from "./acp-permission-dialog";
 import { CommandPalette } from "./command-palette";
 import { KeyboardShortcutsDialog } from "./keyboard-shortcuts-dialog";
 import { MetricsView } from "./metrics-view";
@@ -165,6 +166,9 @@ function AppShell() {
 
       {/* Command palette (⌘K) */}
       <CommandPalette />
+
+      {/* ACP agent permission requests */}
+      <AcpPermissionListener />
     </div>
   );
 }

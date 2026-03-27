@@ -19,7 +19,7 @@ describe("IPC Error Handling - Critical Gaps", () => {
         error: error instanceof Error ? error.message : String(error),
       };
 
-      expect(errorResponse.ok).toBe(false);
+      expect(errorResponse.ok).toBeFalsy();
       expect(errorResponse.error).toBe("Test error");
     });
 
@@ -30,7 +30,7 @@ describe("IPC Error Handling - Critical Gaps", () => {
         error: error instanceof Error ? error.message : String(error),
       };
 
-      expect(errorResponse.ok).toBe(false);
+      expect(errorResponse.ok).toBeFalsy();
       expect(errorResponse.error).toBe("Plain string error");
     });
 
@@ -41,7 +41,7 @@ describe("IPC Error Handling - Critical Gaps", () => {
         error: error instanceof Error ? error.message : String(error),
       };
 
-      expect(errorResponse.ok).toBe(false);
+      expect(errorResponse.ok).toBeFalsy();
       expect(errorResponse.error).toBe("500");
     });
 
@@ -52,7 +52,7 @@ describe("IPC Error Handling - Critical Gaps", () => {
         error: error instanceof Error ? error.message : String(error),
       };
 
-      expect(errorResponse.ok).toBe(false);
+      expect(errorResponse.ok).toBeFalsy();
       expect(errorResponse.error).toBe("null");
     });
 
@@ -63,7 +63,7 @@ describe("IPC Error Handling - Critical Gaps", () => {
         error: error instanceof Error ? error.message : String(error),
       };
 
-      expect(errorResponse.ok).toBe(false);
+      expect(errorResponse.ok).toBeFalsy();
       expect(errorResponse.error).toBe("undefined");
     });
 
@@ -86,7 +86,7 @@ describe("IPC Error Handling - Critical Gaps", () => {
       const result = null;
       const response = { ok: true, data: result ?? null };
 
-      expect(response.ok).toBe(true);
+      expect(response.ok).toBeTruthy();
       expect(response.data).toBeNull();
     });
 
@@ -94,7 +94,7 @@ describe("IPC Error Handling - Critical Gaps", () => {
       const result = undefined;
       const response = { ok: true, data: result ?? null };
 
-      expect(response.ok).toBe(true);
+      expect(response.ok).toBeTruthy();
       expect(response.data).toBeNull();
     });
 
@@ -102,15 +102,15 @@ describe("IPC Error Handling - Critical Gaps", () => {
       const result = false;
       const response = { ok: true, data: result ?? null };
 
-      expect(response.ok).toBe(true);
-      expect(response.data).toBe(false);
+      expect(response.ok).toBeTruthy();
+      expect(response.data).toBeFalsy();
     });
 
     it("handles 0 return value (not null)", () => {
       const result = 0;
       const response = { ok: true, data: result ?? null };
 
-      expect(response.ok).toBe(true);
+      expect(response.ok).toBeTruthy();
       expect(response.data).toBe(0);
     });
 
@@ -118,7 +118,7 @@ describe("IPC Error Handling - Critical Gaps", () => {
       const result = "";
       const response = { ok: true, data: result ?? null };
 
-      expect(response.ok).toBe(true);
+      expect(response.ok).toBeTruthy();
       expect(response.data).toBe("");
     });
   });
@@ -131,7 +131,7 @@ describe("IPC Error Handling - Critical Gaps", () => {
 
       if (!handler) {
         const response = { ok: false, error: `Unknown method: ${method}` };
-        expect(response.ok).toBe(false);
+        expect(response.ok).toBeFalsy();
         expect(response.error).toBe("Unknown method: unknown.method");
       }
     });
@@ -240,14 +240,14 @@ describe("IPC Error Handling - Critical Gaps", () => {
   describe("payload validation", () => {
     it("handles missing args", () => {
       const payload = { method: "test.method" }; // No args
-      const args = (payload as any).args;
+      const { args } = payload as any;
 
       expect(args).toBeUndefined();
     });
 
     it("handles null args", () => {
       const payload = { method: "test.method", args: null };
-      const args = payload.args;
+      const { args } = payload;
 
       expect(args).toBeNull();
     });
@@ -261,10 +261,10 @@ describe("IPC Error Handling - Critical Gaps", () => {
     });
 
     it("handles very large args payload", () => {
-      const largeArray = Array.from({ length: 100000 }, (_, i) => i);
+      const largeArray = Array.from({ length: 100_000 }, (_, i) => i);
       const payload = { method: "test", args: { data: largeArray } };
 
-      expect(payload.args.data).toHaveLength(100000);
+      expect(payload.args.data).toHaveLength(100_000);
     });
   });
 
@@ -281,7 +281,7 @@ describe("IPC Error Handling - Critical Gaps", () => {
 
     it("handles errors with stack traces", () => {
       const error = new Error("Test error");
-      const stack = error.stack;
+      const { stack } = error;
 
       expect(stack).toBeTruthy();
       expect(stack).toContain("Test error");
@@ -302,8 +302,8 @@ describe("IPC Error Handling - Critical Gaps", () => {
       const buggyHandler = async () => {
         try {
           throw new Error("Original error");
-        } catch (error) {
-          throw new Error("Error in catch block");
+        } catch {
+          throw new Error("Error in catch block", { cause: error });
         }
       };
 
@@ -322,15 +322,14 @@ describe("IPC Error Handling - Critical Gaps", () => {
       };
 
       await expect(handlerWithFinally()).rejects.toThrow();
-      expect(finallyCalled).toBe(true);
+      expect(finallyCalled).toBeTruthy();
     });
 
     it("handles async errors in callbacks", async () => {
-      const handlerWithCallback = async () => {
-        return new Promise((_resolve, reject) => {
+      const handlerWithCallback = async () =>
+        new Promise((_resolve, reject) => {
           setTimeout(() => reject(new Error("Async error")), 10);
         });
-      };
 
       await expect(handlerWithCallback()).rejects.toThrow("Async error");
     });

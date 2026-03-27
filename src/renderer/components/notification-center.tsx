@@ -51,31 +51,41 @@ export function NotificationCenter() {
 
   const iconForType = (type: string) => {
     switch (type) {
-      case "review":
+      case "review": {
         return GitPullRequest;
-      case "ci-fail":
+      }
+      case "ci-fail": {
         return AlertCircle;
-      case "approve":
+      }
+      case "approve": {
         return CheckCircle2;
-      case "merge":
+      }
+      case "merge": {
         return GitMerge;
-      default:
+      }
+      default: {
         return Bell;
+      }
     }
   };
 
   const colorForType = (type: string) => {
     switch (type) {
-      case "review":
+      case "review": {
         return "text-info";
-      case "ci-fail":
+      }
+      case "ci-fail": {
         return "text-destructive";
-      case "approve":
+      }
+      case "approve": {
         return "text-success";
-      case "merge":
+      }
+      case "merge": {
         return "text-primary";
-      default:
+      }
+      default: {
         return "text-text-tertiary";
+      }
     }
   };
 

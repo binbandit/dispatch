@@ -5,7 +5,10 @@ import { useMutation } from "@tanstack/react-query";
 import { Sparkles, X } from "lucide-react";
 import { useState } from "react";
 
+import { useAcpStream } from "../hooks/use-acp-stream";
 import { ipc } from "../lib/ipc";
+import { useWorkspace } from "../lib/workspace-context";
+import { AcpStreamDisplay } from "./acp-stream-display";
 import { useAiConfig } from "./ai-explanation";
 import { MarkdownBody } from "./markdown-body";
 
@@ -13,7 +16,7 @@ import { MarkdownBody } from "./markdown-body";
  * AI review summary — Phase 3 §3.3.3
  *
  * Generates a structured summary of the entire PR.
- * Shows in the side panel as a collapsible section.
+ * Uses ACP agent when available (with streaming), falls back to direct API.
  */
 
 interface AiReviewSummaryProps {
@@ -34,36 +37,70 @@ export function AiReviewSummary({
   diffSnippet,
 }: AiReviewSummaryProps) {
   const config = useAiConfig();
+  const { cwd } = useWorkspace();
   const [dismissed, setDismissed] = useState(false);
+  const [finalText, setFinalText] = useState<string | null>(null);
+  const [useAcp, setUseAcp] = useState(false);
+  const stream = useAcpStream();
 
   const summarizeMutation = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const fileList = files
         .slice(0, 30)
         .map((f) => `  ${f.path} (+${f.additions}, -${f.deletions})`)
         .join("\n");
 
-      return ipc("ai.complete", {
-        provider: config.provider ?? undefined,
-        model: config.model ?? undefined,
-        baseUrl: config.baseUrl ?? undefined,
-        messages: [
-          {
-            role: "system",
-            content:
-              "You are a senior code reviewer. Analyze this pull request and provide a structured review summary. Group changes by logical concern. Identify areas that deserve close review. Be specific and concise. Use markdown formatting.",
-          },
-          {
-            role: "user",
-            content: `PR: ${prTitle} #${prNumber}\nAuthor: ${author}\n\nDescription:\n${prBody}\n\nFiles changed:\n${fileList}\n\nDiff (first 3000 chars):\n${diffSnippet.slice(0, 3000)}`,
-          },
-        ],
-        maxTokens: 1024,
-      });
+      const prompt = `You are a senior code reviewer. Analyze this pull request and provide a structured review summary. Group changes by logical concern. Identify areas that deserve close review. Be specific and concise. Use markdown formatting.\n\nPR: ${prTitle} #${prNumber}\nAuthor: ${author}\n\nDescription:\n${prBody}\n\nFiles changed:\n${fileList}\n\nDiff (first 3000 chars):\n${diffSnippet.slice(0, 3000)}`;
+
+      // Try ACP with streaming first
+      try {
+        const session = await ipc("acp.session.create", { cwd });
+        setUseAcp(true);
+        stream.start(session.sessionId);
+
+        await ipc("acp.session.prompt", {
+          sessionId: session.sessionId,
+          text: prompt,
+        });
+
+        stream.stop();
+        return "acp"; // Signal that we used ACP streaming
+      } catch {
+        // ACP not available — fall back to direct API
+        stream.reset();
+        setUseAcp(false);
+
+        return ipc("ai.complete", {
+          provider: config.provider ?? undefined,
+          model: config.model ?? undefined,
+          baseUrl: config.baseUrl ?? undefined,
+          messages: [
+            {
+              role: "system",
+              content:
+                "You are a senior code reviewer. Analyze this pull request and provide a structured review summary. Group changes by logical concern. Identify areas that deserve close review. Be specific and concise. Use markdown formatting.",
+            },
+            {
+              role: "user",
+              content: `PR: ${prTitle} #${prNumber}\nAuthor: ${author}\n\nDescription:\n${prBody}\n\nFiles changed:\n${fileList}\n\nDiff (first 3000 chars):\n${diffSnippet.slice(0, 3000)}`,
+            },
+          ],
+          maxTokens: 1024,
+        });
+      }
+    },
+    onSuccess: (result) => {
+      if (result === "acp") {
+        // Text was accumulated via streaming — capture final state
+        setFinalText(stream.text);
+      } else {
+        setFinalText(result);
+      }
     },
   });
 
-  const summary = summarizeMutation.data;
+  const displayText = useAcp && stream.streaming ? stream.text : finalText;
+  const isStreaming = useAcp && stream.streaming;
 
   if (!config.isConfigured) {
     return null;
@@ -118,10 +155,20 @@ export function AiReviewSummary({
           </button>
         </div>
 
-        {summarizeMutation.isSuccess ? (
+        {/* Streaming ACP response */}
+        {isStreaming ? (
+          <div className="mt-2">
+            <AcpStreamDisplay
+              text={stream.text}
+              tools={stream.tools}
+              streaming={stream.streaming}
+              className="text-xs"
+            />
+          </div>
+        ) : displayText ? (
           <div className="mt-2">
             <MarkdownBody
-              content={summary || "No summary was returned."}
+              content={displayText || "No summary was returned."}
               className="text-xs"
             />
           </div>
@@ -146,7 +193,7 @@ export function AiReviewSummary({
         ) : (
           <div className="mt-2">
             <p className="text-text-tertiary mb-2 text-[10px]">
-              ~{estimatedTokens} tokens · This will call your configured AI provider.
+              ~{estimatedTokens} tokens · Uses your configured agent or AI provider.
             </p>
             <Button
               size="sm"

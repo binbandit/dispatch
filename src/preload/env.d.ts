@@ -1,7 +1,7 @@
 /**
  * Type declarations for the preload API exposed via contextBridge.
  */
-export {};
+
 declare global {
   interface ElectronApi {
     invoke(method: string, args: unknown): Promise<unknown>;
@@ -14,6 +14,21 @@ declare global {
       callback: (payload: {
         event: string;
         properties?: Record<string, string | number | boolean>;
+      }) => void,
+    ): () => void;
+    onAcpUpdate(
+      callback: (event: {
+        sessionId: string;
+        update: { sessionUpdate: string; [key: string]: unknown };
+      }) => void,
+    ): () => void;
+    onAcpPermission(
+      callback: (event: {
+        requestId: string;
+        sessionId: string;
+        toolCallId: string;
+        toolName: string;
+        options: Array<{ optionId: string; name: string; kind: string }>;
       }) => void,
     ): () => void;
   }

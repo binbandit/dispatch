@@ -21,7 +21,7 @@ export function useSyntaxHighlighter(): Highlighter | null {
       })
       .catch(() => {
         // Highlighter failed to load — fall back to plain text rendering.
-        // getHighlighter() resets its cache on failure, so a re-mount will retry.
+        // GetHighlighter() resets its cache on failure, so a re-mount will retry.
       });
     return () => {
       cancelled = true;

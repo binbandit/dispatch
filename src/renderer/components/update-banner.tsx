@@ -42,11 +42,11 @@ export function UpdateBanner({
       : null;
 
   const visible =
-    !!status?.enabled &&
-    !!status.hasUpdates &&
-    !!status.currentBranch &&
-    !!status.upstreamBranch &&
-    !!bannerKey &&
+    Boolean(status?.enabled) &&
+    Boolean(status.hasUpdates) &&
+    Boolean(status.currentBranch) &&
+    Boolean(status.upstreamBranch) &&
+    Boolean(bannerKey) &&
     dismissedKey !== bannerKey;
 
   // Notify parent of visibility changes during render (no effect needed).

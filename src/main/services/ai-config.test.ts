@@ -20,7 +20,7 @@ describe("resolveAiConfigFromSources", () => {
     expect(config.provider).toBe("openai");
     expect(config.model).toBe("gpt-5-mini");
     expect(config.apiKey).toBe("sk-env");
-    expect(config.isConfigured).toBe(true);
+    expect(config.isConfigured).toBeTruthy();
     expect(config.providerSource).toBe("environment");
     expect(config.providerEnvVar).toBe("OPENAI_API_KEY");
     expect(config.modelEnvVar).toBe("OPENAI_MODEL");
@@ -65,7 +65,7 @@ describe("resolveAiConfigFromSources", () => {
     );
 
     expect(config.provider).toBeNull();
-    expect(config.isConfigured).toBe(false);
+    expect(config.isConfigured).toBeFalsy();
     expect(config.providerSource).toBe("preference");
   });
 
@@ -84,7 +84,7 @@ describe("resolveAiConfigFromSources", () => {
     );
 
     expect(config.provider).toBeNull();
-    expect(config.isConfigured).toBe(false);
+    expect(config.isConfigured).toBeFalsy();
     expect(config.providerSource).toBe("none");
   });
 
@@ -105,7 +105,7 @@ describe("resolveAiConfigFromSources", () => {
     expect(config.model).toBe("llama3.1");
     expect(config.baseUrl).toBe("http://localhost:11434");
     expect(config.apiKey).toBe("");
-    expect(config.hasApiKey).toBe(false);
-    expect(config.isConfigured).toBe(true);
+    expect(config.hasApiKey).toBeFalsy();
+    expect(config.isConfigured).toBeTruthy();
   });
 });

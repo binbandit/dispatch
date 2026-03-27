@@ -305,7 +305,7 @@ export function resolveAiConfigFromSources(
     };
   }
 
-  const provider = providerResult.provider;
+  const { provider } = providerResult;
   const providerEnvKeys = PROVIDER_ENV_KEYS[provider];
 
   const modelResult = resolveProviderValue(

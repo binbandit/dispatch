@@ -96,7 +96,7 @@ function LogContent({
     for (const line of allLines) {
       // Strip ANSI codes for matching
       // eslint-disable-next-line no-control-regex
-      const clean = line.replace(/\x1b\[\d+(?:;\d+)*m/g, "");
+      const clean = line.replaceAll(/\x1B\[\d+(?:;\d+)*m/g, "");
       const lower = clean.toLowerCase();
       let idx = lower.indexOf(q);
       while (idx !== -1) {
@@ -108,7 +108,7 @@ function LogContent({
   }, [allLines, searchQuery]);
 
   // Notify parent of match count changes during render
-  const prevMatchCountRef = useRef<number | undefined>(undefined);
+  const prevMatchCountRef = useRef<number | undefined>();
   if (prevMatchCountRef.current !== matchCount) {
     prevMatchCountRef.current = matchCount;
     onMatchCountChange?.(matchCount);
@@ -159,7 +159,7 @@ function countMatchesInLine(line: string, query: string): number {
     return 0;
   }
   // eslint-disable-next-line no-control-regex
-  const clean = line.replace(/\x1b\[\d+(?:;\d+)*m/g, "").toLowerCase();
+  const clean = line.replaceAll(/\x1B\[\d+(?:;\d+)*m/g, "").toLowerCase();
   const q = query.toLowerCase();
   let count = 0;
   let idx = clean.indexOf(q);
@@ -202,7 +202,7 @@ function parseLogSections(raw: string): LogSectionData[] {
     if (currentGroup) {
       currentGroup.lines.push(line);
     } else {
-      const lastSection = sections[sections.length - 1];
+      const lastSection = sections.at(-1);
       if (lastSection && !lastSection.isGroup) {
         lastSection.lines.push(line);
       } else {
@@ -239,7 +239,7 @@ function LogSection({
     const q = searchQuery.toLowerCase();
     return section.lines.some((line) => {
       // eslint-disable-next-line no-control-regex
-      const clean = line.replace(/\x1b\[\d+(?:;\d+)*m/g, "").toLowerCase();
+      const clean = line.replaceAll(/\x1B\[\d+(?:;\d+)*m/g, "").toLowerCase();
       return clean.includes(q);
     });
   }, [section.lines, searchQuery]);
@@ -247,7 +247,7 @@ function LogSection({
   const defaultExpanded = !section.isGroup || hasMatches;
   const [expandedState, setExpandedState] = useState<boolean | null>(null);
   // Force-expand groups when search finds matches inside them,
-  // regardless of user's manual collapsed state.
+  // Regardless of user's manual collapsed state.
   const expanded = hasMatches && section.isGroup ? true : (expandedState ?? defaultExpanded);
 
   let lineMatchOffset = globalOffset;
@@ -446,7 +446,7 @@ const ANSI_COLOR_MAP: Record<number, string> = {
 
 function parseAnsi(text: string): AnsiSegment[] {
   // eslint-disable-next-line no-control-regex
-  const ansiRegex = /\x1b\[(\d+(?:;\d+)*)m/g;
+  const ansiRegex = /\x1B\[(\d+(?:;\d+)*)m/g;
   const segments: AnsiSegment[] = [];
   let lastIndex = 0;
   let currentClass = "";

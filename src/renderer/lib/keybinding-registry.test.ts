@@ -19,10 +19,10 @@ describe("DEFAULT_KEYBINDINGS", () => {
       expect(binding).toHaveProperty("key");
       expect(binding).toHaveProperty("label");
       expect(binding).toHaveProperty("category");
-      expect(typeof binding.id).toBe("string");
-      expect(typeof binding.key).toBe("string");
-      expect(typeof binding.label).toBe("string");
-      expect(typeof binding.category).toBe("string");
+      expectTypeOf(binding.id).toBeString();
+      expectTypeOf(binding.key).toBeString();
+      expectTypeOf(binding.label).toBeString();
+      expectTypeOf(binding.category).toBeString();
     }
   });
 
@@ -35,8 +35,8 @@ describe("DEFAULT_KEYBINDINGS", () => {
   it("contains navigation shortcuts", () => {
     const navShortcuts = DEFAULT_KEYBINDINGS.filter((b) => b.category === "Navigation");
     expect(navShortcuts.length).toBeGreaterThan(0);
-    expect(navShortcuts.some((s) => s.id === "navigation.prevPr")).toBe(true);
-    expect(navShortcuts.some((s) => s.id === "navigation.nextPr")).toBe(true);
+    expect(navShortcuts.some((s) => s.id === "navigation.prevPr")).toBeTruthy();
+    expect(navShortcuts.some((s) => s.id === "navigation.nextPr")).toBeTruthy();
   });
 
   it("contains action shortcuts", () => {
@@ -47,7 +47,7 @@ describe("DEFAULT_KEYBINDINGS", () => {
   it("contains search shortcuts", () => {
     const searchShortcuts = DEFAULT_KEYBINDINGS.filter((b) => b.category === "Search");
     expect(searchShortcuts.length).toBeGreaterThan(0);
-    expect(searchShortcuts.some((s) => s.id === "search.focusSearch")).toBe(true);
+    expect(searchShortcuts.some((s) => s.id === "search.focusSearch")).toBeTruthy();
   });
 
   it("contains view shortcuts", () => {
@@ -245,7 +245,7 @@ describe("formatKeybinding", () => {
     it("maintains modifier order", () => {
       vi.stubGlobal("navigator", { platform: "MacIntel" });
       const result = formatKeybinding("k", ["meta", "shift", "alt"]);
-      const parts = result.split("");
+      const parts = [...result];
       const metaIndex = parts.indexOf("⌘");
       const shiftIndex = parts.indexOf("⇧");
       const altIndex = parts.indexOf("⌥");
@@ -336,7 +336,7 @@ describe("real-world usage", () => {
     for (const shortcut of DEFAULT_KEYBINDINGS) {
       const formatted = formatKeybinding(shortcut.key, shortcut.modifiers);
       expect(formatted).toBeTruthy();
-      expect(typeof formatted).toBe("string");
+      expectTypeOf(formatted).toBeString();
     }
   });
 

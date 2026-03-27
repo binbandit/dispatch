@@ -37,7 +37,7 @@ describe("cn utility", () => {
   });
 
   it("preserves non-conflicting classes", () => {
-    // cn() doesn't guarantee order, just that all non-conflicting classes are present
+    // Cn() doesn't guarantee order, just that all non-conflicting classes are present
     const result = cn("text-sm font-bold", "text-red-500");
     expect(result).toContain("text-sm");
     expect(result).toContain("font-bold");
@@ -92,7 +92,7 @@ describe("cn utility", () => {
 
   describe("edge cases", () => {
     it("handles duplicate classes", () => {
-      // clsx/tailwind-merge may not dedupe all duplicates, just Tailwind conflicts
+      // Clsx/tailwind-merge may not dedupe all duplicates, just Tailwind conflicts
       const result = cn("foo foo foo");
       expect(result).toContain("foo");
     });
@@ -106,7 +106,7 @@ describe("cn utility", () => {
     });
 
     it("handles numbers (converted to strings)", () => {
-      // clsx filters out falsy values including 0
+      // Clsx filters out falsy values including 0
       expect(cn("foo", 0 as any, "bar")).toBe("foo bar");
     });
   });

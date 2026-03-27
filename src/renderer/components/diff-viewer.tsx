@@ -510,7 +510,7 @@ function SplitDiffView({
 
     let i = 0;
     while (i < lineRows.length) {
-      const line = lineRows[i]!.line;
+      const { line } = lineRows[i]!;
       if (line.type === "hunk-header") {
         result.push({ left: line, right: null });
         i++;
@@ -850,7 +850,7 @@ function DiffLineRow({
         )
       : null;
 
-  const hasWordDiff = !!wordDiff;
+  const hasWordDiff = Boolean(wordDiff);
   const wordSegments = wordDiff
     ? line.type === "del"
       ? wordDiff.oldSegments
@@ -863,7 +863,7 @@ function DiffLineRow({
       : null;
 
   const lineNum = line.newLineNumber ?? line.oldLineNumber;
-  const isCommentable = !!line.newLineNumber;
+  const isCommentable = Boolean(line.newLineNumber);
 
   const rowBg = isSelected
     ? "!bg-[rgba(155,149,144,0.08)]"

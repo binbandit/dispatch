@@ -47,7 +47,9 @@ export function ApproveButton({
     queryKey: ["lgtm-gifs"],
     queryFn: async () => {
       const res = await fetch(LGTM_API_URL);
-      if (!res.ok) throw new Error("Failed to fetch LGTM gifs");
+      if (!res.ok) {
+        throw new Error("Failed to fetch LGTM gifs");
+      }
       return res.json() as Promise<LgtmGif[]>;
     },
     staleTime: Infinity,
@@ -87,7 +89,9 @@ export function ApproveButton({
       return;
     }
     const gifs = lgtmQuery.data;
-    if (!gifs || gifs.length === 0) return;
+    if (!gifs || gifs.length === 0) {
+      return;
+    }
     const gif = gifs[Math.floor(Math.random() * gifs.length)]!;
     setBody((prev) => {
       const prefix = prev.trim() ? `${prev.trim()}\n\n` : "";

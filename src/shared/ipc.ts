@@ -9,6 +9,8 @@
 export const IPC_CHANNEL = "dispatch:ipc";
 export const BADGE_COUNT_CHANNEL = "set-badge-count";
 export const ANALYTICS_CHANNEL = "analytics:track";
+export const ACP_UPDATE_CHANNEL = "acp:update";
+export const ACP_PERMISSION_CHANNEL = "acp:permission";
 
 // ---------------------------------------------------------------------------
 // Service types shared across processes
@@ -16,6 +18,47 @@ export const ANALYTICS_CHANNEL = "analytics:track";
 
 export type AiProvider = "openai" | "anthropic" | "ollama";
 export type AiConfigSource = "preference" | "environment" | "default" | "none";
+
+// ---------------------------------------------------------------------------
+// ACP (Agent Client Protocol) types
+// ---------------------------------------------------------------------------
+
+export type AcpSessionStatus = "initializing" | "ready" | "prompting" | "closed" | "error";
+
+export interface AcpAgentInfo {
+  id: string;
+  name: string;
+  binaryPath: string | null;
+  npmPackage?: string;
+  available: boolean;
+}
+
+export interface AcpSessionInfo {
+  sessionId: string;
+  agentId: string;
+  cwd: string;
+  status: AcpSessionStatus;
+}
+
+export interface AcpUpdateEvent {
+  sessionId: string;
+  update: {
+    sessionUpdate: string;
+    [key: string]: unknown;
+  };
+}
+
+export interface AcpPermissionEvent {
+  requestId: string;
+  sessionId: string;
+  toolCallId: string;
+  toolName: string;
+  options: Array<{
+    optionId: string;
+    name: string;
+    kind: string;
+  }>;
+}
 
 export interface AiResolvedConfig {
   provider: AiProvider | null;
@@ -569,6 +612,31 @@ export interface IpcApi {
       maxTokens?: number;
     };
     result: string;
+  };
+
+  // ACP (Agent Client Protocol)
+  "acp.agents.discover": { args: void; result: AcpAgentInfo[] };
+  "acp.agents.list": { args: void; result: AcpAgentInfo[] };
+  "acp.agents.setDefault": { args: { agentId: string }; result: void };
+  "acp.session.create": {
+    args: { cwd: string; agentId?: string };
+    result: AcpSessionInfo;
+  };
+  "acp.session.prompt": {
+    args: { sessionId: string; text: string };
+    result: { stopReason: string };
+  };
+  "acp.session.cancel": { args: { sessionId: string }; result: void };
+  "acp.session.close": { args: { sessionId: string }; result: void };
+  "acp.session.list": { args: void; result: AcpSessionInfo[] };
+  "acp.permission.respond": {
+    args: { requestId: string; optionId: string };
+    result: void;
+  };
+  /** Simple text-in/text-out completion via ACP agent. Falls back to direct API. */
+  "acp.complete": {
+    args: { cwd: string; text: string; agentId?: string };
+    result: { text: string; source: "acp" | "direct-api" };
   };
 
   // Releases (3.4)

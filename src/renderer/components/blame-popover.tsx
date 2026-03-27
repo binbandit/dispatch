@@ -95,13 +95,14 @@ export function useBlameHover() {
     setAnchorRect(null);
   }, []);
 
-  useEffect(() => {
-    return () => {
+  useEffect(
+    () => () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
-    };
-  }, []);
+    },
+    [],
+  );
 
   return { hoveredLine, anchorRect, onLineEnter, onLineLeave };
 }

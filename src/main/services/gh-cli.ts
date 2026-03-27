@@ -33,7 +33,7 @@ import { type ExecResult, execFile } from "./shell";
  */
 
 // ---------------------------------------------------------------------------
-// gh error tracking
+// Gh error tracking
 // ---------------------------------------------------------------------------
 
 /**
@@ -151,7 +151,7 @@ export async function switchAccount(host: string, login: string): Promise<void> 
 async function getOwnerRepo(cwd: string): Promise<{ owner: string; repo: string }> {
   const { stdout } = await execFile("git", ["remote", "get-url", "origin"], {
     cwd,
-    timeout: 5_000,
+    timeout: 5000,
   });
   const url = stdout.trim();
   const match = url.match(/[/:]([\w.-]+)\/([\w.-]+?)(?:\.git)?$/);
@@ -169,7 +169,7 @@ export async function getRepoHost(cwd: string): Promise<string | null> {
   try {
     const { stdout } = await execFile("git", ["remote", "get-url", "origin"], {
       cwd,
-      timeout: 5_000,
+      timeout: 5000,
     });
     const url = stdout.trim();
     // HTTPS: https://github.com/owner/repo.git
@@ -200,7 +200,7 @@ export async function getRepoInfo(cwd: string): Promise<RepoInfo> {
     viewerPermission: string;
     defaultBranchRef: { name: string } | null;
   }>(stdout);
-  // viewerPermission is: ADMIN, MAINTAIN, WRITE, TRIAGE, READ
+  // ViewerPermission is: ADMIN, MAINTAIN, WRITE, TRIAGE, READ
   const canPush = ["ADMIN", "MAINTAIN", "WRITE"].includes(data.viewerPermission);
 
   // Check if the default branch has a merge queue enabled
@@ -328,7 +328,7 @@ const PR_LIST_LIMIT = "50";
 
 // ---------------------------------------------------------------------------
 // TTL cache — deduplicates calls across tray poller, notification poller,
-// and inbox queries that fire for the same cwd + filter combo.
+// And inbox queries that fire for the same cwd + filter combo.
 // ---------------------------------------------------------------------------
 
 interface CacheEntry<T> {
@@ -490,7 +490,7 @@ function buildFilterArgs(
   jsonFields: string,
 ): string[] {
   switch (filter) {
-    case "reviewRequested":
+    case "reviewRequested": {
       return [
         "pr",
         "list",
@@ -501,10 +501,13 @@ function buildFilterArgs(
         "--limit",
         PR_LIST_LIMIT,
       ];
-    case "authored":
+    }
+    case "authored": {
       return ["pr", "list", "--author", "@me", "--json", jsonFields, "--limit", PR_LIST_LIMIT];
-    case "all":
+    }
+    case "all": {
       return ["pr", "list", "--json", jsonFields, "--limit", PR_LIST_LIMIT];
+    }
   }
 }
 
@@ -751,14 +754,14 @@ export async function getPrChecks(cwd: string, prNumber: number): Promise<GhChec
       ["pr", "checks", String(prNumber), "--json", "name,state,bucket,link,startedAt,completedAt"],
       { cwd },
     );
-    stdout = result.stdout;
-  } catch (err) {
+    ({ stdout } = result);
+  } catch (error) {
     // "no checks reported on the 'branch' branch" — not an error, just empty
-    const msg = String((err as Error)?.message ?? "");
+    const msg = String((error as Error)?.message ?? "");
     if (msg.includes("no checks reported")) {
       return [];
     }
-    throw err;
+    throw error;
   }
 
   const raw = parseJsonOutput<
@@ -831,7 +834,7 @@ export async function mergePr(
   hasMergeQueue = false,
 ): Promise<{ queued: boolean }> {
   const args = ["pr", "merge", String(prNumber), `--${strategy}`];
-  // gh CLI errors with "--delete-branch" when merge queues are enabled (gh >= v2.64.0).
+  // Gh CLI errors with "--delete-branch" when merge queues are enabled (gh >= v2.64.0).
   // For merge queue repos, rely on GitHub's "Automatically delete head branches" setting.
   if (!hasMergeQueue) {
     args.push("--delete-branch");
@@ -1003,9 +1006,9 @@ export async function getPrContributors(cwd: string, prNumber: number): Promise<
     );
     const repoContribs = contribOut.split("\n").filter(Boolean).slice(0, 30);
     const all = new Set([...logins, ...repoContribs]);
-    return [...all].sort();
+    return [...all].toSorted();
   } catch {
-    return logins.sort();
+    return logins.toSorted();
   }
 }
 
@@ -1032,9 +1035,9 @@ export async function searchUsers(
         "--jq",
         ".items[] | {login: .login, name: .name}",
       ],
-      { cwd, timeout: 8_000 },
+      { cwd, timeout: 8000 },
     );
-    // gh --jq outputs one JSON object per line (not an array)
+    // Gh --jq outputs one JSON object per line (not an array)
     const lines = stdout.trim().split("\n").filter(Boolean);
     return lines.map((line) => {
       const parsed = JSON.parse(line) as { login: string; name: string | null };
@@ -1173,7 +1176,7 @@ export async function getPrReviewRequests(
     ["api", "graphql", "-f", `owner=${owner}`, "-f", `repo=${repo}`, "-f", `query=${query}`],
     { cwd, timeout: 15_000 },
   );
-  type RawNode = {
+  interface RawNode {
     asCodeOwner: boolean;
     requestedReviewer: {
       __typename: string;
@@ -1181,7 +1184,7 @@ export async function getPrReviewRequests(
       name?: string;
       slug?: string;
     } | null;
-  };
+  }
   const data = JSON.parse(stdout) as {
     data?: {
       repository?: {
@@ -1637,7 +1640,7 @@ export function getPrCycleTime(
         .map((pr) => {
           const firstReview = pr.reviews
             .map((r) => new Date(r.submittedAt))
-            .sort((a, b) => a.getTime() - b.getTime())[0];
+            .toSorted((a, b) => a.getTime() - b.getTime())[0];
 
           const createdMs = new Date(pr.createdAt).getTime();
           const mergedMs = pr.mergedAt ? new Date(pr.mergedAt).getTime() : null;
@@ -1709,7 +1712,7 @@ export function getReviewLoad(
           reviewCount: data.count,
           avgResponseTime: Math.round(data.totalResponseMs / data.count / 60_000),
         }))
-        .sort((a, b) => b.reviewCount - a.reviewCount);
+        .toSorted((a, b) => b.reviewCount - a.reviewCount);
     },
     ttl: CACHE_TTL_LONG_MS,
   }) as Promise<ReviewLoadResult>;
@@ -1764,7 +1767,7 @@ export function listReleases(
     key,
     loader: async () => {
       const upstreamArgs = await getUpstreamArgs(cwd);
-      // gh release list only supports: createdAt, isDraft, isLatest, isPrerelease, name, publishedAt, tagName
+      // Gh release list only supports: createdAt, isDraft, isLatest, isPrerelease, name, publishedAt, tagName
       const { stdout } = await ghExec(
         [
           ...upstreamArgs,
@@ -1860,7 +1863,7 @@ export async function generateChangelog(cwd: string, sinceTag: string): Promise<
   const since = new Date(tagDate.trim());
   const relevantPrs = prs
     .filter((pr) => new Date(pr.mergedAt) > since)
-    .sort((a, b) => new Date(a.mergedAt).getTime() - new Date(b.mergedAt).getTime());
+    .toSorted((a, b) => new Date(a.mergedAt).getTime() - new Date(b.mergedAt).getTime());
 
   if (relevantPrs.length === 0) {
     return "No changes since last release.";
@@ -1920,13 +1923,20 @@ export async function getPrReactions(cwd: string, prNumber: number): Promise<GhP
     { cwd, timeout: 30_000 },
   );
 
-  type RawReactionGroup = {
+  interface RawReactionGroup {
     content: string;
     viewerHasReacted: boolean;
     reactors: { totalCount: number };
-  };
-  type RawIssueComment = { id: string; databaseId: number; reactionGroups: RawReactionGroup[] };
-  type RawReviewComment = { databaseId: number; reactionGroups: RawReactionGroup[] };
+  }
+  interface RawIssueComment {
+    id: string;
+    databaseId: number;
+    reactionGroups: RawReactionGroup[];
+  }
+  interface RawReviewComment {
+    databaseId: number;
+    reactionGroups: RawReactionGroup[];
+  }
 
   const data = JSON.parse(stdout) as {
     data?: {
