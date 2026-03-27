@@ -1,8 +1,9 @@
 /**
- * Agent Registry — discovers installed ACP-compatible agent binaries.
+ * Agent Registry — discovers installed ACP-compatible agents.
  *
- * Scans the system PATH for known agent binaries and checks user-configured
- * paths. Persists agent configuration to preferences.
+ * Discovery is frictionless: if a user has `claude` or `codex` installed,
+ * Dispatch automatically detects them and launches the ACP adapter via npx.
+ * No separate adapter install required.
  */
 
 import type { AcpAgentInfo, AgentBinarySpec, AgentConfig } from "./types";
@@ -23,17 +24,22 @@ const KNOWN_AGENTS: AgentBinarySpec[] = [
     key: "claude",
     name: "Claude Code",
     binaries: ["claude-agent-acp"],
+    baseCli: "claude",
     npmPackage: "@agentclientprotocol/claude-agent-acp",
   },
   {
     key: "codex",
     name: "Codex",
     binaries: ["codex-acp"],
+    baseCli: "codex",
+    // Codex ACP is a Rust binary — no npm package yet.
+    // When the user has `codex` but not `codex-acp`, we show install guidance.
   },
   {
     key: "copilot",
     name: "GitHub Copilot",
     binaries: ["copilot-acp"],
+    baseCli: "copilot",
   },
 ];
 
@@ -48,18 +54,6 @@ async function findBinary(name: string): Promise<string | null> {
     return stdout.trim() || null;
   } catch {
     return null;
-  }
-}
-
-/** Check if an npm package is globally installed and resolvable via npx. */
-async function isNpmPackageAvailable(packageName: string): Promise<boolean> {
-  try {
-    await execFileAsync("npx", ["--yes", "--package", packageName, "echo", "ok"], {
-      timeout: 15_000,
-    });
-    return true;
-  } catch {
-    return false;
   }
 }
 
@@ -92,7 +86,7 @@ export class AgentRegistry {
           name: known?.name ?? config.id,
           binaryPath: config.binaryPath,
           npmPackage: known?.npmPackage,
-          available: false, // Will be checked during discover()
+          available: false, // Will be verified during discover()
           capabilities: null,
           agentInfo: null,
         });
@@ -116,17 +110,22 @@ export class AgentRegistry {
   }
 
   /**
-   * Scan the system for available ACP agent binaries.
-   * Merges with any user-configured agents.
+   * Scan the system for available ACP agents.
+   *
+   * Discovery strategy (per agent):
+   * 1. Look for the ACP adapter binary in PATH (e.g. `claude-agent-acp`)
+   * 2. If not found, look for the base CLI (e.g. `claude`)
+   *    — if the base CLI exists AND we have an npm adapter package,
+   *      mark available (npx will launch the adapter transparently)
+   * 3. Check user-configured binary paths
    */
   async discover(): Promise<AcpAgentInfo[]> {
     const results: AcpAgentInfo[] = [];
 
     for (const spec of KNOWN_AGENTS) {
-      // Check if user already has a manual config for this agent
       const existing = this.agents.get(spec.key);
 
-      // Try to find the binary in PATH
+      // 1. Check for the ACP adapter binary directly
       let binaryPath = existing?.binaryPath ?? null;
       if (!binaryPath) {
         for (const bin of spec.binaries) {
@@ -137,10 +136,18 @@ export class AgentRegistry {
         }
       }
 
-      // If no binary found, check npm package availability
       let available = binaryPath !== null;
-      if (!available && spec.npmPackage) {
-        available = await isNpmPackageAvailable(spec.npmPackage);
+      let baseCliFound = false;
+
+      // 2. If no adapter binary, check for the base CLI
+      if (!available && spec.baseCli) {
+        const baseCliPath = await findBinary(spec.baseCli);
+        baseCliFound = baseCliPath !== null;
+
+        // If the base CLI exists and we have an npm package, we can npx the adapter
+        if (baseCliFound && spec.npmPackage) {
+          available = true;
+        }
       }
 
       const info: AcpAgentInfo = {

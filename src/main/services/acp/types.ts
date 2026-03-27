@@ -31,9 +31,11 @@ export interface AgentBinarySpec {
   key: string;
   /** Human-readable name. */
   name: string;
-  /** Binary names to search for in PATH (tried in order). */
+  /** ACP adapter binary names to search for in PATH (tried in order). */
   binaries: string[];
-  /** If the binary is an npm package, the package name for npx fallback. */
+  /** Base CLI binary that indicates the user has this agent installed (e.g. "claude", "codex"). */
+  baseCli?: string;
+  /** If the adapter is an npm package, the package name for npx (zero-install launch). */
   npmPackage?: string;
 }
 

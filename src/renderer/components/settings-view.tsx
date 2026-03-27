@@ -1047,7 +1047,11 @@ function AgentSettings() {
                 <div className="flex-1">
                   <div className="text-text-primary text-xs font-medium">{agent.name}</div>
                   <div className="text-text-ghost mt-0.5 font-mono text-[10px]">
-                    {agent.binaryPath ?? agent.npmPackage ?? "Not found"}
+                    {agent.binaryPath
+                      ? agent.binaryPath
+                      : agent.available && agent.npmPackage
+                        ? `via npx (${agent.npmPackage})`
+                        : "Not installed"}
                   </div>
                 </div>
                 {agent.available && (

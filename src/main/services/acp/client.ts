@@ -132,10 +132,12 @@ export class AcpClient {
 
     if (this.agentInfo.binaryPath) {
       cmd = this.agentInfo.binaryPath;
-    } else {
-      // Use npx for npm packages
+    } else if (this.agentInfo.npmPackage) {
+      // Use npx to transparently launch the adapter — no global install needed
       cmd = "npx";
-      args.push(this.agentInfo.npmPackage!);
+      args.push("--yes", this.agentInfo.npmPackage);
+    } else {
+      throw new Error(`No binary path or npm package for agent "${this.agentInfo.id}"`);
     }
 
     this.process = spawn(cmd, args, {
