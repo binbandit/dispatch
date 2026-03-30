@@ -55,6 +55,7 @@ const PREF_KEYS = [
   "defaultDiffView",
   "defaultFileNav",
   "displayNameFormat",
+  "aiAutoSuggest",
 ];
 
 function getDefaultAiBaseUrl(provider: string): string {
@@ -717,6 +718,24 @@ export function SettingsView() {
                     onCheckedChange={(checked) => savePref("aiEnabled", checked ? "true" : "false")}
                   />
                 </label>
+                {aiEnabled && (
+                  <label className="mt-3 flex cursor-pointer items-center justify-between">
+                    <div>
+                      <span className="text-text-secondary text-xs">
+                        Auto-suggest review comments
+                      </span>
+                      <p className="text-text-ghost mt-0.5 text-[10px]">
+                        Automatically suggest review comments as you navigate through files.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={prefs.aiAutoSuggest === "true"}
+                      onCheckedChange={(checked) =>
+                        savePref("aiAutoSuggest", checked ? "true" : "false")
+                      }
+                    />
+                  </label>
+                )}
               </section>
             </>
           )}

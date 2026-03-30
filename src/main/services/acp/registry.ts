@@ -12,6 +12,7 @@ import { execFile as execFileCb } from "node:child_process";
 import { promisify } from "node:util";
 
 import * as repo from "../../db/repository";
+import { resolveExecutablePath } from "../shell";
 
 const execFileAsync = promisify(execFileCb);
 
@@ -49,6 +50,11 @@ const KNOWN_AGENTS: AgentBinarySpec[] = [
 
 /** Check if a binary exists in PATH using `which`. */
 async function findBinary(name: string): Promise<string | null> {
+  const resolved = resolveExecutablePath(name);
+  if (resolved) {
+    return resolved;
+  }
+
   try {
     const { stdout } = await execFileAsync("which", [name], { timeout: 5000 });
     return stdout.trim() || null;

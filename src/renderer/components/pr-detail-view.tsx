@@ -1,3 +1,4 @@
+import type { AiSuggestion } from "../lib/ai-suggestions";
 import type { Annotation } from "./ci-annotation";
 import type { ReviewComment } from "./inline-comment";
 
@@ -7,6 +8,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, GitCommitHorizontal } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { useAiSuggestions } from "../hooks/use-ai-suggestions";
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
 import { usePreference } from "../hooks/use-preference";
 import { useSyntaxHighlighter } from "../hooks/use-syntax-highlight";
@@ -252,9 +254,51 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     staleTime: 30_000,
   });
 
+  const aiEnabled = usePreference("aiEnabled") === "true";
+  const prDetail = detailQuery.data;
+  const {
+    suggestionsForFile,
+    isGenerating: isAiGenerating,
+    generateForFile,
+    autoTriggerFile,
+    postComment: postSuggestion,
+    dismiss: dismissSuggestion,
+  } = useAiSuggestions({
+    prNumber,
+    prTitle: prDetail?.title ?? "",
+    prBody: prDetail?.body ?? "",
+    files,
+    rawDiff: rawDiff ?? null,
+    enabled: aiEnabled,
+  });
+
   const currentFile = files[currentFileIndex] ?? null;
   const currentFilePath = currentFile ? getDiffFilePath(currentFile) : "";
   const currentLanguage = inferLanguage(currentFilePath);
+
+  useEffect(() => {
+    if (currentFilePath) {
+      return autoTriggerFile(currentFilePath);
+    }
+  }, [currentFilePath, autoTriggerFile]);
+
+  const aiSuggestionsMap = useMemo(() => {
+    if (!currentFilePath) {
+      return undefined;
+    }
+    const suggestions = suggestionsForFile(currentFilePath);
+    if (suggestions.length === 0) {
+      return undefined;
+    }
+    const map = new Map<string, AiSuggestion[]>();
+    for (const s of suggestions) {
+      const key = `${s.path}:${s.line}`;
+      const existing = map.get(key) ?? [];
+      existing.push(s);
+      map.set(key, existing);
+    }
+    return map;
+  }, [currentFilePath, suggestionsForFile]);
 
   const { codeTheme } = useTheme();
 
@@ -548,6 +592,11 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               }
             }}
             hideReviewControls={Boolean(selectedCommit)}
+            onAiSuggest={
+              aiEnabled && currentFilePath ? () => generateForFile(currentFilePath) : undefined
+            }
+            isAiSuggesting={currentFilePath ? isAiGenerating(currentFilePath) : false}
+            aiSuggestEnabled={aiEnabled}
           />
 
           {isLoadingDiff ? (
@@ -571,6 +620,9 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               reviewCommentReactions={
                 selectedCommit ? undefined : reactionsQuery.data?.reviewComments
               }
+              aiSuggestions={selectedCommit ? undefined : aiSuggestionsMap}
+              onPostSuggestion={postSuggestion}
+              onDismissSuggestion={dismissSuggestion}
             />
           ) : (
             <div className="flex flex-1 items-center justify-center">

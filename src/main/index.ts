@@ -1,6 +1,4 @@
-import { execFile as execFileCb } from "node:child_process";
 import { join } from "node:path";
-import { promisify } from "node:util";
 
 import {
   type BrowserWindowConstructorOptions,
@@ -15,8 +13,6 @@ import {
   session,
 } from "electron";
 
-const execFile = promisify(execFileCb);
-
 import { BADGE_COUNT_CHANNEL } from "../shared/ipc";
 import { closeDatabase, initDatabase } from "./db/database";
 import { registerIpcHandler } from "./ipc-handler";
@@ -24,6 +20,7 @@ import { initAcp, shutdownAcp } from "./services/acp";
 import { trackFromMain } from "./services/analytics";
 import { getExternalUrl, openExternalUrl } from "./services/external-links";
 import { fixPath } from "./services/fix-path";
+import { execFile } from "./services/shell";
 import { type TrayState, startPolling, stopPolling } from "./services/tray-poller";
 
 // Resolve the user's full shell PATH so spawned tools (gh, git) are found.

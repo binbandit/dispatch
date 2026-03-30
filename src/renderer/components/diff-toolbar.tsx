@@ -1,8 +1,17 @@
 import type { DiffMode } from "./diff-viewer";
 
 import { Kbd } from "@/components/ui/kbd";
+import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
-import { Check, ChevronLeft, ChevronRight, Columns2, FileText, Rows2 } from "lucide-react";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Columns2,
+  FileText,
+  Rows2,
+  Sparkles,
+} from "lucide-react";
 
 import { getDiffFilePath, type DiffFile } from "../lib/diff-parser";
 
@@ -10,7 +19,7 @@ import { getDiffFilePath, type DiffFile } from "../lib/diff-parser";
  * Diff toolbar — PR-REVIEW-REDESIGN.md § Diff Toolbar (32px)
  *
  * File path (mono, dir dimmed), "Since review" callout,
- * Unified/Split toggle, Viewed toggle with `v` kbd hint, file nav.
+ * Unified/Split toggle, AI Review button, Viewed toggle with `v` kbd hint, file nav.
  */
 
 export function DiffToolbar({
@@ -27,6 +36,9 @@ export function DiffToolbar({
   isViewed,
   onToggleViewed,
   hideReviewControls,
+  onAiSuggest,
+  isAiSuggesting,
+  aiSuggestEnabled,
 }: {
   currentFile: DiffFile | null;
   currentIndex: number;
@@ -41,6 +53,9 @@ export function DiffToolbar({
   isViewed: boolean;
   onToggleViewed: () => void;
   hideReviewControls?: boolean;
+  onAiSuggest?: () => void;
+  isAiSuggesting?: boolean;
+  aiSuggestEnabled?: boolean;
 }) {
   const filePath = currentFile ? getDiffFilePath(currentFile) : "";
   const fileName = filePath.split("/").pop() ?? "";
@@ -78,6 +93,26 @@ export function DiffToolbar({
         >
           Since review
         </button>
+      )}
+
+      {/* AI Review button */}
+      {aiSuggestEnabled && onAiSuggest && !hideReviewControls && (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                onClick={onAiSuggest}
+                disabled={isAiSuggesting}
+                className="text-primary hover:bg-primary/10 flex cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors disabled:opacity-50"
+              >
+                {isAiSuggesting ? <Spinner className="h-3 w-3" /> : <Sparkles size={11} />}
+                AI Review
+              </button>
+            }
+          />
+          <TooltipPopup>Generate AI review suggestions for this file</TooltipPopup>
+        </Tooltip>
       )}
 
       {/* View mode toggle: Unified / Split / Full file */}

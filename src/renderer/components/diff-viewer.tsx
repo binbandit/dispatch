@@ -1,3 +1,4 @@
+import type { AiSuggestion } from "../lib/ai-suggestions";
 import type { Highlighter } from "shiki";
 
 import { ChevronDown, ChevronUp, Plus, Search, X } from "lucide-react";
@@ -11,6 +12,7 @@ import {
   type Segment,
 } from "../lib/diff-parser";
 import { useTheme } from "../lib/theme-context";
+import { AiSuggestionGroup } from "./ai-suggestion-card";
 import { BlamePopover, useBlameHover } from "./blame-popover";
 import { CiAnnotation, type Annotation } from "./ci-annotation";
 import { CommentComposer } from "./comment-composer";
@@ -48,6 +50,10 @@ interface DiffViewerProps {
   resolvedThreadIds?: Set<string>;
   /** Reaction data for review comments, keyed by databaseId (as string) */
   reviewCommentReactions?: Record<string, import("@/shared/ipc").GhReactionGroup[]>;
+  /** AI-generated suggestions, keyed by "path:line" */
+  aiSuggestions?: Map<string, AiSuggestion[]>;
+  onPostSuggestion?: (suggestion: AiSuggestion, body?: string) => Promise<void>;
+  onDismissSuggestion?: (id: string) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -60,13 +66,15 @@ type FlatRow =
   | { kind: "line"; key: string; line: FlatLine }
   | { kind: "comment"; key: string; comments: ReviewComment[] }
   | { kind: "annotation"; key: string; annotations: Annotation[] }
-  | { kind: "composer"; key: string; startLine: number; endLine: number };
+  | { kind: "composer"; key: string; startLine: number; endLine: number }
+  | { kind: "ai-suggestion"; key: string; suggestions: AiSuggestion[] };
 
 function buildRows(
   file: DiffFile,
   comments: Map<string, ReviewComment[]>,
   annotations: Map<string, Annotation[]>,
   composerRange: CommentRange | null,
+  aiSuggestions?: Map<string, AiSuggestion[]>,
 ): FlatRow[] {
   const rows: FlatRow[] = [];
   const filePath = getDiffFilePath(file);
@@ -111,6 +119,15 @@ function buildRows(
         const lineComments = comments.get(posKey);
         if (lineComments && lineComments.length > 0) {
           rows.push({ kind: "comment", key: `cmt-${posKey}`, comments: lineComments });
+        }
+
+        const lineSuggestions = aiSuggestions?.get(posKey);
+        if (lineSuggestions && lineSuggestions.length > 0) {
+          rows.push({
+            kind: "ai-suggestion",
+            key: `ai-${posKey}`,
+            suggestions: lineSuggestions,
+          });
         }
       }
 
@@ -166,6 +183,9 @@ export function DiffViewer({
   diffMode = "unified",
   resolvedThreadIds,
   reviewCommentReactions,
+  aiSuggestions,
+  onPostSuggestion,
+  onDismissSuggestion,
 }: DiffViewerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { hoveredLine, anchorRect, onLineEnter, onLineLeave } = useBlameHover();
@@ -250,8 +270,8 @@ export function DiffViewer({
 
   // --- Build rows ---
   const rows = useMemo(
-    () => buildRows(file, comments, annotations, activeComposer ?? null),
-    [file, comments, annotations, activeComposer],
+    () => buildRows(file, comments, annotations, activeComposer ?? null, aiSuggestions),
+    [file, comments, annotations, activeComposer, aiSuggestions],
   );
 
   // --- Search match counting (must be after rows) ---
@@ -475,6 +495,8 @@ export function DiffViewer({
           onCloseComposer={onCloseComposer}
           resolvedThreadIds={resolvedThreadIds}
           reviewCommentReactions={reviewCommentReactions}
+          onPostSuggestion={onPostSuggestion}
+          onDismissSuggestion={onDismissSuggestion}
         />
       )}
 
@@ -678,6 +700,8 @@ function UnifiedDiffView({
   onCloseComposer,
   resolvedThreadIds,
   reviewCommentReactions,
+  onPostSuggestion,
+  onDismissSuggestion,
 }: {
   rows: FlatRow[];
   highlighter: Highlighter | null;
@@ -699,6 +723,8 @@ function UnifiedDiffView({
   onCloseComposer?: () => void;
   resolvedThreadIds?: Set<string>;
   reviewCommentReactions?: Record<string, import("@/shared/ipc").GhReactionGroup[]>;
+  onPostSuggestion?: (suggestion: AiSuggestion, body?: string) => Promise<void>;
+  onDismissSuggestion?: (id: string) => void;
 }) {
   // Precompute search match offsets for all rows
   const searchMatchOffsets = useMemo(() => {
@@ -770,6 +796,17 @@ function UnifiedDiffView({
             <CiAnnotation
               key={row.key}
               annotations={row.annotations}
+            />
+          );
+        }
+
+        if (row.kind === "ai-suggestion" && onPostSuggestion && onDismissSuggestion) {
+          return (
+            <AiSuggestionGroup
+              key={row.key}
+              suggestions={row.suggestions}
+              onPost={onPostSuggestion}
+              onDismiss={onDismissSuggestion}
             />
           );
         }
