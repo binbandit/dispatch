@@ -119,9 +119,13 @@ export function Navbar({ bannerVisible }: { bannerVisible?: boolean }) {
         className="flex items-center gap-1.5"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
-        <WorkspaceSwitcher />
-
-        <div className="bg-border mx-1 h-4 w-px" />
+        {/* Hide workspace switcher on home page — it has its own repo selector */}
+        {!(route.view === "review" && !route.prNumber) && (
+          <>
+            <WorkspaceSwitcher />
+            <div className="bg-border mx-1 h-4 w-px" />
+          </>
+        )}
 
         <NotificationCenter />
 

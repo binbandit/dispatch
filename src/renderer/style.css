@@ -224,8 +224,8 @@
   /* ---- Dispatch text hierarchy (§ 2.2) ---- */
   --text-primary: #f0ece6;
   --text-secondary: #9b9590;
-  --text-tertiary: #5e5954;
-  --text-ghost: #3a3632;
+  --text-tertiary: #887e74;
+  --text-ghost: #6e665e;
 
   /* ---- Dispatch accent variants (§ 2.3) ---- */
   --accent-hover: #e09a4e;
@@ -319,8 +319,8 @@
   --bg-overlay: rgba(0, 0, 0, 0.72);
   --text-primary: #f0ece6;
   --text-secondary: #9b9590;
-  --text-tertiary: #5e5954;
-  --text-ghost: #3a3632;
+  --text-tertiary: #887e74;
+  --text-ghost: #6e665e;
   --accent-hover: #e09a4e;
   --accent-muted: rgba(212, 136, 58, 0.12);
   --accent-text: #e8a655;
@@ -429,8 +429,8 @@
   /* ---- Dispatch text hierarchy ---- */
   --text-primary: #1a1815;
   --text-secondary: #6e6862;
-  --text-tertiary: #a09a92;
-  --text-ghost: #ccc7c0;
+  --text-tertiary: #756e66;
+  --text-ghost: #918b83;
 
   /* ---- Dispatch accent variants ---- */
   --accent-hover: #c47a2e;
@@ -673,4 +673,16 @@ button.bg-primary:hover {
   transition:
     left 200ms var(--ease-out),
     width 200ms var(--ease-out);
+}
+
+/* Home view section entrance */
+@keyframes fadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

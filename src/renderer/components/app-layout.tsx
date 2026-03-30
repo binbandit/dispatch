@@ -11,11 +11,11 @@ import { RouterProvider, useRouter } from "../lib/router";
 import { useWorkspace } from "../lib/workspace-context";
 import { AcpPermissionListener } from "./acp-permission-dialog";
 import { CommandPalette } from "./command-palette";
+import { HomeView } from "./home-view";
 import { KeyboardShortcutsDialog } from "./keyboard-shortcuts-dialog";
 import { MetricsView } from "./metrics-view";
 import { Navbar } from "./navbar";
 import { PrDetailView } from "./pr-detail-view";
-import { PrInbox } from "./pr-inbox";
 import { ReleasesView } from "./releases-view";
 import { ReviewSidebar } from "./review-sidebar";
 import { SettingsView } from "./settings-view";
@@ -110,7 +110,9 @@ function AppShell() {
       <Navbar bannerVisible={bannerVisible} />
 
       {/* View content */}
-      {route.view === "review" && (
+      {route.view === "review" && !selectedPr && <HomeView />}
+
+      {route.view === "review" && selectedPr && (
         <FileNavProvider>
           <ResizablePanelGroup
             orientation="horizontal"
@@ -123,20 +125,11 @@ function AppShell() {
                   minSize="12%"
                   maxSize="35%"
                 >
-                  {selectedPr ? (
-                    <ReviewSidebar
-                      prNumber={selectedPr}
-                      onBack={() => navigate({ view: "review", prNumber: null })}
-                      onSelectPr={(pr) => navigate({ view: "review", prNumber: pr })}
-                    />
-                  ) : (
-                    <PrInbox
-                      selectedPr={selectedPr}
-                      onSelectPr={(pr) => {
-                        navigate({ view: "review", prNumber: pr });
-                      }}
-                    />
-                  )}
+                  <ReviewSidebar
+                    prNumber={selectedPr}
+                    onBack={() => navigate({ view: "review", prNumber: null })}
+                    onSelectPr={(pr) => navigate({ view: "review", prNumber: pr })}
+                  />
                 </ResizablePanel>
                 <ResizableHandle />
               </>
