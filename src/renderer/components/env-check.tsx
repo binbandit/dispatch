@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, RefreshCw, Terminal } from "lucide-react";
 
@@ -14,6 +16,9 @@ interface EnvCheckProps {
   ghAuth: boolean;
   onRetry: () => void;
 }
+
+export const ENV_CHECK_WINDOW_DRAG_STYLE = { WebkitAppRegion: "drag" } as CSSProperties;
+export const ENV_CHECK_WINDOW_NO_DRAG_STYLE = { WebkitAppRegion: "no-drag" } as CSSProperties;
 
 export function EnvCheck({ ghVersion, gitVersion, ghAuth, onRetry }: EnvCheckProps) {
   const issues: Array<{ title: string; description: string; command: string }> = [];
@@ -46,9 +51,29 @@ export function EnvCheck({ ghVersion, gitVersion, ghAuth, onRetry }: EnvCheckPro
   }
 
   return (
-    <div className="bg-bg-root flex h-screen flex-col items-center justify-center gap-8 px-8">
+    <div
+      className="bg-bg-root relative flex h-screen flex-col items-center justify-center gap-8 overflow-hidden px-8"
+      style={ENV_CHECK_WINDOW_DRAG_STYLE}
+    >
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{
+          opacity: 0.015,
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")`,
+          backgroundRepeat: "repeat",
+          backgroundSize: "256px 256px",
+        }}
+      />
+      <div
+        className="pointer-events-none absolute top-0 left-0 h-[2px] w-full"
+        style={{
+          background: "linear-gradient(90deg, transparent, var(--primary), transparent)",
+          opacity: 0.4,
+        }}
+      />
+
       {/* Display heading (§ 10.5 Empty states) */}
-      <div className="flex flex-col items-center gap-3">
+      <div className="relative z-10 flex flex-col items-center gap-3">
         <div className="bg-warning-muted flex h-12 w-12 items-center justify-center rounded-lg">
           <AlertTriangle
             size={24}
@@ -62,7 +87,10 @@ export function EnvCheck({ ghVersion, gitVersion, ghAuth, onRetry }: EnvCheckPro
       </div>
 
       {/* Issue cards */}
-      <div className="flex w-full max-w-lg flex-col gap-3">
+      <div
+        className="relative z-10 flex w-full max-w-lg flex-col gap-3"
+        style={ENV_CHECK_WINDOW_NO_DRAG_STYLE}
+      >
         {issues.map((issue) => (
           <div
             key={issue.title}
@@ -81,10 +109,14 @@ export function EnvCheck({ ghVersion, gitVersion, ghAuth, onRetry }: EnvCheckPro
         ))}
       </div>
 
-      <div className="flex flex-col items-center gap-3">
+      <div
+        className="relative z-10 flex flex-col items-center gap-3"
+        style={ENV_CHECK_WINDOW_NO_DRAG_STYLE}
+      >
         <Button
           variant="outline"
           onClick={onRetry}
+          style={ENV_CHECK_WINDOW_NO_DRAG_STYLE}
         >
           <RefreshCw size={14} />
           Retry
