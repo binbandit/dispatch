@@ -1,8 +1,10 @@
-import type { GhWorkflowRunJob } from "@/shared/ipc";
+/* eslint-disable import/max-dependencies -- This screen composes workflow detail controls, log inspection, and AI failure analysis. */
+import type { GhWorkflowRunDetail, GhWorkflowRunJob } from "@/shared/ipc";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
+import { AiFailureExplainer } from "@/renderer/components/review/ai/ai-failure-explainer";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -102,7 +104,7 @@ export function RunDetail({ cwd, runId }: RunDetailProps) {
   }
 
   const run = detailQuery.data;
-  const hasFailed = run.jobs.some((j) => j.conclusion === "failure");
+  const hasFailed = run.jobs.some((job) => isWorkflowFailure(job.conclusion));
 
   return (
     <div className="flex flex-col">
@@ -142,6 +144,13 @@ export function RunDetail({ cwd, runId }: RunDetailProps) {
             </Button>
           )}
         </div>
+        {hasFailed && (
+          <AiFailureExplainer
+            checkName={buildFailureExplanationLabel(run)}
+            cwd={cwd}
+            runId={runId}
+          />
+        )}
       </div>
 
       {/* Log search bar */}
@@ -273,7 +282,7 @@ function GanttTimeline({ jobs }: { jobs: GhWorkflowRunJob[] }) {
               className={`absolute top-0 h-full rounded-sm ${
                 bar.conclusion === "success"
                   ? "bg-success/60"
-                  : bar.conclusion === "failure"
+                  : isWorkflowFailure(bar.conclusion)
                     ? "bg-destructive/60"
                     : bar.conclusion === "cancelled" || bar.conclusion === "skipped"
                       ? "bg-text-ghost/40"
@@ -317,7 +326,7 @@ function JobRow({
   const [prevConclusion, setPrevConclusion] = useState(job.conclusion);
   if (job.conclusion !== prevConclusion) {
     setPrevConclusion(job.conclusion);
-    if (job.conclusion === "failure") {
+    if (isWorkflowFailure(job.conclusion)) {
       setExpanded(true);
     }
   }
@@ -396,6 +405,30 @@ function resolveStatusIcon(conclusion: string | null) {
     return { icon: XCircle, color: "text-text-tertiary", spin: false };
   }
   return { icon: Loader2, color: "text-warning", spin: true };
+}
+
+function isWorkflowFailure(conclusion: string | null): boolean {
+  return conclusion === "failure" || conclusion === "error";
+}
+
+function buildFailureExplanationLabel(run: GhWorkflowRunDetail): string {
+  const failedJobs = run.jobs
+    .filter((job) => isWorkflowFailure(job.conclusion))
+    .map((job) => job.name);
+
+  if (failedJobs.length === 0) {
+    return run.workflowName;
+  }
+
+  if (failedJobs.length === 1) {
+    return `${run.workflowName} / ${failedJobs[0]}`;
+  }
+
+  const visibleJobs = failedJobs.slice(0, 3);
+  const remainingJobs = failedJobs.length - visibleJobs.length;
+  const suffix = remainingJobs > 0 ? ` +${remainingJobs} more` : "";
+
+  return `${run.workflowName} / ${visibleJobs.join(", ")}${suffix}`;
 }
 
 function computeJobDuration(job: GhWorkflowRunJob): string {
