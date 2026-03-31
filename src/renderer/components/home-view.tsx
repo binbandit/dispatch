@@ -21,6 +21,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import { formatAuthorName, useDisplayNameFormat } from "../hooks/use-display-name";
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
+import { usePrSearchRefreshOnMiss } from "../hooks/use-pr-search-refresh";
 import {
   categorizeHomePrs,
   getDashboardPrKey,
@@ -376,6 +377,37 @@ export function HomeView() {
       }))
       .filter((sec) => sec.items.length > 0);
   }, [sections, searchQuery]);
+  const filteredCount = useMemo(
+    () => filteredSections.reduce((sum, section) => sum + section.items.length, 0),
+    [filteredSections],
+  );
+  const searchRefreshRequests = useMemo(
+    () => [
+      {
+        method: "pr.list" as const,
+        args: { cwd, filter: "all" as const, state: "all" as const },
+        queryKey: ["pr", "list", cwd, "all", "all"],
+      },
+      {
+        method: "pr.list" as const,
+        args: { cwd, filter: "reviewRequested" as const },
+        queryKey: ["pr", "list", cwd, "reviewRequested", "open"],
+      },
+      {
+        method: "pr.listEnrichment" as const,
+        args: { cwd, filter: "all" as const, state: "all" as const },
+        queryKey: ["pr", "enrichment", cwd, "all", "all"],
+      },
+    ],
+    [cwd],
+  );
+
+  usePrSearchRefreshOnMiss({
+    scope: `home:${cwd}`,
+    searchQuery,
+    resultCount: filteredCount,
+    requests: searchRefreshRequests,
+  });
 
   // Flat list of all visible PRs for keyboard nav
   const flatPrs = useMemo(
@@ -711,7 +743,7 @@ export function HomeView() {
             ))}
 
           {/* Empty search */}
-          {!isLoading && filteredSections.length === 0 && searchQuery.trim() && (
+          {!isLoading && filteredCount === 0 && searchQuery.trim() && (
             <div
               className="flex flex-col items-center gap-2 py-20"
               role="status"

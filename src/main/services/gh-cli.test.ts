@@ -143,6 +143,26 @@ describe("gh-cli caching", () => {
     expect(execFileMock).toHaveBeenCalledTimes(7);
   });
 
+  it("bypasses the cached PR list when a forced refresh is requested", async () => {
+    execFileMock
+      .mockResolvedValueOnce({ stdout: createRepoInfoStdout(), stderr: "" })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
+      .mockResolvedValueOnce({ stdout: createPrListStdout("Cached"), stderr: "" })
+      .mockResolvedValueOnce({ stdout: createRepoInfoStdout(), stderr: "" })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
+      .mockResolvedValueOnce({ stdout: createPrListStdout("Fresh"), stderr: "" });
+
+    await expect(listPrsCore("/repo-force-refresh", "all")).resolves.toMatchObject([
+      { title: "Cached" },
+    ]);
+
+    await expect(listPrsCore("/repo-force-refresh", "all", "open", true)).resolves.toMatchObject([
+      { title: "Fresh" },
+    ]);
+
+    expect(execFileMock).toHaveBeenCalledTimes(6);
+  });
+
   it("invalidates cached workflow runs after a rerun", async () => {
     execFileMock
       .mockResolvedValueOnce({ stdout: createWorkflowRunsStdout(1), stderr: "" })

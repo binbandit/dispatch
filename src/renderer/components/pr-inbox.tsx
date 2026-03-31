@@ -1,4 +1,4 @@
-import type { GhPrEnrichment, GhPrListItemCore } from "@/shared/ipc";
+import type { GhPrEnrichment, GhPrListItemCore, IpcApi } from "@/shared/ipc";
 
 import { Kbd } from "@/components/ui/kbd";
 import { MenuItem, MenuPopup, MenuSeparator } from "@/components/ui/menu";
@@ -21,6 +21,10 @@ import { useCallback, useMemo, useRef, useState } from "react";
 
 import { formatAuthorName, useDisplayNameFormat } from "../hooks/use-display-name";
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
+import {
+  type PrSearchRefreshRequest,
+  usePrSearchRefreshOnMiss,
+} from "../hooks/use-pr-search-refresh";
 import { ipc } from "../lib/ipc";
 import { useKeybindings } from "../lib/keybinding-context";
 import { openExternal } from "../lib/open-external";
@@ -136,7 +140,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
     enabled: activeFilter === "all",
   });
 
-  const activeFilterIpc =
+  const activeFilterIpc: IpcApi["pr.list"]["args"]["filter"] =
     activeFilter === "mine" ? "authored" : activeFilter === "all" ? "all" : "reviewRequested";
 
   const enrichmentQuery = useQuery({
@@ -196,6 +200,28 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
     () => searchPrs(searchablePrs, searchQuery),
     [searchQuery, searchablePrs],
   );
+  const searchRefreshRequests = useMemo<PrSearchRefreshRequest[]>(
+    () => [
+      {
+        method: "pr.list",
+        args: { cwd, filter: activeFilterIpc },
+        queryKey: ["pr", "list", cwd, activeFilterIpc],
+      },
+      {
+        method: "pr.listEnrichment",
+        args: { cwd, filter: activeFilterIpc },
+        queryKey: ["pr", "enrichment", cwd, activeFilterIpc],
+      },
+    ],
+    [activeFilterIpc, cwd],
+  );
+
+  usePrSearchRefreshOnMiss({
+    scope: `pr-inbox:${cwd}:${activeFilterIpc}`,
+    searchQuery,
+    resultCount: filteredResults.length,
+    requests: searchRefreshRequests,
+  });
 
   const focusSearchInput = useCallback(() => {
     if (typeof globalThis.requestAnimationFrame !== "function") {

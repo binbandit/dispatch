@@ -165,8 +165,9 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   },
 
   // PR
-  "pr.list": async (args) => ghCli.listPrsCore(args.cwd, args.filter, args.state),
-  "pr.listEnrichment": async (args) => ghCli.listPrsEnrichment(args.cwd, args.filter, args.state),
+  "pr.list": async (args) =>
+    ghCli.listPrsCore(args.cwd, args.filter, args.state, args.forceRefresh),
+  "pr.listEnrichment": async (args) => ghCli.listPrsEnrichment(args.cwd, args.filter, args.state, args.forceRefresh),
   "pr.detail": async (args) => ghCli.getPrDetail(args.cwd, args.prNumber),
   "pr.commits": async (args) => ghCli.getPrCommits(args.cwd, args.prNumber),
   "pr.diff": async (args) => ghCli.getPrDiff(args.cwd, args.prNumber),

@@ -14,6 +14,7 @@ import {
   CommandShortcut,
   commandMatch,
   useCommandFilters,
+  useCommandQuery,
 } from "@/components/ui/command";
 import { Kbd } from "@/components/ui/kbd";
 import { toastManager } from "@/components/ui/toast";
@@ -45,6 +46,10 @@ import { useMemo, useState } from "react";
 
 import { formatAuthorName, useDisplayNameFormat } from "../hooks/use-display-name";
 import { useKeyboardShortcuts } from "../hooks/use-keyboard-shortcuts";
+import {
+  type PrSearchRefreshRequest,
+  usePrSearchRefreshOnMiss,
+} from "../hooks/use-pr-search-refresh";
 import { useFileNav } from "../lib/file-nav-context";
 import { ipc } from "../lib/ipc";
 import { useKeybindings } from "../lib/keybinding-context";
@@ -168,6 +173,7 @@ function classifyPrSize(additions: number, deletions: number): PrSize {
 // ---------------------------------------------------------------------------
 
 function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
+  const rawQuery = useCommandQuery();
   const filters = useCommandFilters();
   const { cwd } = useWorkspace();
   const { navigate } = useRouter();
@@ -213,7 +219,7 @@ function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
   }, [cwd, prs]); // Re-derive when prs change (proxy for cache freshness)
 
   const visible = useMemo(() => {
-    let filtered = prs.slice(0, 15);
+    let filtered = prs;
 
     // ── Structured filters ──────────────────────────────────────────────
 
@@ -291,8 +297,55 @@ function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
       );
     }
 
-    return filtered;
+    return filtered.slice(0, 15);
   }, [prs, filters, enrichmentMap]);
+  const searchRefreshRequests = useMemo<PrSearchRefreshRequest[]>(() => {
+    const baseRequests: PrSearchRefreshRequest[] = [
+      {
+        method: "pr.list",
+        args: { cwd, filter: "reviewRequested" },
+        queryKey: ["pr", "list", cwd, "reviewRequested"],
+      },
+      {
+        method: "pr.list",
+        args: { cwd, filter: "authored" },
+        queryKey: ["pr", "list", cwd, "authored"],
+      },
+      {
+        method: "pr.list",
+        args: { cwd, filter: "all" },
+        queryKey: ["pr", "list", cwd, "all"],
+      },
+    ];
+    const enrichmentRequests: PrSearchRefreshRequest[] = filters.size
+      ? [
+          {
+            method: "pr.listEnrichment",
+            args: { cwd, filter: "reviewRequested" },
+            queryKey: ["pr", "enrichment", cwd, "reviewRequested"],
+          },
+          {
+            method: "pr.listEnrichment",
+            args: { cwd, filter: "authored" },
+            queryKey: ["pr", "enrichment", cwd, "authored"],
+          },
+          {
+            method: "pr.listEnrichment",
+            args: { cwd, filter: "all" },
+            queryKey: ["pr", "enrichment", cwd, "all"],
+          },
+        ]
+      : [];
+
+    return [...baseRequests, ...enrichmentRequests];
+  }, [cwd, filters.size]);
+
+  usePrSearchRefreshOnMiss({
+    scope: `command-palette:${cwd}`,
+    searchQuery: rawQuery,
+    resultCount: visible.length,
+    requests: searchRefreshRequests,
+  });
 
   if (visible.length === 0) {
     return null;

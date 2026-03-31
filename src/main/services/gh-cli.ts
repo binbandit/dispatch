@@ -577,8 +577,12 @@ export function listPrsCore(
   cwd: string,
   filter: "reviewRequested" | "authored" | "all" = "reviewRequested",
   state: "open" | "closed" | "merged" | "all" = "open",
+  forceRefresh = false,
 ): Promise<GhPrListItemCore[]> {
   const key = cacheKey(cwd, filter, state);
+  if (forceRefresh) {
+    invalidateCacheKey(prListCache, key);
+  }
   return getOrLoadCached({
     cache: prListCache,
     key,
@@ -604,8 +608,12 @@ export function listPrsEnrichment(
   cwd: string,
   filter: "reviewRequested" | "authored" | "all" = "reviewRequested",
   state: "open" | "closed" | "merged" | "all" = "open",
+  forceRefresh = false,
 ): Promise<GhPrEnrichment[]> {
   const key = cacheKey(cwd, filter, state);
+  if (forceRefresh) {
+    invalidateCacheKey(prEnrichmentCache, key);
+  }
   return getOrLoadCached({
     cache: prEnrichmentCache,
     key,

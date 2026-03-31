@@ -405,6 +405,7 @@ export interface IpcApi {
       cwd: string;
       filter: "reviewRequested" | "authored" | "all";
       state?: "open" | "closed" | "merged" | "all";
+      forceRefresh?: boolean;
     };
     result: GhPrListItemCore[];
   };
@@ -413,6 +414,7 @@ export interface IpcApi {
       cwd: string;
       filter: "reviewRequested" | "authored" | "all";
       state?: "open" | "closed" | "merged" | "all";
+      forceRefresh?: boolean;
     };
     result: GhPrEnrichment[];
   };
