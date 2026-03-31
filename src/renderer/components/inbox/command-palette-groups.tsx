@@ -99,8 +99,8 @@ export function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
     staleTime: 30_000,
   });
   const allQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "all"],
-    queryFn: () => ipc("pr.list", { cwd, filter: "all" }),
+    queryKey: ["pr", "list", cwd, "all", "all"],
+    queryFn: () => ipc("pr.list", { cwd, filter: "all", state: "all" }),
     staleTime: 30_000,
   });
 
@@ -115,8 +115,18 @@ export function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
 
   const enrichmentMap = useMemo(() => {
     const map = new Map<number, GhPrEnrichment>();
-    for (const filter of ["reviewRequested", "authored", "all"]) {
-      const cached = queryClient.getQueryData<GhPrEnrichment[]>(["pr", "enrichment", cwd, filter]);
+    for (const [filter, state] of [
+      ["reviewRequested", "open"],
+      ["authored", "open"],
+      ["all", "all"],
+    ] as const) {
+      const cached = queryClient.getQueryData<GhPrEnrichment[]>([
+        "pr",
+        "enrichment",
+        cwd,
+        filter,
+        state,
+      ]);
       if (cached) {
         for (const enrichment of cached) {
           map.set(enrichment.number, enrichment);
@@ -206,36 +216,36 @@ export function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
     const baseRequests: PrSearchRefreshRequest[] = [
       {
         method: "pr.list",
-        args: { cwd, filter: "reviewRequested" },
+        args: { cwd, filter: "reviewRequested", state: "open" },
         queryKey: ["pr", "list", cwd, "reviewRequested"],
       },
       {
         method: "pr.list",
-        args: { cwd, filter: "authored" },
+        args: { cwd, filter: "authored", state: "open" },
         queryKey: ["pr", "list", cwd, "authored"],
       },
       {
         method: "pr.list",
-        args: { cwd, filter: "all" },
-        queryKey: ["pr", "list", cwd, "all"],
+        args: { cwd, filter: "all", state: "all" },
+        queryKey: ["pr", "list", cwd, "all", "all"],
       },
     ];
     const enrichmentRequests: PrSearchRefreshRequest[] = filters.size
       ? [
           {
             method: "pr.listEnrichment",
-            args: { cwd, filter: "reviewRequested" },
-            queryKey: ["pr", "enrichment", cwd, "reviewRequested"],
+            args: { cwd, filter: "reviewRequested", state: "open" },
+            queryKey: ["pr", "enrichment", cwd, "reviewRequested", "open"],
           },
           {
             method: "pr.listEnrichment",
-            args: { cwd, filter: "authored" },
-            queryKey: ["pr", "enrichment", cwd, "authored"],
+            args: { cwd, filter: "authored", state: "open" },
+            queryKey: ["pr", "enrichment", cwd, "authored", "open"],
           },
           {
             method: "pr.listEnrichment",
-            args: { cwd, filter: "all" },
-            queryKey: ["pr", "enrichment", cwd, "all"],
+            args: { cwd, filter: "all", state: "all" },
+            queryKey: ["pr", "enrichment", cwd, "all", "all"],
           },
         ]
       : [];

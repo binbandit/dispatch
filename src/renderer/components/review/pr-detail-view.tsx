@@ -2,6 +2,7 @@ import type { ReviewComment } from "@/renderer/components/review/comments/inline
 import type { Annotation } from "@/renderer/components/review/diff/ci-annotation";
 /* eslint-disable import/max-dependencies, no-continue, @typescript-eslint/no-non-null-assertion, unicorn/no-useless-collection-argument -- This PR detail surface is an intentional composition root with guarded query-driven state. */
 import type { AiSuggestion } from "@/renderer/lib/review/ai-suggestions";
+import type { GhPrDetail } from "@/shared/ipc";
 
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
@@ -23,11 +24,17 @@ import { queryClient } from "@/renderer/lib/app/query-client";
 import { useTheme } from "@/renderer/lib/app/theme-context";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { useKeybindings } from "@/renderer/lib/keyboard/keybinding-context";
+import {
+  getCompletedPullRequestLabel,
+  getCompletedPullRequestTimestamp,
+  isCompletedPullRequest,
+} from "@/renderer/lib/review/completed-pr-state";
 import { getDiffFilePath, parseDiff, type DiffFile } from "@/renderer/lib/review/diff-parser";
 import { useFileNav } from "@/renderer/lib/review/file-nav-context";
 import { ensureLanguage, ensureTheme, inferLanguage } from "@/renderer/lib/review/highlighter";
+import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { ArrowLeft, GitCommitHorizontal } from "lucide-react";
+import { ArrowLeft, GitCommitHorizontal, GitMerge, XCircle } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CompactPrHeader } from "./compact-pr-header";
@@ -479,6 +486,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   }
 
   const pr = detailQuery.data;
+  const isCompletedPr = isCompletedPullRequest(pr);
   const totalAdditions = pr.files.reduce((sum, f) => sum + f.additions, 0);
   const totalDeletions = pr.files.reduce((sum, f) => sum + f.deletions, 0);
   const isAuthor = currentUser !== null && pr.author.login === currentUser;
@@ -525,6 +533,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         }}
         canEdit={canPush}
       />
+      {isCompletedPr && <CompletedPrBanner pr={pr} />}
 
       {/* Commit view banner */}
       {selectedCommit && (
@@ -618,9 +627,11 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               comments={selectedCommit ? emptyCommentsMap : commentsMap}
               annotations={selectedCommit ? emptyAnnotationsMap : annotationsMap}
               prNumber={prNumber}
-              activeComposer={selectedCommit ? null : activeComposer}
-              onCommentRange={selectedCommit ? undefined : setActiveComposer}
-              onCloseComposer={selectedCommit ? undefined : () => setActiveComposer(null)}
+              activeComposer={selectedCommit || isCompletedPr ? null : activeComposer}
+              onCommentRange={selectedCommit || isCompletedPr ? undefined : setActiveComposer}
+              onCloseComposer={
+                selectedCommit || isCompletedPr ? undefined : () => setActiveComposer(null)
+              }
               fullFileContent={showFullFile ? (fullFileQuery.data ?? null) : null}
               diffMode={viewMode}
               resolvedThreadIds={selectedCommit ? emptyResolvedIds : resolvedThreadIds}
@@ -657,7 +668,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         />
 
         {/* Floating review bar — hidden when viewing a specific commit */}
-        {!selectedCommit && (
+        {!selectedCommit && !isCompletedPr && (
           <FloatingReviewBar
             viewedCount={viewedCount}
             totalFiles={files.length}
@@ -675,6 +686,47 @@ function PrDetail({ prNumber }: { prNumber: number }) {
             panelOpen={panelOpen}
           />
         )}
+      </div>
+    </div>
+  );
+}
+
+function CompletedPrBanner({ pr }: { pr: GhPrDetail }) {
+  const label = getCompletedPullRequestLabel(pr.state);
+  const completedAt = getCompletedPullRequestTimestamp(pr);
+
+  if (!label) {
+    return null;
+  }
+
+  const description = completedAt
+    ? `${label} ${relativeTime(new Date(completedAt))}. Review and merge controls are unavailable for completed pull requests.`
+    : `${label}. Review and merge controls are unavailable for completed pull requests.`;
+
+  return (
+    <div className="border-border-subtle border-b px-4 py-2">
+      <div
+        className={`flex items-start gap-2 rounded-md border px-3 py-2 ${
+          pr.state === "MERGED"
+            ? "border-purple/25 bg-purple-muted text-purple"
+            : "border-destructive/25 bg-danger-muted text-destructive"
+        }`}
+      >
+        {pr.state === "MERGED" ? (
+          <GitMerge
+            size={13}
+            className="mt-0.5 shrink-0"
+          />
+        ) : (
+          <XCircle
+            size={13}
+            className="mt-0.5 shrink-0"
+          />
+        )}
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold tracking-[0.01em]">{label} pull request</p>
+          <p className="text-text-secondary text-[11px] leading-relaxed">{description}</p>
+        </div>
       </div>
     </div>
   );

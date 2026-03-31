@@ -8,6 +8,7 @@ import { useAiTriageSections } from "@/renderer/hooks/ai/use-ai-triage-sections"
 import { usePreference } from "@/renderer/hooks/preferences/use-preference";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
+import { isCompletedPullRequest } from "@/renderer/lib/review/completed-pr-state";
 import { parseDiff, type DiffFile } from "@/renderer/lib/review/diff-parser";
 import { useFileNav } from "@/renderer/lib/review/file-nav-context";
 import { summarizePrChecks } from "@/renderer/lib/review/pr-check-status";
@@ -138,6 +139,7 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
     refetchInterval: 60_000,
   });
   const pr = detailQuery.data;
+  const isCompletedPr = pr ? isCompletedPullRequest(pr) : false;
   const { sections: triageSections, meta: triageMeta } = useAiTriageSections({
     cwd,
     prNumber,
@@ -299,6 +301,7 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
       {/* Merge readiness card — hidden when viewing a specific commit */}
       {!selectedCommit &&
         pr &&
+        !isCompletedPr &&
         (() => {
           const checkSummary = summarizePrChecks(checksList);
 

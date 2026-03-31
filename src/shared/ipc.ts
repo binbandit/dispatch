@@ -155,6 +155,7 @@ export interface GhPrEnrichment {
 export interface GhPrDetail {
   number: number;
   title: string;
+  state: "OPEN" | "CLOSED" | "MERGED";
   body: string;
   author: { login: string; name?: string | null };
   headRefName: string;
@@ -186,6 +187,8 @@ export interface GhPrDetail {
   mergeStateStatus: string;
   createdAt: string;
   updatedAt: string;
+  closedAt: string | null;
+  mergedAt: string | null;
   url: string;
   isDraft: boolean;
   additions: number;

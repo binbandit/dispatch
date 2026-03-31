@@ -13,6 +13,7 @@ import { ipc } from "@/renderer/lib/app/ipc";
 import { openExternal } from "@/renderer/lib/app/open-external";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
+import { getCompletedPullRequestLabel } from "@/renderer/lib/review/completed-pr-state";
 import { useMutation } from "@tanstack/react-query";
 import { Copy, ExternalLink, Link, PanelRight, RefreshCw } from "lucide-react";
 import { useRef, useState } from "react";
@@ -56,6 +57,7 @@ export function CompactPrHeader({
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(pr.title);
   const inputRef = useRef<HTMLInputElement>(null);
+  const completedLabel = getCompletedPullRequestLabel(pr.state);
 
   const titleMutation = useMutation({
     mutationFn: (title: string) => ipc("pr.updateTitle", { cwd, prNumber: pr.number, title }),
@@ -114,6 +116,17 @@ export function CompactPrHeader({
         {pr.isDraft && (
           <span className="bg-warning-muted text-warning shrink-0 rounded-xs px-1.5 py-0.5 text-[10px] font-semibold">
             Draft
+          </span>
+        )}
+        {completedLabel && (
+          <span
+            className={`shrink-0 rounded-xs px-1.5 py-0.5 text-[10px] font-semibold ${
+              pr.state === "MERGED"
+                ? "bg-purple-muted text-purple"
+                : "bg-danger-muted text-destructive"
+            }`}
+          >
+            {completedLabel}
           </span>
         )}
 

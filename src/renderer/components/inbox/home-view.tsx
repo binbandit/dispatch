@@ -416,38 +416,49 @@ export function HomeView() {
                   "radial-gradient(ellipse, rgba(212, 136, 58, 0.035) 0%, transparent 70%)",
               }}
             />
-            <span className="font-heading relative text-xl leading-tight tracking-[-0.02em] italic">
-              {isLoading ? (
-                <span className="text-text-secondary">Loading your queue...</span>
-              ) : attentionCount > 0 ? (
-                <>
-                  <strong className="text-text-primary font-bold">
-                    {attentionCount} {attentionCount === 1 ? "item" : "items"}
-                  </strong>{" "}
-                  <span className="text-text-secondary">
-                    {attentionCount === 1 ? "needs" : "need"} your attention
+            <div className="relative flex max-w-[760px] flex-col">
+              <h1 className="text-text-primary text-[23px] leading-[1.12] font-semibold tracking-[-0.03em]">
+                {isLoading ? (
+                  <span className="text-text-secondary">Loading your queue...</span>
+                ) : attentionCount > 0 ? (
+                  <>
+                    <span className="text-accent-text font-mono text-[0.88em] font-semibold">
+                      {attentionCount}
+                    </span>{" "}
+                    <span className="text-text-primary">
+                      {attentionCount === 1 ? "item" : "items"}
+                    </span>{" "}
+                    <span className="text-text-secondary">
+                      {attentionCount === 1 ? "needs" : "need"} your attention
+                    </span>
                     {totalCount > attentionCount ? (
                       <>
-                        {" "}
-                        out of{" "}
-                        <strong className="text-text-primary font-normal">
-                          {totalCount} {totalCount === 1 ? "pull request" : "pull requests"}
-                        </strong>
+                        <span className="text-text-secondary"> out of </span>
+                        <span className="text-text-primary">
+                          <span className="font-mono text-[0.88em] font-medium">{totalCount}</span>{" "}
+                          {totalCount === 1 ? "pull request" : "pull requests"}
+                        </span>
                       </>
                     ) : null}
-                  </span>
-                </>
-              ) : totalCount > 0 ? (
-                <>
-                  <strong className="text-text-primary font-normal">
-                    {totalCount} pull requests
-                  </strong>{" "}
-                  <span className="text-text-secondary">across your queue</span>
-                </>
-              ) : (
-                <span className="text-text-secondary">You're all caught up</span>
-              )}
-            </span>
+                  </>
+                ) : totalCount > 0 ? (
+                  <>
+                    <span className="text-accent-text font-mono text-[0.88em] font-semibold">
+                      {totalCount}
+                    </span>{" "}
+                    <span className="text-text-primary">
+                      {totalCount === 1 ? "pull request" : "pull requests"}
+                    </span>{" "}
+                    <span className="text-text-secondary">across your queue</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-text-primary">Queue is empty.</span>{" "}
+                    <span className="text-text-secondary">No pull requests in this repo yet.</span>
+                  </>
+                )}
+              </h1>
+            </div>
           </div>
 
           {/* Toolbar */}
@@ -592,9 +603,11 @@ export function HomeView() {
 
           {/* Empty state — all caught up */}
           {!isLoading && totalCount === 0 && !searchQuery.trim() && (
-            <div className="flex flex-col items-center gap-2 py-20">
-              <p className="font-heading text-text-secondary text-xl italic">Nothing here yet</p>
-              <p className="text-text-secondary text-[13px]">
+            <div className="flex flex-col items-center gap-3 py-20 text-center">
+              <p className="text-text-primary text-[18px] font-medium tracking-[-0.02em]">
+                No pull requests yet
+              </p>
+              <p className="text-text-secondary max-w-sm text-[13px]">
                 Open some pull requests to see them here.
               </p>
             </div>

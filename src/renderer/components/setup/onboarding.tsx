@@ -69,7 +69,22 @@ export function Onboarding({ onComplete }: OnboardingProps) {
           <DispatchLogo size={48} />
         </div>
 
-        <h1 className="font-heading text-text-primary text-4xl italic">Welcome to Dispatch</h1>
+        <div className="flex flex-col items-center gap-1.5">
+          <span className="font-heading text-accent-text text-[20px] leading-none tracking-[-0.02em] italic">
+            Welcome to
+          </span>
+          <h1 className="text-text-primary text-[40px] leading-none font-semibold tracking-[-0.05em]">
+            Dispatch
+          </h1>
+          <span
+            className="h-px w-24"
+            aria-hidden="true"
+            style={{
+              background:
+                "linear-gradient(90deg, rgba(212, 136, 58, 0) 0%, rgba(212, 136, 58, 0.65) 50%, rgba(212, 136, 58, 0) 100%)",
+            }}
+          />
+        </div>
         <p className="text-text-secondary max-w-md text-center text-[13px] leading-relaxed">
           Add a local Git repository to get started. Dispatch will watch it for pull requests that
           need your attention.

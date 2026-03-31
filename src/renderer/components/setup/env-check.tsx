@@ -80,7 +80,22 @@ export function EnvCheck({ ghVersion, gitVersion, ghAuth, onRetry }: EnvCheckPro
             className="text-warning"
           />
         </div>
-        <h1 className="font-heading text-text-primary text-4xl italic">Almost there</h1>
+        <div className="flex flex-col items-center gap-1.5">
+          <span className="font-heading text-warning text-[20px] leading-none tracking-[-0.02em] italic">
+            Setup
+          </span>
+          <h1 className="text-text-primary text-[38px] leading-none font-semibold tracking-[-0.04em]">
+            Almost there
+          </h1>
+          <span
+            className="h-px w-24"
+            aria-hidden="true"
+            style={{
+              background:
+                "linear-gradient(90deg, rgba(240, 180, 73, 0) 0%, rgba(240, 180, 73, 0.55) 50%, rgba(240, 180, 73, 0) 100%)",
+            }}
+          />
+        </div>
         <p className="text-text-secondary max-w-md text-center text-[13px] leading-relaxed">
           Dispatch needs a few tools to be set up on your machine before it can connect to GitHub.
         </p>

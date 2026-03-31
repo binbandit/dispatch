@@ -127,32 +127,33 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
   const searchRef = useRef<HTMLInputElement>(null);
 
   const reviewQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "reviewRequested"],
+    queryKey: ["pr", "list", cwd, "reviewRequested", "open"],
     queryFn: () => ipc("pr.list", { cwd, filter: "reviewRequested" }),
     refetchInterval: 30_000,
     enabled: activeFilter === "review",
   });
 
   const authorQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "authored"],
+    queryKey: ["pr", "list", cwd, "authored", "open"],
     queryFn: () => ipc("pr.list", { cwd, filter: "authored" }),
     refetchInterval: 30_000,
     enabled: activeFilter === "mine",
   });
 
   const allQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "all"],
-    queryFn: () => ipc("pr.list", { cwd, filter: "all" }),
+    queryKey: ["pr", "list", cwd, "all", "all"],
+    queryFn: () => ipc("pr.list", { cwd, filter: "all", state: "all" }),
     refetchInterval: 30_000,
     enabled: activeFilter === "all",
   });
 
   const activeFilterIpc: IpcApi["pr.list"]["args"]["filter"] =
     activeFilter === "mine" ? "authored" : activeFilter === "all" ? "all" : "reviewRequested";
+  const activeState: IpcApi["pr.list"]["args"]["state"] = activeFilter === "all" ? "all" : "open";
 
   const enrichmentQuery = useQuery({
-    queryKey: ["pr", "enrichment", cwd, activeFilterIpc],
-    queryFn: () => ipc("pr.listEnrichment", { cwd, filter: activeFilterIpc }),
+    queryKey: ["pr", "enrichment", cwd, activeFilterIpc, activeState],
+    queryFn: () => ipc("pr.listEnrichment", { cwd, filter: activeFilterIpc, state: activeState }),
     refetchInterval: 30_000,
   });
 
@@ -211,16 +212,16 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
     () => [
       {
         method: "pr.list",
-        args: { cwd, filter: activeFilterIpc },
-        queryKey: ["pr", "list", cwd, activeFilterIpc],
+        args: { cwd, filter: activeFilterIpc, state: activeState },
+        queryKey: ["pr", "list", cwd, activeFilterIpc, activeState],
       },
       {
         method: "pr.listEnrichment",
-        args: { cwd, filter: activeFilterIpc },
-        queryKey: ["pr", "enrichment", cwd, activeFilterIpc],
+        args: { cwd, filter: activeFilterIpc, state: activeState },
+        queryKey: ["pr", "enrichment", cwd, activeFilterIpc, activeState],
       },
     ],
-    [activeFilterIpc, cwd],
+    [activeFilterIpc, activeState, cwd],
   );
 
   usePrSearchRefreshOnMiss({

@@ -91,7 +91,16 @@ function prSizeLabel(
 interface StatusTag {
   label: string;
   colorClass: string;
-  icon: "review" | "changes" | "failing" | "approved" | "waiting" | "running" | "draft" | "merged";
+  icon:
+    | "review"
+    | "changes"
+    | "failing"
+    | "approved"
+    | "waiting"
+    | "running"
+    | "draft"
+    | "closed"
+    | "merged";
 }
 
 function resolveStatusTag(pr: DashboardPr, currentUser: string | null): StatusTag | null {
@@ -100,6 +109,13 @@ function resolveStatusTag(pr: DashboardPr, currentUser: string | null): StatusTa
       label: "Merged",
       colorClass: "text-purple opacity-60",
       icon: "merged",
+    };
+  }
+  if (pr.state === "CLOSED") {
+    return {
+      label: "Closed",
+      colorClass: "text-destructive opacity-70",
+      icon: "closed",
     };
   }
   if (pr.isDraft) {
@@ -728,6 +744,16 @@ function StatusTagIcon({ icon }: { icon: StatusTag["icon"] }) {
     case "merged": {
       return (
         <GitMerge
+          size={9}
+          strokeWidth={strokeWidth}
+          className={className}
+          {...hidden}
+        />
+      );
+    }
+    case "closed": {
+      return (
+        <XCircle
           size={9}
           strokeWidth={strokeWidth}
           className={className}

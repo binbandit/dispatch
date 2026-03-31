@@ -534,20 +534,22 @@ function PanelOverviewContent({
       )}
 
       {/* Close PR */}
-      <div
-        className="flex justify-end"
-        style={{ marginTop: "32px" }}
-      >
-        <button
-          type="button"
-          onClick={() => closeMutation.mutate()}
-          disabled={closeMutation.isPending}
-          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+      {pr.state === "OPEN" && (
+        <div
+          className="flex justify-end"
+          style={{ marginTop: "32px" }}
         >
-          {closeMutation.isPending ? <Spinner className="h-3 w-3" /> : <XCircle size={11} />}
-          Close pull request
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => closeMutation.mutate()}
+            disabled={closeMutation.isPending}
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-[11px] font-medium text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+          >
+            {closeMutation.isPending ? <Spinner className="h-3 w-3" /> : <XCircle size={11} />}
+            Close pull request
+          </button>
+        </div>
+      )}
     </>
   );
 }
