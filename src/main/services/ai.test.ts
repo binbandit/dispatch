@@ -1,43 +1,202 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { resolveProviderEndpointUrl } from "./ai";
+vi.mock(import("./shell"), async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./shell")>();
+  return {
+    ...actual,
+    resolveExecutablePath: vi.fn(actual.resolveExecutablePath),
+  };
+});
 
-describe("resolveProviderEndpointUrl", () => {
-  it("uses the default OpenAI endpoint when no base URL is configured", () => {
-    expect(resolveProviderEndpointUrl("openai")).toBe("https://api.openai.com/v1/chat/completions");
-  });
+import {
+  buildClaudeCommandArgs,
+  buildCopilotCommandArgs,
+  buildCodexCommandArgs,
+  buildCompletionPrompt,
+  buildProviderTestMessages,
+  normalizeProviderVersion,
+  parseClaudeAuthStatus,
+  parseCodexAuthStatus,
+  resolveCopilotCommandSpec,
+  resolveOllamaEndpointUrl,
+} from "./ai";
+import { resolveExecutablePath } from "./shell";
 
-  it("appends the OpenAI versioned path for a bare custom origin", () => {
-    expect(resolveProviderEndpointUrl("openai", "https://gateway.example.test")).toBe(
-      "https://gateway.example.test/v1/chat/completions",
-    );
-  });
+const resolveExecutablePathMock = vi.mocked(resolveExecutablePath);
 
-  it("preserves nested custom OpenAI deployment paths", () => {
-    expect(resolveProviderEndpointUrl("openai", "https://gateway.example.test/openai/v1/")).toBe(
-      "https://gateway.example.test/openai/v1/chat/completions",
-    );
-  });
+afterEach(() => {
+  vi.resetAllMocks();
+});
 
-  it("accepts a fully-qualified OpenAI-compatible endpoint", () => {
+describe("buildCompletionPrompt", () => {
+  it("separates system instructions from the conversation prompt", () => {
     expect(
-      resolveProviderEndpointUrl(
-        "openai",
-        "https://gateway.example.test/openai/v1/chat/completions",
-      ),
-    ).toBe("https://gateway.example.test/openai/v1/chat/completions");
+      buildCompletionPrompt([
+        { role: "system", content: "Be concise." },
+        { role: "user", content: "Explain this diff." },
+        { role: "assistant", content: "Sure." },
+        { role: "user", content: "Keep it short." },
+      ]),
+    ).toEqual({
+      systemPrompt: "Be concise.",
+      prompt: [
+        "Continue the conversation below and reply as the assistant.",
+        "Return only the assistant response.",
+        "",
+        "USER:\nExplain this diff.\n\nASSISTANT:\nSure.\n\nUSER:\nKeep it short.",
+      ].join("\n"),
+    });
+  });
+});
+
+describe("buildProviderTestMessages", () => {
+  it("builds a short smoke-test exchange for provider validation", () => {
+    expect(buildProviderTestMessages()).toEqual([
+      {
+        role: "system",
+        content:
+          "You are validating a local AI provider connection for Dispatch. Reply in plain text with one short sentence only. Do not use markdown.",
+      },
+      {
+        role: "user",
+        content:
+          'Confirm the provider is working by replying with the exact phrase "Dispatch AI test successful".',
+      },
+    ]);
+  });
+});
+
+describe("buildCodexCommandArgs", () => {
+  it("builds a non-interactive codex exec invocation", () => {
+    expect(buildCodexCommandArgs("gpt-5.4", "/tmp/dispatch-response.txt")).toEqual([
+      "exec",
+      "--ephemeral",
+      "-s",
+      "read-only",
+      "--skip-git-repo-check",
+      "--model",
+      "gpt-5.4",
+      "--config",
+      'model_reasoning_effort="low"',
+      "--color",
+      "never",
+      "-o",
+      "/tmp/dispatch-response.txt",
+      "-",
+    ]);
+  });
+});
+
+describe("buildClaudeCommandArgs", () => {
+  it("builds a print-mode claude invocation with tools disabled", () => {
+    expect(buildClaudeCommandArgs("claude-sonnet-4-6", "Stay brief.")).toEqual([
+      "-p",
+      "--output-format",
+      "text",
+      "--input-format",
+      "text",
+      "--no-session-persistence",
+      "--tools",
+      "",
+      "--model",
+      "claude-sonnet-4-6",
+      "--system-prompt",
+      "Stay brief.",
+    ]);
+  });
+});
+
+describe("buildCopilotCommandArgs", () => {
+  it("builds a print-mode Copilot invocation with read-only tools", () => {
+    expect(
+      buildCopilotCommandArgs("gpt-5.3-codex", "Summarize this diff.", ["copilot", "--"]),
+    ).toEqual([
+      "copilot",
+      "--",
+      "-p",
+      "Summarize this diff.",
+      "-s",
+      "--output-format=text",
+      "--no-save-session",
+      "--allow-all-tools",
+      "--allow-all-paths",
+      "--available-tools",
+      "view,grep,glob",
+      "--model",
+      "gpt-5.3-codex",
+    ]);
+  });
+});
+
+describe("resolveCopilotCommandSpec", () => {
+  it("uses the standalone copilot binary when available", () => {
+    resolveExecutablePathMock.mockImplementation((command) =>
+      command === "copilot" ? "/opt/homebrew/bin/copilot" : null,
+    );
+
+    expect(resolveCopilotCommandSpec(null)).toEqual({
+      command: "/opt/homebrew/bin/copilot",
+      argsPrefix: [],
+      usesGhWrapper: false,
+    });
   });
 
-  it("normalizes the default Anthropic endpoint", () => {
-    expect(resolveProviderEndpointUrl("anthropic")).toBe("https://api.anthropic.com/v1/messages");
+  it("falls back to gh copilot when the standalone binary is unavailable", () => {
+    resolveExecutablePathMock.mockImplementation((command) => {
+      if (command === "copilot") {
+        return null;
+      }
+      return command === "gh" ? "/opt/homebrew/bin/gh" : null;
+    });
+
+    expect(resolveCopilotCommandSpec(null)).toEqual({
+      command: "/opt/homebrew/bin/gh",
+      argsPrefix: ["copilot", "--"],
+      usesGhWrapper: true,
+    });
   });
 
+  it("treats a configured gh binary path as the wrapper command", () => {
+    resolveExecutablePathMock.mockImplementation((command) =>
+      command === "gh" ? "/usr/local/bin/gh" : null,
+    );
+
+    expect(resolveCopilotCommandSpec("gh")).toEqual({
+      command: "/usr/local/bin/gh",
+      argsPrefix: ["copilot", "--"],
+      usesGhWrapper: true,
+    });
+  });
+});
+
+describe("resolveOllamaEndpointUrl", () => {
   it("normalizes Ollama origins without duplicating /api", () => {
-    expect(resolveProviderEndpointUrl("ollama", "http://localhost:11434/")).toBe(
+    expect(resolveOllamaEndpointUrl("http://localhost:11434/")).toBe(
       "http://localhost:11434/api/chat",
     );
-    expect(resolveProviderEndpointUrl("ollama", "http://localhost:11434/api")).toBe(
+    expect(resolveOllamaEndpointUrl("http://localhost:11434/api")).toBe(
       "http://localhost:11434/api/chat",
     );
+  });
+});
+
+describe("normalizeProviderVersion", () => {
+  it("extracts semantic versions from CLI output", () => {
+    expect(normalizeProviderVersion("codex-cli 0.117.0")).toBe("0.117.0");
+    expect(normalizeProviderVersion("2.1.87 (Claude Code)")).toBe("2.1.87");
+    expect(normalizeProviderVersion("ollama version is 0.18.3")).toBe("0.18.3");
+  });
+});
+
+describe("provider auth parsers", () => {
+  it("detects Codex login status from plain text output", () => {
+    expect(parseCodexAuthStatus("Logged in using ChatGPT")).toBeTruthy();
+    expect(parseCodexAuthStatus("Not logged in")).toBeFalsy();
+  });
+
+  it("detects Claude login status from JSON output", () => {
+    expect(parseClaudeAuthStatus('{"loggedIn":true,"authMethod":"claude.ai"}')).toBeTruthy();
+    expect(parseClaudeAuthStatus('{"loggedIn":false}')).toBeFalsy();
+    expect(parseClaudeAuthStatus("not-json")).toBeFalsy();
   });
 });

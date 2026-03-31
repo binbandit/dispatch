@@ -1,4 +1,7 @@
+import { existsSync } from "node:fs";
+
 import { getDatabase } from "./database";
+import { resolveActiveWorkspacePath, splitWorkspaceRows } from "./workspace-state";
 
 // ---------------------------------------------------------------------------
 // Review State (Incremental Diff)
@@ -92,6 +95,132 @@ export function markPrActivitySeen(repo: string, prNumber: number, updatedAt: st
 }
 
 // ---------------------------------------------------------------------------
+// AI Review Summary Cache
+// ---------------------------------------------------------------------------
+
+export interface AiReviewSummaryCacheEntry {
+  summary: string;
+  confidenceScore: number | null;
+  snapshotKey: string;
+  generatedAt: string;
+}
+
+export interface AiTriageCacheEntry {
+  payload: string;
+  snapshotKey: string;
+  generatedAt: string;
+}
+
+export function getAiReviewSummary(
+  workspace: string,
+  prNumber: number,
+): AiReviewSummaryCacheEntry | null {
+  const db = getDatabase();
+  const row = db
+    .prepare(`
+      SELECT summary, confidence_score, snapshot_key, generated_at
+      FROM ai_review_summaries
+      WHERE workspace = ? AND pr_number = ?
+    `)
+    .get(workspace, prNumber) as
+    | {
+        summary: string;
+        confidence_score: number | null;
+        snapshot_key: string;
+        generated_at: string;
+      }
+    | undefined;
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    summary: row.summary,
+    confidenceScore: row.confidence_score,
+    snapshotKey: row.snapshot_key,
+    generatedAt: row.generated_at,
+  };
+}
+
+export function saveAiReviewSummary(entry: {
+  workspace: string;
+  prNumber: number;
+  snapshotKey: string;
+  summary: string;
+  confidenceScore: number | null;
+}): AiReviewSummaryCacheEntry {
+  const db = getDatabase();
+  db.prepare(`
+    INSERT INTO ai_review_summaries (workspace, pr_number, snapshot_key, summary, confidence_score, generated_at)
+    VALUES (?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(workspace, pr_number) DO UPDATE SET
+      snapshot_key = excluded.snapshot_key,
+      summary = excluded.summary,
+      confidence_score = excluded.confidence_score,
+      generated_at = excluded.generated_at
+  `).run(entry.workspace, entry.prNumber, entry.snapshotKey, entry.summary, entry.confidenceScore);
+
+  const savedEntry = getAiReviewSummary(entry.workspace, entry.prNumber);
+  if (!savedEntry) {
+    throw new Error(`Failed to persist AI review summary for PR #${entry.prNumber}.`);
+  }
+
+  return savedEntry;
+}
+
+export function getAiTriage(workspace: string, prNumber: number): AiTriageCacheEntry | null {
+  const db = getDatabase();
+  const row = db
+    .prepare(`
+      SELECT payload, snapshot_key, generated_at
+      FROM ai_triage_groups
+      WHERE workspace = ? AND pr_number = ?
+    `)
+    .get(workspace, prNumber) as
+    | {
+        payload: string;
+        snapshot_key: string;
+        generated_at: string;
+      }
+    | undefined;
+
+  if (!row) {
+    return null;
+  }
+
+  return {
+    payload: row.payload,
+    snapshotKey: row.snapshot_key,
+    generatedAt: row.generated_at,
+  };
+}
+
+export function saveAiTriage(entry: {
+  workspace: string;
+  prNumber: number;
+  snapshotKey: string;
+  payload: string;
+}): AiTriageCacheEntry {
+  const db = getDatabase();
+  db.prepare(`
+    INSERT INTO ai_triage_groups (workspace, pr_number, snapshot_key, payload, generated_at)
+    VALUES (?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(workspace, pr_number) DO UPDATE SET
+      snapshot_key = excluded.snapshot_key,
+      payload = excluded.payload,
+      generated_at = excluded.generated_at
+  `).run(entry.workspace, entry.prNumber, entry.snapshotKey, entry.payload);
+
+  const savedEntry = getAiTriage(entry.workspace, entry.prNumber);
+  if (!savedEntry) {
+    throw new Error(`Failed to persist AI triage groups for PR #${entry.prNumber}.`);
+  }
+
+  return savedEntry;
+}
+
+// ---------------------------------------------------------------------------
 // Preferences
 // ---------------------------------------------------------------------------
 
@@ -130,29 +259,94 @@ export function addWorkspace(path: string, name: string): void {
   `).run(path, name);
 }
 
+function workspaceExists(path: string): boolean {
+  return path.length > 0 && existsSync(path);
+}
+
+function pruneMissingWorkspaces(): Array<{
+  id: number;
+  path: string;
+  name: string;
+  added_at: string;
+}> {
+  const db = getDatabase();
+  const rows = db
+    .prepare("SELECT id, path, name, added_at FROM workspaces ORDER BY added_at DESC")
+    .all() as Array<{ id: number; path: string; name: string; added_at: string }>;
+
+  const { staleRows, validRows } = splitWorkspaceRows(rows);
+
+  if (staleRows.length === 0) {
+    return validRows;
+  }
+
+  const staleIds = staleRows.map((row) => row.id);
+  const stalePaths = staleRows.map((row) => row.path);
+  const idPlaceholders = staleIds.map(() => "?").join(", ");
+  const pathPlaceholders = stalePaths.map(() => "?").join(", ");
+
+  db.prepare(`DELETE FROM workspaces WHERE id IN (${idPlaceholders})`).run(...staleIds);
+  db.prepare(`DELETE FROM repo_accounts WHERE path IN (${pathPlaceholders})`).run(...stalePaths);
+
+  const activeWorkspace = getPreference("activeWorkspace");
+  if (activeWorkspace && stalePaths.includes(activeWorkspace)) {
+    deletePreferences(["activeWorkspace"]);
+  }
+
+  return validRows;
+}
+
 export function getWorkspaces(): Array<{
   id: number;
   path: string;
   name: string;
   addedAt: string;
 }> {
-  const db = getDatabase();
-  const rows = db
-    .prepare("SELECT id, path, name, added_at FROM workspaces ORDER BY added_at DESC")
-    .all() as Array<{ id: number; path: string; name: string; added_at: string }>;
+  const rows = pruneMissingWorkspaces();
   return rows.map((r) => ({ id: r.id, path: r.path, name: r.name, addedAt: r.added_at }));
 }
 
 export function removeWorkspace(id: number): void {
   const db = getDatabase();
+  const row = db.prepare("SELECT path FROM workspaces WHERE id = ?").get(id) as
+    | { path: string }
+    | undefined;
   db.prepare("DELETE FROM workspaces WHERE id = ?").run(id);
+
+  if (!row) {
+    return;
+  }
+
+  db.prepare("DELETE FROM repo_accounts WHERE path = ?").run(row.path);
+
+  const activeWorkspace = getPreference("activeWorkspace");
+  if (activeWorkspace === row.path) {
+    deletePreferences(["activeWorkspace"]);
+    const fallbackWorkspace = getWorkspaces()[0]?.path ?? null;
+    if (fallbackWorkspace) {
+      setPreference("activeWorkspace", fallbackWorkspace);
+    }
+  }
 }
 
 export function getActiveWorkspace(): string | null {
-  return getPreference("activeWorkspace");
+  const activeWorkspace = getPreference("activeWorkspace");
+  const fallbackWorkspace = resolveActiveWorkspacePath(activeWorkspace, getWorkspaces());
+  if (activeWorkspace && activeWorkspace !== fallbackWorkspace) {
+    deletePreferences(["activeWorkspace"]);
+  }
+  if (fallbackWorkspace) {
+    setPreference("activeWorkspace", fallbackWorkspace);
+  }
+
+  return fallbackWorkspace;
 }
 
 export function setActiveWorkspace(path: string): void {
+  if (!workspaceExists(path)) {
+    throw new Error(`Workspace path does not exist: ${path}`);
+  }
+
   setPreference("activeWorkspace", path);
 }
 

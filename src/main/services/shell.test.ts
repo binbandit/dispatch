@@ -134,4 +134,14 @@ describe("shell exec fallback", () => {
       }),
     );
   });
+
+  it("fails fast with a clear error when the working directory does not exist", async () => {
+    const execFileMock = vi.spyOn(shellRuntime, "execFile");
+
+    await expect(execFile("gh", ["--version"], { cwd: "/definitely/not/here" })).rejects.toThrow(
+      "Working directory does not exist: /definitely/not/here",
+    );
+
+    expect(execFileMock).not.toHaveBeenCalled();
+  });
 });

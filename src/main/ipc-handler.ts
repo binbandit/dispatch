@@ -3,7 +3,6 @@ import { BrowserWindow, app, dialog, ipcMain } from "electron";
 import { IPC_CHANNEL, type IpcApi, type IpcMethod } from "../shared/ipc";
 import { destroyDatabase } from "./db/database";
 import * as repo from "./db/repository";
-import { getRegistry, getSessionManager } from "./services/acp";
 import * as ai from "./services/ai";
 import { getAiConfig } from "./services/ai-config";
 import { openExternalUrl } from "./services/external-links";
@@ -166,8 +165,8 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   },
 
   // PR
-  "pr.list": async (args) => ghCli.listPrsCore(args.cwd, args.filter),
-  "pr.listEnrichment": async (args) => ghCli.listPrsEnrichment(args.cwd, args.filter),
+  "pr.list": async (args) => ghCli.listPrsCore(args.cwd, args.filter, args.state),
+  "pr.listEnrichment": async (args) => ghCli.listPrsEnrichment(args.cwd, args.filter, args.state),
   "pr.detail": async (args) => ghCli.getPrDetail(args.cwd, args.prNumber),
   "pr.commits": async (args) => ghCli.getPrCommits(args.cwd, args.prNumber),
   "pr.diff": async (args) => ghCli.getPrDiff(args.cwd, args.prNumber),
@@ -287,11 +286,11 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
   // Multi-repo (3.1)
   "pr.listAll": async (args) => {
     const workspaces = repo.getWorkspaces();
-    return ghCli.listAllPrs(workspaces, args.filter);
+    return ghCli.listAllPrs(workspaces, args.filter, args.state);
   },
   "pr.listAllEnrichment": async (args) => {
     const workspaces = repo.getWorkspaces();
-    return ghCli.listAllPrsEnrichment(workspaces, args.filter);
+    return ghCli.listAllPrsEnrichment(workspaces, args.filter, args.state);
   },
 
   // Metrics (3.2)
@@ -300,45 +299,26 @@ const handlers: { [M in IpcMethod]: Handler<M> } = {
 
   // AI (3.3)
   "ai.config": async () => getAiConfig(),
+  "ai.providersStatus": async () => ai.getProvidersStatus(),
   "ai.complete": async (args) => ai.complete(args),
-
-  // ACP (Agent Client Protocol)
-  "acp.agents.discover": async () => getRegistry().discover(),
-  "acp.agents.list": async () => getRegistry().listAgents(),
-  "acp.agents.setDefault": async (args) => {
-    getRegistry().setDefaultAgent(args.agentId);
-  },
-  "acp.session.create": async (args) => getSessionManager().createSession(args.cwd, args.agentId),
-  "acp.session.prompt": async (args) =>
-    getSessionManager().prompt(args.sessionId, [{ type: "text", text: args.text }]),
-  "acp.session.cancel": async (args) => {
-    await getSessionManager().cancel(args.sessionId);
-  },
-  "acp.session.close": async (args) => {
-    getSessionManager().closeSession(args.sessionId);
-  },
-  "acp.session.list": async () => getSessionManager().listSessions(),
-  "acp.permission.respond": async (args) => {
-    getSessionManager().resolvePermission(args.requestId, args.optionId);
-  },
-  "acp.complete": async (args) => {
-    // Try ACP first, fall back to direct API
-    const defaultAgent = getRegistry().getDefaultAgent();
-    if (defaultAgent) {
-      try {
-        const result = await getSessionManager().complete(args.cwd, args.text, args.agentId);
-        return { text: result.text, source: "acp" as const };
-      } catch (error) {
-        console.error("[acp.complete] ACP failed, falling back to direct API:", error);
-      }
-    }
-
-    // Fallback to direct API
-    const text = await ai.complete({
-      messages: [{ role: "user", content: args.text }],
-    });
-    return { text, source: "direct-api" as const };
-  },
+  "ai.test": async (args) => ai.testProvider(args),
+  "ai.reviewSummary.get": async (args) => repo.getAiReviewSummary(args.cwd, args.prNumber),
+  "ai.reviewSummary.set": async (args) =>
+    repo.saveAiReviewSummary({
+      workspace: args.cwd,
+      prNumber: args.prNumber,
+      snapshotKey: args.snapshotKey,
+      summary: args.summary,
+      confidenceScore: args.confidenceScore,
+    }),
+  "ai.triage.get": async (args) => repo.getAiTriage(args.cwd, args.prNumber),
+  "ai.triage.set": async (args) =>
+    repo.saveAiTriage({
+      workspace: args.cwd,
+      prNumber: args.prNumber,
+      snapshotKey: args.snapshotKey,
+      payload: args.payload,
+    }),
 
   // Releases (3.4)
   "releases.list": async (args) => ghCli.listReleases(args.cwd, args.limit),

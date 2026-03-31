@@ -9,71 +9,91 @@
 export const IPC_CHANNEL = "dispatch:ipc";
 export const BADGE_COUNT_CHANNEL = "set-badge-count";
 export const ANALYTICS_CHANNEL = "analytics:track";
-export const ACP_UPDATE_CHANNEL = "acp:update";
-export const ACP_PERMISSION_CHANNEL = "acp:permission";
 
 // ---------------------------------------------------------------------------
 // Service types shared across processes
 // ---------------------------------------------------------------------------
 
-export type AiProvider = "openai" | "anthropic" | "ollama";
+export type AiProvider = "codex" | "claude" | "copilot" | "ollama";
 export type AiConfigSource = "preference" | "environment" | "default" | "none";
+export type AiModelSlot = "big" | "small";
+export type AiTaskId =
+  | "codeExplanation"
+  | "failureExplanation"
+  | "reviewSummary"
+  | "reviewConfidence"
+  | "triage"
+  | "commentSuggestions";
 
-// ---------------------------------------------------------------------------
-// ACP (Agent Client Protocol) types
-// ---------------------------------------------------------------------------
-
-export type AcpSessionStatus = "initializing" | "ready" | "prompting" | "closed" | "error";
-
-export interface AcpAgentInfo {
-  id: string;
-  name: string;
-  binaryPath: string | null;
-  npmPackage?: string;
-  available: boolean;
-}
-
-export interface AcpSessionInfo {
-  sessionId: string;
-  agentId: string;
-  cwd: string;
-  status: AcpSessionStatus;
-}
-
-export interface AcpUpdateEvent {
-  sessionId: string;
-  update: {
-    sessionUpdate: string;
-    [key: string]: unknown;
-  };
-}
-
-export interface AcpPermissionEvent {
-  requestId: string;
-  sessionId: string;
-  toolCallId: string;
-  toolName: string;
-  options: Array<{
-    optionId: string;
-    name: string;
-    kind: string;
-  }>;
-}
-
-export interface AiResolvedConfig {
-  provider: AiProvider | null;
+export interface AiProviderResolvedConfig {
+  provider: AiProvider;
   model: string | null;
+  binaryPath: string | null;
+  homePath: string | null;
   baseUrl: string | null;
   isConfigured: boolean;
-  hasApiKey: boolean;
+  modelSource: AiConfigSource;
+  binaryPathSource: AiConfigSource;
+  homePathSource: AiConfigSource;
+  baseUrlSource: AiConfigSource;
+  modelEnvVar: string | null;
+  binaryPathEnvVar: string | null;
+  homePathEnvVar: string | null;
+  baseUrlEnvVar: string | null;
+}
+
+export interface AiSlotResolvedConfig {
+  slot: AiModelSlot;
+  provider: AiProvider | null;
+  model: string | null;
+  binaryPath: string | null;
+  homePath: string | null;
+  baseUrl: string | null;
+  isConfigured: boolean;
   providerSource: AiConfigSource;
   modelSource: AiConfigSource;
-  apiKeySource: AiConfigSource;
+  binaryPathSource: AiConfigSource;
+  homePathSource: AiConfigSource;
   baseUrlSource: AiConfigSource;
   providerEnvVar: string | null;
   modelEnvVar: string | null;
-  apiKeyEnvVar: string | null;
+  binaryPathEnvVar: string | null;
+  homePathEnvVar: string | null;
   baseUrlEnvVar: string | null;
+}
+
+export interface AiTaskResolvedConfig extends AiSlotResolvedConfig {
+  task: AiTaskId;
+  selectedSlot: AiModelSlot;
+  selectedSlotSource: AiConfigSource;
+}
+
+export interface AiResolvedConfig {
+  isConfigured: boolean;
+  providers: Record<AiProvider, AiProviderResolvedConfig>;
+  slots: Record<AiModelSlot, AiSlotResolvedConfig>;
+  tasks: Record<AiTaskId, AiTaskResolvedConfig>;
+}
+
+export interface AiProviderStatus {
+  provider: AiProvider;
+  version: string | null;
+  available: boolean;
+  authenticated: boolean | null;
+  statusText: string;
+}
+
+export interface AiReviewSummaryCacheEntry {
+  summary: string;
+  confidenceScore: number | null;
+  snapshotKey: string;
+  generatedAt: string;
+}
+
+export interface AiTriageCacheEntry {
+  payload: string;
+  snapshotKey: string;
+  generatedAt: string;
 }
 
 export interface GhPrListItem {
@@ -326,7 +346,8 @@ export interface GhRepoAccount {
 export interface RepoInfo {
   nameWithOwner: string;
   isFork: boolean;
-  parent: string | null; // "owner/name" of upstream repo, or null
+  // "owner/name" of upstream repo, or null
+  parent: string | null;
   canPush: boolean;
   hasMergeQueue: boolean;
 }
@@ -380,11 +401,19 @@ export interface IpcApi {
   "workspace.pickFolder": { args: void; result: string | null };
 
   "pr.list": {
-    args: { cwd: string; filter: "reviewRequested" | "authored" | "all" };
+    args: {
+      cwd: string;
+      filter: "reviewRequested" | "authored" | "all";
+      state?: "open" | "closed" | "merged" | "all";
+    };
     result: GhPrListItemCore[];
   };
   "pr.listEnrichment": {
-    args: { cwd: string; filter: "reviewRequested" | "authored" | "all" };
+    args: {
+      cwd: string;
+      filter: "reviewRequested" | "authored" | "all";
+      state?: "open" | "closed" | "merged" | "all";
+    };
     result: GhPrEnrichment[];
   };
   "pr.detail": { args: { cwd: string; prNumber: number }; result: GhPrDetail };
@@ -564,12 +593,33 @@ export interface IpcApi {
 
   // Multi-repo (3.1)
   "pr.listAll": {
-    args: { filter: "reviewRequested" | "authored" | "all" };
-    result: Array<GhPrListItemCore & { workspace: string; workspacePath: string }>;
+    args: {
+      filter: "reviewRequested" | "authored" | "all";
+      state?: "open" | "closed" | "merged" | "all";
+    };
+    result: Array<
+      GhPrListItemCore & {
+        workspace: string;
+        workspacePath: string;
+        repository: string;
+        pullRequestRepository: string;
+        isForkWorkspace: boolean;
+      }
+    >;
   };
   "pr.listAllEnrichment": {
-    args: { filter: "reviewRequested" | "authored" | "all" };
-    result: Array<GhPrEnrichment & { workspacePath: string }>;
+    args: {
+      filter: "reviewRequested" | "authored" | "all";
+      state?: "open" | "closed" | "merged" | "all";
+    };
+    result: Array<
+      GhPrEnrichment & {
+        workspacePath: string;
+        repository: string;
+        pullRequestRepository: string;
+        isForkWorkspace: boolean;
+      }
+    >;
   };
 
   // Metrics (3.2)
@@ -602,41 +652,57 @@ export interface IpcApi {
     args: void;
     result: AiResolvedConfig;
   };
+  "ai.providersStatus": {
+    args: void;
+    result: AiProviderStatus[];
+  };
   "ai.complete": {
     args: {
+      cwd?: string;
+      task?: AiTaskId;
+      slot?: AiModelSlot;
       provider?: AiProvider;
       model?: string;
-      apiKey?: string;
+      binaryPath?: string;
+      homePath?: string;
       baseUrl?: string;
       messages: Array<{ role: "system" | "user" | "assistant"; content: string }>;
       maxTokens?: number;
     };
     result: string;
   };
-
-  // ACP (Agent Client Protocol)
-  "acp.agents.discover": { args: void; result: AcpAgentInfo[] };
-  "acp.agents.list": { args: void; result: AcpAgentInfo[] };
-  "acp.agents.setDefault": { args: { agentId: string }; result: void };
-  "acp.session.create": {
-    args: { cwd: string; agentId?: string };
-    result: AcpSessionInfo;
+  "ai.test": {
+    args: {
+      cwd?: string;
+      provider: AiProvider;
+      model?: string;
+      binaryPath?: string;
+      homePath?: string;
+      baseUrl?: string;
+    };
+    result: string;
   };
-  "acp.session.prompt": {
-    args: { sessionId: string; text: string };
-    result: { stopReason: string };
+  "ai.reviewSummary.get": {
+    args: { cwd: string; prNumber: number };
+    result: AiReviewSummaryCacheEntry | null;
   };
-  "acp.session.cancel": { args: { sessionId: string }; result: void };
-  "acp.session.close": { args: { sessionId: string }; result: void };
-  "acp.session.list": { args: void; result: AcpSessionInfo[] };
-  "acp.permission.respond": {
-    args: { requestId: string; optionId: string };
-    result: void;
+  "ai.reviewSummary.set": {
+    args: {
+      cwd: string;
+      prNumber: number;
+      snapshotKey: string;
+      summary: string;
+      confidenceScore: number | null;
+    };
+    result: AiReviewSummaryCacheEntry;
   };
-  /** Simple text-in/text-out completion via ACP agent. Falls back to direct API. */
-  "acp.complete": {
-    args: { cwd: string; text: string; agentId?: string };
-    result: { text: string; source: "acp" | "direct-api" };
+  "ai.triage.get": {
+    args: { cwd: string; prNumber: number };
+    result: AiTriageCacheEntry | null;
+  };
+  "ai.triage.set": {
+    args: { cwd: string; prNumber: number; snapshotKey: string; payload: string };
+    result: AiTriageCacheEntry;
   };
 
   // Releases (3.4)

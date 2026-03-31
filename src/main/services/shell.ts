@@ -1,5 +1,5 @@
 import { execFile as execFileCb } from "node:child_process";
-import { accessSync, constants } from "node:fs";
+import { accessSync, constants, statSync } from "node:fs";
 import { join } from "node:path";
 import { promisify } from "node:util";
 
@@ -11,6 +11,17 @@ const MAX_BUFFER = 10 * 1024 * 1024;
 const EXECUTABLE_CACHE = new Map<string, string>();
 
 const EXECUTABLE_FALLBACKS: Partial<Record<string, string[]>> = {
+  claude: [
+    ...(process.env.HOME ? [join(process.env.HOME, ".local/bin/claude")] : []),
+    "/opt/homebrew/bin/claude",
+    "/usr/local/bin/claude",
+  ],
+  copilot: [
+    ...(process.env.HOME ? [join(process.env.HOME, ".local/bin/copilot")] : []),
+    "/opt/homebrew/bin/copilot",
+    "/usr/local/bin/copilot",
+  ],
+  codex: ["/opt/homebrew/bin/codex", "/usr/local/bin/codex"],
   gh: [
     "/opt/homebrew/bin/gh",
     "/usr/local/bin/gh",
@@ -34,6 +45,7 @@ const SHIM_PATH_MARKERS = [
 export const shellRuntime = {
   accessSync,
   execFile: execFileAsync,
+  statSync,
 };
 
 export interface ExecResult {
@@ -51,6 +63,10 @@ export async function execFile(
   args: string[],
   options: { cwd?: string; timeout?: number } = {},
 ): Promise<ExecResult> {
+  if (options.cwd && !isDirectory(options.cwd)) {
+    throw createMissingWorkingDirectoryError(options.cwd);
+  }
+
   const commandsToTry = getCommandsToTry(command);
 
   let lastError: unknown;
@@ -71,7 +87,7 @@ export async function execFile(
     } catch (error) {
       lastError = error;
 
-      if (!shouldRetryWithFallback(command, candidate, error)) {
+      if (!shouldRetryWithFallback(command, error)) {
         throw error;
       }
     }
@@ -164,7 +180,7 @@ function resolveFallbackExecutable(command: string): string | null {
   return null;
 }
 
-function shouldRetryWithFallback(command: string, candidate: string, error: unknown): boolean {
+function shouldRetryWithFallback(command: string, error: unknown): boolean {
   if (command.includes("/")) {
     return false;
   }
@@ -184,6 +200,20 @@ function isExecutable(path: string): boolean {
   } catch {
     return false;
   }
+}
+
+function isDirectory(path: string): boolean {
+  try {
+    return shellRuntime.statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function createMissingWorkingDirectoryError(cwd: string): Error {
+  const error = new Error(`Working directory does not exist: ${cwd}`) as NodeJS.ErrnoException;
+  error.code = "ENOENT";
+  return error;
 }
 
 function getPathEntryRank(entry: string): number {

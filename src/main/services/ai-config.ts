@@ -1,64 +1,138 @@
-import type { AiConfigSource, AiProvider, AiResolvedConfig } from "../../shared/ipc";
+import type {
+  AiConfigSource,
+  AiModelSlot,
+  AiProvider,
+  AiProviderResolvedConfig,
+  AiResolvedConfig,
+  AiSlotResolvedConfig,
+  AiTaskId,
+  AiTaskResolvedConfig,
+} from "../../shared/ipc";
 
+import {
+  AI_MODEL_SLOT_SCOPED_PREFERENCE_KEYS,
+  AI_TASK_SLOT_SCOPED_PREFERENCE_KEYS,
+  AI_PROVIDER_SCOPED_PREFERENCE_KEYS,
+  DEFAULT_AI_BASE_URL_BY_PROVIDER,
+  DEFAULT_AI_BINARY_PATH_BY_PROVIDER,
+  DEFAULT_AI_MODEL_BY_PROVIDER,
+  DEFAULT_AI_MODEL_BY_SLOT_AND_PROVIDER,
+  DEFAULT_AI_TASK_SLOT,
+  LEGACY_AI_PREFERENCE_KEYS,
+  getAiModelSlotPreferenceKey,
+  getAiProviderPreferenceValue,
+  getAiTaskSlotPreferenceKey,
+  normalizeAiTaskSlot,
+} from "../../shared/ai-provider-settings";
 import * as repo from "../db/repository";
 
-type AiPreferenceKey = "aiProvider" | "aiModel" | "aiApiKey" | "aiBaseUrl";
+const AI_PREFERENCE_KEYS = [
+  LEGACY_AI_PREFERENCE_KEYS.provider,
+  LEGACY_AI_PREFERENCE_KEYS.model,
+  LEGACY_AI_PREFERENCE_KEYS.binaryPath,
+  LEGACY_AI_PREFERENCE_KEYS.homePath,
+  LEGACY_AI_PREFERENCE_KEYS.baseUrl,
+  ...AI_PROVIDER_SCOPED_PREFERENCE_KEYS,
+  ...AI_MODEL_SLOT_SCOPED_PREFERENCE_KEYS,
+  ...AI_TASK_SLOT_SCOPED_PREFERENCE_KEYS,
+] as const;
+
+type AiPreferenceKey = (typeof AI_PREFERENCE_KEYS)[number];
 type AiPreferences = Record<AiPreferenceKey, string | null>;
 type AiResolutionSource = AiConfigSource | "argument";
 type EnvMap = Record<string, string | undefined>;
+interface ProviderEnvKeys {
+  model: readonly string[];
+  binaryPath: readonly string[];
+  homePath: readonly string[];
+  baseUrl: readonly string[];
+}
 
 interface EnvLookupResult {
   value: string | null;
   envVar: string | null;
 }
 
-interface ResolvedAiConfigInternal extends AiResolvedConfig {
-  apiKey: string;
+interface ResolvedProviderSelection {
+  provider: AiProvider | null;
+  source: AiResolutionSource;
+  envVar: string | null;
 }
 
-interface AiConfigOverrides {
-  provider?: AiProvider;
+interface ResolvedValue {
+  value: string | null;
+  source: AiResolutionSource;
+  envVar: string | null;
+}
+
+interface ResolveProviderValueOptions {
+  preferenceValue: string | null;
+  env: EnvMap;
+  overrideValue?: string;
+  envKeys: readonly string[];
+  genericEnvKeys: readonly string[];
+  defaultValue?: string;
+}
+
+interface AiDirectConfigOverrides {
   model?: string;
-  apiKey?: string;
+  binaryPath?: string;
+  homePath?: string;
   baseUrl?: string;
 }
 
-const AI_PREFERENCE_KEYS = ["aiProvider", "aiModel", "aiApiKey", "aiBaseUrl"] as const;
+interface ResolveProviderConfigOptions {
+  preferences: AiPreferences;
+  env: EnvMap;
+  provider: AiProvider;
+  activeProviderForLegacy: AiProvider | "none" | null;
+  overrides?: AiDirectConfigOverrides;
+  defaultModel?: string;
+}
 
-const DEFAULT_MODELS: Record<AiProvider, string> = {
-  openai: "gpt-4o",
-  anthropic: "claude-sonnet-4-20250514",
-  ollama: "llama3.1",
-};
+interface ResolveSlotConfigOptions {
+  preferences: AiPreferences;
+  slot: AiModelSlot;
+  providerSelection: ResolvedProviderSelection;
+  providerConfigs: Record<AiProvider, AiProviderResolvedConfig>;
+}
+
+interface AiProviderStatusConfig {
+  binaryPath: string | null;
+  baseUrl: string | null;
+}
 
 const GENERIC_ENV_KEYS = {
   provider: ["DISPATCH_AI_PROVIDER"],
   model: ["DISPATCH_AI_MODEL"],
-  apiKey: ["DISPATCH_AI_API_KEY"],
+  binaryPath: ["DISPATCH_AI_BINARY_PATH"],
+  homePath: ["DISPATCH_AI_HOME_PATH"],
   baseUrl: ["DISPATCH_AI_BASE_URL"],
 } as const;
 
-const PROVIDER_ENV_KEYS: Record<
-  AiProvider,
-  {
-    model: readonly string[];
-    apiKey: readonly string[];
-    baseUrl: readonly string[];
-  }
-> = {
-  openai: {
-    model: ["OPENAI_MODEL"],
-    apiKey: ["OPENAI_API_KEY"],
-    baseUrl: ["OPENAI_BASE_URL"],
+const PROVIDER_ENV_KEYS: Record<AiProvider, ProviderEnvKeys> = {
+  codex: {
+    model: ["CODEX_MODEL"],
+    binaryPath: ["CODEX_BINARY_PATH"],
+    homePath: ["CODEX_HOME"],
+    baseUrl: [],
   },
-  anthropic: {
-    model: ["ANTHROPIC_MODEL"],
-    apiKey: ["ANTHROPIC_API_KEY"],
-    baseUrl: ["ANTHROPIC_BASE_URL"],
+  claude: {
+    model: ["CLAUDE_MODEL"],
+    binaryPath: ["CLAUDE_BINARY_PATH"],
+    homePath: [],
+    baseUrl: [],
+  },
+  copilot: {
+    model: ["COPILOT_MODEL"],
+    binaryPath: ["COPILOT_BINARY_PATH"],
+    homePath: [],
+    baseUrl: [],
   },
   ollama: {
     model: ["OLLAMA_MODEL"],
-    apiKey: [],
+    binaryPath: [],
+    homePath: [],
     baseUrl: ["OLLAMA_BASE_URL", "OLLAMA_HOST"],
   },
 };
@@ -76,8 +150,9 @@ function normalizeProvider(value: string | null | undefined): AiProvider | "none
   const normalizedValue = normalizeValue(value);
 
   switch (normalizedValue) {
-    case "openai":
-    case "anthropic":
+    case "codex":
+    case "claude":
+    case "copilot":
     case "ollama":
     case "none": {
       return normalizedValue;
@@ -120,11 +195,14 @@ function inferProviderFromEnvironment(env: EnvMap): EnvLookupResult {
     };
   }
 
-  const candidates = (
-    Object.entries(PROVIDER_ENV_KEYS) as Array<[AiProvider, (typeof PROVIDER_ENV_KEYS)[AiProvider]]>
-  )
+  const candidates = (Object.entries(PROVIDER_ENV_KEYS) as Array<[AiProvider, ProviderEnvKeys]>)
     .map(([provider, keys]) => {
-      const lookup = pickEnvValue(env, [...keys.apiKey, ...keys.model, ...keys.baseUrl]);
+      const lookup = pickEnvValue(env, [
+        ...keys.model,
+        ...keys.binaryPath,
+        ...keys.homePath,
+        ...keys.baseUrl,
+      ]);
       if (!lookup.value) {
         return null;
       }
@@ -134,15 +212,13 @@ function inferProviderFromEnvironment(env: EnvMap): EnvLookupResult {
         envVar: lookup.envVar,
       };
     })
-    .filter((candidate): candidate is { provider: AiProvider; envVar: string | null } =>
-      Boolean(candidate),
-    );
+    .filter(Boolean) as Array<{ provider: AiProvider; envVar: string | null }>;
 
   if (candidates.length !== 1) {
     return { value: null, envVar: null };
   }
 
-  const candidate = candidates[0];
+  const [candidate] = candidates;
 
   return {
     value: candidate?.provider ?? null,
@@ -150,24 +226,10 @@ function inferProviderFromEnvironment(env: EnvMap): EnvLookupResult {
   };
 }
 
-function resolveProvider(
+function resolveLegacyProviderSelection(
   preferences: AiPreferences,
   env: EnvMap,
-  overrides: AiConfigOverrides,
-): {
-  provider: AiProvider | null;
-  source: AiResolutionSource;
-  envVar: string | null;
-} {
-  const overrideProvider = normalizeProvider(overrides.provider);
-  if (overrideProvider) {
-    return {
-      provider: overrideProvider === "none" ? null : overrideProvider,
-      source: "argument",
-      envVar: null,
-    };
-  }
-
+): ResolvedProviderSelection {
   const preferenceProvider = normalizeProvider(preferences.aiProvider);
   if (preferenceProvider) {
     return {
@@ -194,18 +256,14 @@ function resolveProvider(
   };
 }
 
-function resolveProviderValue(
-  preferenceValue: string | null,
-  env: EnvMap,
-  overrideValue: string | undefined,
-  envKeys: readonly string[],
-  genericEnvKeys: readonly string[],
-  defaultValue?: string,
-): {
-  value: string | null;
-  source: AiResolutionSource;
-  envVar: string | null;
-} {
+function resolveProviderValue({
+  preferenceValue,
+  env,
+  overrideValue,
+  envKeys,
+  genericEnvKeys,
+  defaultValue,
+}: ResolveProviderValueOptions): ResolvedValue {
   const normalizedOverride = normalizeValue(overrideValue);
   if (normalizedOverride) {
     return {
@@ -257,110 +315,354 @@ function resolveProviderValue(
   };
 }
 
-function toPublicConfig(config: ResolvedAiConfigInternal): AiResolvedConfig {
+function coercePublicSource(source: AiResolutionSource): AiConfigSource {
+  return source === "argument" ? "preference" : source;
+}
+
+function resolveProviderConfig({
+  preferences,
+  env,
+  provider,
+  activeProviderForLegacy,
+  overrides = {},
+  defaultModel = DEFAULT_AI_MODEL_BY_PROVIDER[provider],
+}: ResolveProviderConfigOptions): AiProviderResolvedConfig {
+  const providerEnvKeys = PROVIDER_ENV_KEYS[provider];
+  const modelResult = resolveProviderValue({
+    preferenceValue: getAiProviderPreferenceValue(preferences, provider, {
+      field: "model",
+      activeProvider: activeProviderForLegacy,
+    }),
+    env,
+    overrideValue: overrides.model,
+    envKeys: providerEnvKeys.model,
+    genericEnvKeys: GENERIC_ENV_KEYS.model,
+    defaultValue: defaultModel,
+  });
+
+  const binaryPathResult =
+    provider === "ollama"
+      ? { value: null, source: "none" as const satisfies AiResolutionSource, envVar: null }
+      : resolveProviderValue({
+          preferenceValue: getAiProviderPreferenceValue(preferences, provider, {
+            field: "binaryPath",
+            activeProvider: activeProviderForLegacy,
+          }),
+          env,
+          overrideValue: overrides.binaryPath,
+          envKeys: providerEnvKeys.binaryPath,
+          genericEnvKeys: GENERIC_ENV_KEYS.binaryPath,
+          defaultValue: DEFAULT_AI_BINARY_PATH_BY_PROVIDER[provider],
+        });
+
+  const homePathResult =
+    provider === "codex"
+      ? resolveProviderValue({
+          preferenceValue: getAiProviderPreferenceValue(preferences, provider, {
+            field: "homePath",
+            activeProvider: activeProviderForLegacy,
+          }),
+          env,
+          overrideValue: overrides.homePath,
+          envKeys: providerEnvKeys.homePath,
+          genericEnvKeys: GENERIC_ENV_KEYS.homePath,
+        })
+      : { value: null, source: "none" as const satisfies AiResolutionSource, envVar: null };
+
+  const baseUrlResult =
+    provider === "ollama"
+      ? resolveProviderValue({
+          preferenceValue: getAiProviderPreferenceValue(preferences, provider, {
+            field: "baseUrl",
+            activeProvider: activeProviderForLegacy,
+          }),
+          env,
+          overrideValue: overrides.baseUrl,
+          envKeys: providerEnvKeys.baseUrl,
+          genericEnvKeys: GENERIC_ENV_KEYS.baseUrl,
+          defaultValue: DEFAULT_AI_BASE_URL_BY_PROVIDER.ollama,
+        })
+      : { value: null, source: "none" as const satisfies AiResolutionSource, envVar: null };
+
+  const isConfigured =
+    modelResult.value !== null && (provider === "ollama" || binaryPathResult.value !== null);
+
   return {
-    provider: config.provider,
-    model: config.model,
-    baseUrl: config.baseUrl,
-    isConfigured: config.isConfigured,
-    hasApiKey: config.hasApiKey,
-    providerSource: config.providerSource,
-    modelSource: config.modelSource,
-    apiKeySource: config.apiKeySource,
-    baseUrlSource: config.baseUrlSource,
-    providerEnvVar: config.providerEnvVar,
-    modelEnvVar: config.modelEnvVar,
-    apiKeyEnvVar: config.apiKeyEnvVar,
-    baseUrlEnvVar: config.baseUrlEnvVar,
+    provider,
+    model: modelResult.value,
+    binaryPath: binaryPathResult.value,
+    homePath: homePathResult.value,
+    baseUrl: baseUrlResult.value,
+    isConfigured,
+    modelSource: coercePublicSource(modelResult.source),
+    binaryPathSource: coercePublicSource(binaryPathResult.source),
+    homePathSource: coercePublicSource(homePathResult.source),
+    baseUrlSource: coercePublicSource(baseUrlResult.source),
+    modelEnvVar: modelResult.envVar,
+    binaryPathEnvVar: binaryPathResult.envVar,
+    homePathEnvVar: homePathResult.envVar,
+    baseUrlEnvVar: baseUrlResult.envVar,
   };
 }
 
-function coercePublicSource(source: AiResolutionSource): AiConfigSource {
-  return source === "argument" ? "preference" : source;
+function createEmptySlotConfig(
+  slot: AiModelSlot,
+  providerSource: AiConfigSource,
+): AiSlotResolvedConfig {
+  return {
+    slot,
+    provider: null,
+    model: null,
+    binaryPath: null,
+    homePath: null,
+    baseUrl: null,
+    isConfigured: false,
+    providerSource,
+    modelSource: "none",
+    binaryPathSource: "none",
+    homePathSource: "none",
+    baseUrlSource: "none",
+    providerEnvVar: null,
+    modelEnvVar: null,
+    binaryPathEnvVar: null,
+    homePathEnvVar: null,
+    baseUrlEnvVar: null,
+  };
+}
+
+function resolveSlotProviderSelection(
+  preferences: AiPreferences,
+  slot: AiModelSlot,
+  fallback: ResolvedProviderSelection,
+): ResolvedProviderSelection {
+  const explicitProvider = normalizeProvider(
+    preferences[getAiModelSlotPreferenceKey(slot, "provider") as AiPreferenceKey],
+  );
+
+  if (explicitProvider) {
+    return {
+      provider: explicitProvider === "none" ? null : explicitProvider,
+      source: "preference",
+      envVar: null,
+    };
+  }
+
+  return fallback;
+}
+
+function resolveSlotConfig({
+  preferences,
+  slot,
+  providerSelection,
+  providerConfigs,
+}: ResolveSlotConfigOptions): AiSlotResolvedConfig {
+  if (!providerSelection.provider) {
+    return createEmptySlotConfig(slot, coercePublicSource(providerSelection.source));
+  }
+
+  const providerConfig = providerConfigs[providerSelection.provider];
+  const explicitModel = normalizeValue(
+    preferences[getAiModelSlotPreferenceKey(slot, "model") as AiPreferenceKey],
+  );
+  const inheritedProviderModel =
+    providerConfig.modelSource === "default" ? null : providerConfig.model;
+  const model =
+    explicitModel ??
+    inheritedProviderModel ??
+    DEFAULT_AI_MODEL_BY_SLOT_AND_PROVIDER[slot][providerSelection.provider];
+  const modelSource: AiConfigSource = explicitModel
+    ? "preference"
+    : inheritedProviderModel
+      ? providerConfig.modelSource
+      : "default";
+  const modelEnvVar = explicitModel
+    ? null
+    : inheritedProviderModel
+      ? providerConfig.modelEnvVar
+      : null;
+
+  return {
+    slot,
+    provider: providerSelection.provider,
+    model,
+    binaryPath: providerConfig.binaryPath,
+    homePath: providerConfig.homePath,
+    baseUrl: providerConfig.baseUrl,
+    isConfigured:
+      model !== null &&
+      (providerSelection.provider === "ollama" || providerConfig.binaryPath !== null),
+    providerSource: coercePublicSource(providerSelection.source),
+    modelSource,
+    binaryPathSource: providerConfig.binaryPathSource,
+    homePathSource: providerConfig.homePathSource,
+    baseUrlSource: providerConfig.baseUrlSource,
+    providerEnvVar: providerSelection.envVar,
+    modelEnvVar,
+    binaryPathEnvVar: providerConfig.binaryPathEnvVar,
+    homePathEnvVar: providerConfig.homePathEnvVar,
+    baseUrlEnvVar: providerConfig.baseUrlEnvVar,
+  };
+}
+
+function resolveTaskConfig(
+  preferences: AiPreferences,
+  task: AiTaskId,
+  slots: Record<AiModelSlot, AiSlotResolvedConfig>,
+): AiTaskResolvedConfig {
+  const explicitSlot = normalizeAiTaskSlot(
+    preferences[getAiTaskSlotPreferenceKey(task) as AiPreferenceKey],
+  );
+  const selectedSlot = explicitSlot ?? DEFAULT_AI_TASK_SLOT[task];
+  const slotConfig = slots[selectedSlot];
+
+  return {
+    ...slotConfig,
+    task,
+    selectedSlot,
+    selectedSlotSource: explicitSlot ? "preference" : "default",
+  };
 }
 
 export function resolveAiConfigFromSources(
   preferences: AiPreferences,
   env: EnvMap,
-  overrides: AiConfigOverrides = {},
-): ResolvedAiConfigInternal {
-  const providerResult = resolveProvider(preferences, env, overrides);
+): AiResolvedConfig {
+  const legacyProviderSelection = resolveLegacyProviderSelection(preferences, env);
+  const activeProviderForLegacy = legacyProviderSelection.provider;
+  const providers = {
+    codex: resolveProviderConfig({
+      preferences,
+      env,
+      provider: "codex",
+      activeProviderForLegacy,
+    }),
+    claude: resolveProviderConfig({
+      preferences,
+      env,
+      provider: "claude",
+      activeProviderForLegacy,
+    }),
+    copilot: resolveProviderConfig({
+      preferences,
+      env,
+      provider: "copilot",
+      activeProviderForLegacy,
+    }),
+    ollama: resolveProviderConfig({
+      preferences,
+      env,
+      provider: "ollama",
+      activeProviderForLegacy,
+    }),
+  } as const satisfies Record<AiProvider, AiProviderResolvedConfig>;
 
-  if (!providerResult.provider) {
-    return {
-      provider: null,
-      model: null,
-      apiKey: "",
-      baseUrl: null,
-      isConfigured: false,
-      hasApiKey: false,
-      providerSource: coercePublicSource(providerResult.source),
-      modelSource: "none",
-      apiKeySource: "none",
-      baseUrlSource: "none",
-      providerEnvVar: providerResult.envVar,
-      modelEnvVar: null,
-      apiKeyEnvVar: null,
-      baseUrlEnvVar: null,
-    };
-  }
-
-  const { provider } = providerResult;
-  const providerEnvKeys = PROVIDER_ENV_KEYS[provider];
-
-  const modelResult = resolveProviderValue(
-    preferences.aiModel,
-    env,
-    overrides.model,
-    providerEnvKeys.model,
-    GENERIC_ENV_KEYS.model,
-    DEFAULT_MODELS[provider],
+  const bigProviderSelection = resolveSlotProviderSelection(
+    preferences,
+    "big",
+    legacyProviderSelection,
+  );
+  const smallProviderFallback =
+    bigProviderSelection.provider === null ? legacyProviderSelection : bigProviderSelection;
+  const smallProviderSelection = resolveSlotProviderSelection(
+    preferences,
+    "small",
+    smallProviderFallback,
   );
 
-  const apiKeyResult = resolveProviderValue(
-    preferences.aiApiKey,
-    env,
-    overrides.apiKey,
-    providerEnvKeys.apiKey,
-    GENERIC_ENV_KEYS.apiKey,
-    provider === "ollama" ? "" : undefined,
-  );
+  const slots = {
+    big: resolveSlotConfig({
+      preferences,
+      slot: "big",
+      providerSelection: bigProviderSelection,
+      providerConfigs: providers,
+    }),
+    small: resolveSlotConfig({
+      preferences,
+      slot: "small",
+      providerSelection: smallProviderSelection,
+      providerConfigs: providers,
+    }),
+  } as const satisfies Record<AiModelSlot, AiSlotResolvedConfig>;
 
-  const baseUrlResult = resolveProviderValue(
-    preferences.aiBaseUrl,
-    env,
-    overrides.baseUrl,
-    providerEnvKeys.baseUrl,
-    GENERIC_ENV_KEYS.baseUrl,
-  );
-
-  const hasApiKey = apiKeyResult.value !== null && apiKeyResult.value.length > 0;
-  const isConfigured = modelResult.value !== null && (provider === "ollama" || hasApiKey);
+  const tasks = {
+    codeExplanation: resolveTaskConfig(preferences, "codeExplanation", slots),
+    failureExplanation: resolveTaskConfig(preferences, "failureExplanation", slots),
+    reviewSummary: resolveTaskConfig(preferences, "reviewSummary", slots),
+    reviewConfidence: resolveTaskConfig(preferences, "reviewConfidence", slots),
+    triage: resolveTaskConfig(preferences, "triage", slots),
+    commentSuggestions: resolveTaskConfig(preferences, "commentSuggestions", slots),
+  } as const satisfies Record<AiTaskId, AiTaskResolvedConfig>;
 
   return {
-    provider,
-    model: modelResult.value,
-    apiKey: apiKeyResult.value ?? "",
-    baseUrl: baseUrlResult.value,
-    isConfigured,
-    hasApiKey,
-    providerSource: coercePublicSource(providerResult.source),
-    modelSource: coercePublicSource(modelResult.source),
-    apiKeySource: coercePublicSource(apiKeyResult.source),
-    baseUrlSource: coercePublicSource(baseUrlResult.source),
-    providerEnvVar: providerResult.envVar,
-    modelEnvVar: modelResult.envVar,
-    apiKeyEnvVar: apiKeyResult.envVar,
-    baseUrlEnvVar: baseUrlResult.envVar,
+    isConfigured: Object.values(slots).some((slot) => slot.isConfigured),
+    providers,
+    slots,
+    tasks,
   };
 }
 
 export function getAiConfig(): AiResolvedConfig {
-  return toPublicConfig(resolveAiConfigFromSources(readAiPreferences(), process.env));
+  return resolveAiConfigFromSources(readAiPreferences(), process.env);
 }
 
-export function getAiConfigWithSecrets(
-  overrides: AiConfigOverrides = {},
-): ResolvedAiConfigInternal {
-  return resolveAiConfigFromSources(readAiPreferences(), process.env, overrides);
+export function getAiTaskConfigWithSecrets(task: AiTaskId): AiTaskResolvedConfig {
+  return getAiConfig().tasks[task];
+}
+
+export function getAiSlotConfigWithSecrets(slot: AiModelSlot): AiSlotResolvedConfig {
+  return getAiConfig().slots[slot];
+}
+
+export function getAiProviderConfigWithSecrets(
+  provider: AiProvider,
+  overrides: AiDirectConfigOverrides = {},
+): AiSlotResolvedConfig {
+  const preferences = readAiPreferences();
+  const legacyProviderSelection = resolveLegacyProviderSelection(preferences, process.env);
+  const providerConfig = resolveProviderConfig({
+    preferences,
+    env: process.env,
+    provider,
+    activeProviderForLegacy: legacyProviderSelection.provider,
+    overrides,
+  });
+
+  return {
+    slot: "big",
+    provider,
+    model: providerConfig.model,
+    binaryPath: providerConfig.binaryPath,
+    homePath: providerConfig.homePath,
+    baseUrl: providerConfig.baseUrl,
+    isConfigured: providerConfig.isConfigured,
+    providerSource: "preference",
+    modelSource: providerConfig.modelSource,
+    binaryPathSource: providerConfig.binaryPathSource,
+    homePathSource: providerConfig.homePathSource,
+    baseUrlSource: providerConfig.baseUrlSource,
+    providerEnvVar: null,
+    modelEnvVar: providerConfig.modelEnvVar,
+    binaryPathEnvVar: providerConfig.binaryPathEnvVar,
+    homePathEnvVar: providerConfig.homePathEnvVar,
+    baseUrlEnvVar: providerConfig.baseUrlEnvVar,
+  };
+}
+
+export function getAiProviderStatusConfig(
+  provider: AiProvider,
+  env: EnvMap = process.env,
+): AiProviderStatusConfig {
+  const preferences = readAiPreferences();
+  const legacyProviderSelection = resolveLegacyProviderSelection(preferences, env);
+  const providerConfig = resolveProviderConfig({
+    preferences,
+    env,
+    provider,
+    activeProviderForLegacy: legacyProviderSelection.provider,
+  });
+
+  return {
+    binaryPath: providerConfig.binaryPath,
+    baseUrl: providerConfig.baseUrl,
+  };
 }

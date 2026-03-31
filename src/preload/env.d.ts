@@ -16,21 +16,6 @@ declare global {
         properties?: Record<string, string | number | boolean>;
       }) => void,
     ): () => void;
-    onAcpUpdate(
-      callback: (event: {
-        sessionId: string;
-        update: { sessionUpdate: string; [key: string]: unknown };
-      }) => void,
-    ): () => void;
-    onAcpPermission(
-      callback: (event: {
-        requestId: string;
-        sessionId: string;
-        toolCallId: string;
-        toolName: string;
-        options: Array<{ optionId: string; name: string; kind: string }>;
-      }) => void,
-    ): () => void;
   }
 
   var api: ElectronApi;

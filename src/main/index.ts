@@ -16,7 +16,6 @@ import {
 import { BADGE_COUNT_CHANNEL } from "../shared/ipc";
 import { closeDatabase, initDatabase } from "./db/database";
 import { registerIpcHandler } from "./ipc-handler";
-import { initAcp, shutdownAcp } from "./services/acp";
 import { trackFromMain } from "./services/analytics";
 import { getExternalUrl, openExternalUrl } from "./services/external-links";
 import { fixPath } from "./services/fix-path";
@@ -443,9 +442,6 @@ app.whenReady().then(() => {
   // Create main window
   const win = createWindow();
 
-  // Initialize ACP (Agent Client Protocol) subsystem
-  initAcp(win);
-
   // System tray with live PR data
   setupTray(win);
 
@@ -487,7 +483,6 @@ app.on("before-quit", () => {
   isQuitting = true;
   stopPolling();
   globalShortcut.unregisterAll();
-  void shutdownAcp();
   closeDatabase();
 });
 

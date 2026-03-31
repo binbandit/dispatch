@@ -79,6 +79,27 @@ export function initDatabase(): Database.Database {
       UNIQUE(repo, pr_number)
     );
 
+    CREATE TABLE IF NOT EXISTS ai_review_summaries (
+      id            INTEGER PRIMARY KEY,
+      workspace     TEXT    NOT NULL,
+      pr_number     INTEGER NOT NULL,
+      snapshot_key  TEXT    NOT NULL,
+      summary       TEXT    NOT NULL,
+      confidence_score INTEGER,
+      generated_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(workspace, pr_number)
+    );
+
+    CREATE TABLE IF NOT EXISTS ai_triage_groups (
+      id            INTEGER PRIMARY KEY,
+      workspace     TEXT    NOT NULL,
+      pr_number     INTEGER NOT NULL,
+      snapshot_key  TEXT    NOT NULL,
+      payload       TEXT    NOT NULL,
+      generated_at  TEXT    NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(workspace, pr_number)
+    );
+
     CREATE TABLE IF NOT EXISTS workspaces (
       id            INTEGER PRIMARY KEY,
       path          TEXT    NOT NULL UNIQUE,
@@ -112,6 +133,15 @@ export function initDatabase(): Database.Database {
   const cols = db.prepare("PRAGMA table_info(notifications)").all() as Array<{ name: string }>;
   if (!cols.some((c) => c.name === "author_login")) {
     db.exec("ALTER TABLE notifications ADD COLUMN author_login TEXT");
+  }
+
+  const aiReviewSummaryColumns = db
+    .prepare("PRAGMA table_info(ai_review_summaries)")
+    .all() as Array<{
+    name: string;
+  }>;
+  if (!aiReviewSummaryColumns.some((column) => column.name === "confidence_score")) {
+    db.exec("ALTER TABLE ai_review_summaries ADD COLUMN confidence_score INTEGER");
   }
 
   return db;

@@ -161,6 +161,28 @@ async function getOwnerRepo(cwd: string): Promise<{ owner: string; repo: string 
   return { owner: match[1]!, repo: match[2]! };
 }
 
+function parseRepoFullName(repoFullName: string): { owner: string; repo: string } {
+  const [owner, repo] = repoFullName.split("/");
+  if (!owner || !repo) {
+    throw new Error(`Could not parse owner/repo from repo name: ${repoFullName}`);
+  }
+  return { owner, repo };
+}
+
+async function getPullRequestRepoFullName(cwd: string): Promise<string> {
+  try {
+    const info = await getRepoInfo(cwd);
+    return info.isFork && info.parent ? info.parent : info.nameWithOwner;
+  } catch {
+    const { owner, repo } = await getOwnerRepo(cwd);
+    return `${owner}/${repo}`;
+  }
+}
+
+async function getPullRequestRepo(cwd: string): Promise<{ owner: string; repo: string }> {
+  return parseRepoFullName(await getPullRequestRepoFullName(cwd));
+}
+
 /**
  * Determine the GitHub host for a repository by parsing its git remote URL.
  * Returns a hostname like "github.com" or "ghes.company.com", or null on failure.
@@ -206,7 +228,11 @@ export async function getRepoInfo(cwd: string): Promise<RepoInfo> {
   // Check if the default branch has a merge queue enabled
   let hasMergeQueue = false;
   try {
-    const { owner, repo } = await getOwnerRepo(cwd);
+    const mergeQueueRepo =
+      data.isFork && data.parent
+        ? { owner: data.parent.owner.login, repo: data.parent.name }
+        : parseRepoFullName(data.nameWithOwner);
+    const { owner, repo } = mergeQueueRepo;
     const defaultBranch = data.defaultBranchRef?.name ?? "main";
     const { stdout: gqlOut } = await ghExec(
       [
@@ -226,7 +252,8 @@ export async function getRepoInfo(cwd: string): Promise<RepoInfo> {
     const gql = JSON.parse(gqlOut) as {
       data?: { repository?: { mergeQueue?: { id: string } | null } };
     };
-    hasMergeQueue = gql.data?.repository?.mergeQueue != null;
+    const mergeQueue = gql.data?.repository?.mergeQueue;
+    hasMergeQueue = mergeQueue !== null && mergeQueue !== undefined;
   } catch {
     // Merge queue query failed (e.g. GHES without merge queue support) — assume no queue
   }
@@ -324,7 +351,9 @@ const PR_LIST_ALL_FIELDS = [
   "autoMergeRequest",
 ].join(",");
 
-const PR_LIST_LIMIT = "50";
+// The home dashboard needs enough history to show full repo counts, including
+// Closed and merged PRs, for larger repositories.
+const PR_LIST_LIMIT = "200";
 
 // ---------------------------------------------------------------------------
 // TTL cache — deduplicates calls across tray poller, notification poller,
@@ -363,8 +392,8 @@ const CACHE_TTL_MS = 15_000;
 /** Longer TTL for data that changes infrequently (metrics, releases). */
 const CACHE_TTL_LONG_MS = 60_000;
 
-function cacheKey(cwd: string, filter: string): string {
-  return `${cwd}::${filter}`;
+function cacheKey(cwd: string, filter: string, state = "open"): string {
+  return `${cwd}::${filter}::${state}`;
 }
 
 function getCached<T>(cache: CacheStore<T>, key: string): T | null {
@@ -456,10 +485,12 @@ function getOrLoadCached<T>({
 
 function invalidatePrListCaches(cwd: string): void {
   for (const filter of ["reviewRequested", "authored", "all"] as const) {
-    const key = cacheKey(cwd, filter);
-    invalidateCacheKey(prListCache, key);
-    invalidateCacheKey(prEnrichmentCache, key);
-    invalidateCacheKey(prFullCache, key);
+    for (const state of ["open", "closed", "merged", "all"] as const) {
+      const key = cacheKey(cwd, filter, state);
+      invalidateCacheKey(prListCache, key);
+      invalidateCacheKey(prEnrichmentCache, key);
+      invalidateCacheKey(prFullCache, key);
+    }
   }
 }
 
@@ -488,12 +519,17 @@ export function invalidateAllCaches(): void {
 function buildFilterArgs(
   filter: "reviewRequested" | "authored" | "all",
   jsonFields: string,
+  repoArgs: string[] = [],
+  state: "open" | "closed" | "merged" | "all" = "open",
 ): string[] {
   switch (filter) {
     case "reviewRequested": {
       return [
         "pr",
         "list",
+        ...repoArgs,
+        "--state",
+        state,
         "--search",
         "review-requested:@me",
         "--json",
@@ -503,10 +539,32 @@ function buildFilterArgs(
       ];
     }
     case "authored": {
-      return ["pr", "list", "--author", "@me", "--json", jsonFields, "--limit", PR_LIST_LIMIT];
+      return [
+        "pr",
+        "list",
+        ...repoArgs,
+        "--state",
+        state,
+        "--author",
+        "@me",
+        "--json",
+        jsonFields,
+        "--limit",
+        PR_LIST_LIMIT,
+      ];
     }
     case "all": {
-      return ["pr", "list", "--json", jsonFields, "--limit", PR_LIST_LIMIT];
+      return [
+        "pr",
+        "list",
+        ...repoArgs,
+        "--state",
+        state,
+        "--json",
+        jsonFields,
+        "--limit",
+        PR_LIST_LIMIT,
+      ];
     }
   }
 }
@@ -518,13 +576,15 @@ function buildFilterArgs(
 export function listPrsCore(
   cwd: string,
   filter: "reviewRequested" | "authored" | "all" = "reviewRequested",
+  state: "open" | "closed" | "merged" | "all" = "open",
 ): Promise<GhPrListItemCore[]> {
-  const key = cacheKey(cwd, filter);
+  const key = cacheKey(cwd, filter, state);
   return getOrLoadCached({
     cache: prListCache,
     key,
     loader: async () => {
-      const args = buildFilterArgs(filter, PR_LIST_CORE_FIELDS);
+      const repoArgs = await getUpstreamArgs(cwd);
+      const args = buildFilterArgs(filter, PR_LIST_CORE_FIELDS, repoArgs, state);
       const { stdout } = await ghExec(args, { cwd, timeout: 30_000 });
       const data = parseJsonOutput<GhPrListItemCore[]>(stdout);
       // Persist author display names to the 1-week DB cache
@@ -543,13 +603,15 @@ export function listPrsCore(
 export function listPrsEnrichment(
   cwd: string,
   filter: "reviewRequested" | "authored" | "all" = "reviewRequested",
+  state: "open" | "closed" | "merged" | "all" = "open",
 ): Promise<GhPrEnrichment[]> {
-  const key = cacheKey(cwd, filter);
+  const key = cacheKey(cwd, filter, state);
   return getOrLoadCached({
     cache: prEnrichmentCache,
     key,
     loader: async () => {
-      const args = buildFilterArgs(filter, PR_LIST_ENRICHMENT_FIELDS);
+      const repoArgs = await getUpstreamArgs(cwd);
+      const args = buildFilterArgs(filter, PR_LIST_ENRICHMENT_FIELDS, repoArgs, state);
       const { stdout } = await ghExec(args, { cwd, timeout: 60_000 });
       return parseJsonOutput<GhPrEnrichment[]>(stdout);
     },
@@ -563,13 +625,15 @@ export function listPrsEnrichment(
 export function listPrs(
   cwd: string,
   filter: "reviewRequested" | "authored" | "all" = "reviewRequested",
+  state: "open" | "closed" | "merged" | "all" = "open",
 ): Promise<GhPrListItem[]> {
-  const key = cacheKey(cwd, filter);
+  const key = cacheKey(cwd, filter, state);
   return getOrLoadCached({
     cache: prFullCache,
     key,
     loader: async () => {
-      const args = buildFilterArgs(filter, PR_LIST_ALL_FIELDS);
+      const repoArgs = await getUpstreamArgs(cwd);
+      const args = buildFilterArgs(filter, PR_LIST_ALL_FIELDS, repoArgs, state);
       const { stdout } = await ghExec(args, { cwd, timeout: 60_000 });
       const data = parseJsonOutput<GhPrListItem[]>(stdout);
 
@@ -852,7 +916,8 @@ export async function mergePr(
 }
 
 export async function updatePrBranch(cwd: string, prNumber: number): Promise<void> {
-  await ghExec(["api", `repos/{owner}/{repo}/pulls/${prNumber}/update-branch`, "-X", "PUT"], {
+  const repoFullName = await getPullRequestRepoFullName(cwd);
+  await ghExec(["api", `repos/${repoFullName}/pulls/${prNumber}/update-branch`, "-X", "PUT"], {
     cwd,
     timeout: 30_000,
   });
@@ -874,7 +939,7 @@ export async function getMergeQueueStatus(
   estimatedTimeToMerge: number | null;
 } | null> {
   try {
-    const { owner, repo } = await getOwnerRepo(cwd);
+    const { owner, repo } = await getPullRequestRepo(cwd);
     const { stdout } = await ghExec(
       [
         "api",
@@ -1153,7 +1218,7 @@ export async function getPrReviewRequests(
     asCodeOwner: boolean;
   }>
 > {
-  const { owner, repo } = await getOwnerRepo(cwd);
+  const { owner, repo } = await getPullRequestRepo(cwd);
   const query = `query($owner: String!, $repo: String!) {
     repository(owner: $owner, name: $repo) {
       pullRequest(number: ${prNumber}) {
@@ -1196,9 +1261,12 @@ export async function getPrReviewRequests(
   };
   const nodes = data.data?.repository?.pullRequest?.reviewRequests?.nodes ?? [];
   return nodes
-    .filter((n) => n.requestedReviewer != null)
+    .filter(
+      (n): n is RawNode & { requestedReviewer: NonNullable<RawNode["requestedReviewer"]> } =>
+        n.requestedReviewer !== null && n.requestedReviewer !== undefined,
+    )
     .map((n) => {
-      const r = n.requestedReviewer!;
+      const r = n.requestedReviewer;
       return {
         login: r.login ?? null,
         name: r.name ?? r.slug ?? r.login ?? "Unknown",
@@ -1220,7 +1288,7 @@ export async function getPrReviewThreads(
     comments: Array<{ author: { login: string }; body: string }>;
   }>
 > {
-  const { owner, repo } = await getOwnerRepo(cwd);
+  const { owner, repo } = await getPullRequestRepo(cwd);
   const query = `query($owner: String!, $repo: String!) {
     repository(owner: $owner, name: $repo) {
       pullRequest(number: ${prNumber}) {
@@ -1534,10 +1602,43 @@ async function mapWithConcurrency<T, R>(
 export async function listAllPrs(
   workspaces: Array<{ path: string; name: string }>,
   filter: "reviewRequested" | "authored" | "all",
-): Promise<Array<GhPrListItemCore & { workspace: string; workspacePath: string }>> {
+  state: "open" | "closed" | "merged" | "all" = "open",
+): Promise<
+  Array<
+    GhPrListItemCore & {
+      workspace: string;
+      workspacePath: string;
+      repository: string;
+      pullRequestRepository: string;
+      isForkWorkspace: boolean;
+    }
+  >
+> {
   const results = await mapWithConcurrency(workspaces, MAX_CONCURRENT_GH_CALLS, async (ws) => {
-    const prs = await listPrsCore(ws.path, filter);
-    return prs.map((pr) => ({ ...pr, workspace: ws.name, workspacePath: ws.path }));
+    const workspaceRepo = await getRepoInfo(ws.path).catch(async () => {
+      const { owner, repo } = await getOwnerRepo(ws.path);
+      const nameWithOwner = `${owner}/${repo}`;
+      return {
+        nameWithOwner,
+        isFork: false,
+        parent: null,
+        canPush: true,
+        hasMergeQueue: false,
+      };
+    });
+    const pullRequestRepository =
+      workspaceRepo.isFork && workspaceRepo.parent
+        ? workspaceRepo.parent
+        : workspaceRepo.nameWithOwner;
+    const prs = await listPrsCore(ws.path, filter, state);
+    return prs.map((pr) => ({
+      ...pr,
+      workspace: ws.name,
+      workspacePath: ws.path,
+      repository: workspaceRepo.nameWithOwner,
+      pullRequestRepository,
+      isForkWorkspace: workspaceRepo.isFork,
+    }));
   });
 
   return results
@@ -1545,7 +1646,15 @@ export async function listAllPrs(
       (
         r,
       ): r is PromiseFulfilledResult<
-        Array<GhPrListItemCore & { workspace: string; workspacePath: string }>
+        Array<
+          GhPrListItemCore & {
+            workspace: string;
+            workspacePath: string;
+            repository: string;
+            pullRequestRepository: string;
+            isForkWorkspace: boolean;
+          }
+        >
       > => r.status === "fulfilled",
     )
     .flatMap((r) => r.value);
@@ -1554,16 +1663,57 @@ export async function listAllPrs(
 export async function listAllPrsEnrichment(
   workspaces: Array<{ path: string; name: string }>,
   filter: "reviewRequested" | "authored" | "all",
-): Promise<Array<GhPrEnrichment & { workspacePath: string }>> {
+  state: "open" | "closed" | "merged" | "all" = "open",
+): Promise<
+  Array<
+    GhPrEnrichment & {
+      workspacePath: string;
+      repository: string;
+      pullRequestRepository: string;
+      isForkWorkspace: boolean;
+    }
+  >
+> {
   const results = await mapWithConcurrency(workspaces, MAX_CONCURRENT_GH_CALLS, async (ws) => {
-    const enrichments = await listPrsEnrichment(ws.path, filter);
-    return enrichments.map((e) => ({ ...e, workspacePath: ws.path }));
+    const workspaceRepo = await getRepoInfo(ws.path).catch(async () => {
+      const { owner, repo } = await getOwnerRepo(ws.path);
+      const nameWithOwner = `${owner}/${repo}`;
+      return {
+        nameWithOwner,
+        isFork: false,
+        parent: null,
+        canPush: true,
+        hasMergeQueue: false,
+      };
+    });
+    const pullRequestRepository =
+      workspaceRepo.isFork && workspaceRepo.parent
+        ? workspaceRepo.parent
+        : workspaceRepo.nameWithOwner;
+    const enrichments = await listPrsEnrichment(ws.path, filter, state);
+    return enrichments.map((e) => ({
+      ...e,
+      workspacePath: ws.path,
+      repository: workspaceRepo.nameWithOwner,
+      pullRequestRepository,
+      isForkWorkspace: workspaceRepo.isFork,
+    }));
   });
 
   return results
     .filter(
-      (r): r is PromiseFulfilledResult<Array<GhPrEnrichment & { workspacePath: string }>> =>
-        r.status === "fulfilled",
+      (
+        r,
+      ): r is PromiseFulfilledResult<
+        Array<
+          GhPrEnrichment & {
+            workspacePath: string;
+            repository: string;
+            pullRequestRepository: string;
+            isForkWorkspace: boolean;
+          }
+        >
+      > => r.status === "fulfilled",
     )
     .flatMap((r) => r.value);
 }
@@ -1891,7 +2041,7 @@ const REACTION_GROUPS_FRAGMENT = `
  * - Review comment reactions (via reviewThreads)
  */
 export async function getPrReactions(cwd: string, prNumber: number): Promise<GhPrReactions> {
-  const { owner, repo } = await getOwnerRepo(cwd);
+  const { owner, repo } = await getPullRequestRepo(cwd);
   const query = `query($owner: String!, $repo: String!) {
     repository(owner: $owner, name: $repo) {
       pullRequest(number: ${prNumber}) {

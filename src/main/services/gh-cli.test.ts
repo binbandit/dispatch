@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  getPrReactions,
   invalidateAllCaches,
   listPrsCore,
   listWorkflowRuns,
@@ -47,6 +48,26 @@ function createPrListStdout(title: string): string {
   ]);
 }
 
+function createRepoInfoStdout({
+  nameWithOwner = "octo/dispatch",
+  isFork = false,
+  parent = null,
+}: {
+  nameWithOwner?: string;
+  isFork?: boolean;
+  parent?: string | null;
+} = {}): string {
+  const [parentOwner, parentRepo] = parent?.split("/") ?? [];
+
+  return JSON.stringify({
+    defaultBranchRef: { name: "main" },
+    isFork,
+    nameWithOwner,
+    parent: parentOwner && parentRepo ? { name: parentRepo, owner: { login: parentOwner } } : null,
+    viewerPermission: "WRITE",
+  });
+}
+
 function createWorkflowRunsStdout(attempt: number): string {
   return JSON.stringify([
     {
@@ -77,24 +98,37 @@ describe("gh-cli caching", () => {
       resolveRequest = resolve;
     });
 
-    execFileMock.mockImplementationOnce(() => pendingRequest);
+    execFileMock
+      .mockImplementationOnce(() => pendingRequest)
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
+      .mockResolvedValueOnce({ stdout: createPrListStdout("Deduped"), stderr: "" });
 
     const firstRequest = listPrsCore("/repo-dedupe", "all");
     const secondRequest = listPrsCore("/repo-dedupe", "all");
 
     expect(execFileMock.mock.calls).toHaveLength(1);
 
-    resolveRequest({ stdout: createPrListStdout("Deduped"), stderr: "" });
+    resolveRequest({ stdout: createRepoInfoStdout(), stderr: "" });
 
     await expect(firstRequest).resolves.toMatchObject([{ title: "Deduped" }]);
     await expect(secondRequest).resolves.toMatchObject([{ title: "Deduped" }]);
-    expect(execFileMock.mock.calls).toHaveLength(1);
+    expect(execFileMock.mock.calls).toHaveLength(3);
+    expect(execFileMock).toHaveBeenNthCalledWith(
+      3,
+      "gh",
+      expect.arrayContaining(["pr", "list", "--limit", "200"]),
+      expect.anything(),
+    );
   });
 
   it("invalidates cached PR lists after a title edit", async () => {
     execFileMock
+      .mockResolvedValueOnce({ stdout: createRepoInfoStdout(), stderr: "" })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
       .mockResolvedValueOnce({ stdout: createPrListStdout("Before edit"), stderr: "" })
       .mockResolvedValueOnce({ stdout: "", stderr: "" })
+      .mockResolvedValueOnce({ stdout: createRepoInfoStdout(), stderr: "" })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
       .mockResolvedValueOnce({ stdout: createPrListStdout("After edit"), stderr: "" });
 
     await expect(listPrsCore("/repo-title", "all")).resolves.toMatchObject([
@@ -106,7 +140,7 @@ describe("gh-cli caching", () => {
     await expect(listPrsCore("/repo-title", "all")).resolves.toMatchObject([
       { title: "After edit" },
     ]);
-    expect(execFileMock).toHaveBeenCalledTimes(3);
+    expect(execFileMock).toHaveBeenCalledTimes(7);
   });
 
   it("invalidates cached workflow runs after a rerun", async () => {
@@ -125,8 +159,12 @@ describe("gh-cli caching", () => {
 
   it("clears cached GitHub data after switching accounts", async () => {
     execFileMock
+      .mockResolvedValueOnce({ stdout: createRepoInfoStdout(), stderr: "" })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
       .mockResolvedValueOnce({ stdout: createPrListStdout("Before switch"), stderr: "" })
       .mockResolvedValueOnce({ stdout: "", stderr: "" })
+      .mockResolvedValueOnce({ stdout: createRepoInfoStdout(), stderr: "" })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
       .mockResolvedValueOnce({ stdout: createPrListStdout("After switch"), stderr: "" });
 
     await expect(listPrsCore("/repo-account", "reviewRequested")).resolves.toMatchObject([
@@ -138,6 +176,48 @@ describe("gh-cli caching", () => {
     await expect(listPrsCore("/repo-account", "reviewRequested")).resolves.toMatchObject([
       { title: "After switch" },
     ]);
-    expect(execFileMock).toHaveBeenCalledTimes(3);
+    expect(execFileMock).toHaveBeenCalledTimes(7);
+  });
+
+  it("uses the upstream repo for PR reactions when the current clone is a fork", async () => {
+    execFileMock
+      .mockResolvedValueOnce({
+        stdout: createRepoInfoStdout({
+          isFork: true,
+          nameWithOwner: "binbandit/t3code",
+          parent: "pingdotgg/t3code",
+        }),
+        stderr: "",
+      })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          data: {
+            repository: {
+              pullRequest: {
+                id: "PR_node",
+                reactionGroups: [],
+                comments: { nodes: [] },
+                reviewThreads: { nodes: [] },
+              },
+            },
+          },
+        }),
+        stderr: "",
+      });
+
+    await expect(getPrReactions("/repo-fork", 1112)).resolves.toEqual({
+      prNodeId: "PR_node",
+      prBody: [],
+      issueComments: {},
+      reviewComments: {},
+    });
+
+    expect(execFileMock).toHaveBeenNthCalledWith(
+      3,
+      "gh",
+      expect.arrayContaining(["-f", "owner=pingdotgg", "-f", "repo=t3code"]),
+      expect.anything(),
+    );
   });
 });
