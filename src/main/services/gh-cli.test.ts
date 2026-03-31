@@ -1,5 +1,9 @@
+/* eslint-disable vitest/prefer-import-in-mock -- These module mocks need string paths for TypeScript compatibility in this suite. */
+import type * as Electron from "electron";
+
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { getPreference } from "../db/repository";
 import {
   getPrReactions,
   invalidateAllCaches,
@@ -12,25 +16,32 @@ import {
 import { execFile } from "./shell";
 
 // Mock Electron app
-vi.mock(import("electron"), () => ({
-  app: {
-    getPath: vi.fn(() => "/tmp/test-dispatch"),
-  },
-}));
+vi.mock("electron", async () => {
+  const actual = await vi.importActual<typeof Electron>("electron");
+  return {
+    ...actual,
+    app: {
+      ...actual.app,
+      getPath: vi.fn(() => "/tmp/test-dispatch"),
+    },
+  };
+});
 
 // Mock database module
-vi.mock(import("../db/repository"), () => ({
+vi.mock("../db/repository", () => ({
   cacheDisplayNames: vi.fn(),
   getDisplayNames: vi.fn(() => new Map()),
+  getPreference: vi.fn(() => null),
   getRepoAccount: vi.fn(() => null),
   setRepoAccount: vi.fn(),
 }));
 
-vi.mock(import("./shell"), () => ({
+vi.mock("./shell", () => ({
   execFile: vi.fn(),
 }));
 
 const execFileMock = vi.mocked(execFile);
+const getPreferenceMock = vi.mocked(getPreference);
 
 function createPrListStdout(title: string): string {
   return JSON.stringify([
@@ -86,16 +97,25 @@ function createWorkflowRunsStdout(attempt: number): string {
   ]);
 }
 
+function resolvePendingRequest(
+  resolve: (value: { stdout: string; stderr: string }) => void,
+): (value: { stdout: string; stderr: string }) => void {
+  return resolve;
+}
+
+function noopResolveRequest(): void {}
+
 describe("gh-cli caching", () => {
   afterEach(() => {
     vi.clearAllMocks();
+    getPreferenceMock.mockReturnValue(null);
     invalidateAllCaches();
   });
 
   it("dedupes concurrent PR list requests for the same repo and filter", async () => {
-    let resolveRequest: (value: { stdout: string; stderr: string }) => void = () => {};
+    let resolveRequest: (value: { stdout: string; stderr: string }) => void = noopResolveRequest;
     const pendingRequest = new Promise<{ stdout: string; stderr: string }>((resolve) => {
-      resolveRequest = resolve;
+      resolveRequest = resolvePendingRequest(resolve);
     });
 
     execFileMock
@@ -141,6 +161,24 @@ describe("gh-cli caching", () => {
       { title: "After edit" },
     ]);
     expect(execFileMock).toHaveBeenCalledTimes(7);
+  });
+
+  it("uses the saved pull request fetch limit for PR list calls", async () => {
+    getPreferenceMock.mockImplementation((key) => (key === "prFetchLimit" ? "50" : null));
+
+    execFileMock
+      .mockResolvedValueOnce({ stdout: createRepoInfoStdout(), stderr: "" })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
+      .mockResolvedValueOnce({ stdout: createPrListStdout("Limited"), stderr: "" });
+
+    await expect(listPrsCore("/repo-limit", "all")).resolves.toMatchObject([{ title: "Limited" }]);
+
+    expect(execFileMock).toHaveBeenNthCalledWith(
+      3,
+      "gh",
+      expect.arrayContaining(["pr", "list", "--limit", "50"]),
+      expect.anything(),
+    );
   });
 
   it("bypasses the cached PR list when a forced refresh is requested", async () => {
