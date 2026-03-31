@@ -1,7 +1,9 @@
+/* eslint-disable import/max-dependencies -- This header intentionally composes several small review controls. */
 import type { GhPrDetail } from "@/shared/ipc";
 
 import { toastManager } from "@/components/ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useMutation } from "@tanstack/react-query";
 import { Copy, ExternalLink, Link, PanelRight, RefreshCw } from "lucide-react";
 import { useRef, useState } from "react";
@@ -47,6 +49,8 @@ export function CompactPrHeader({
 }: CompactPrHeaderProps) {
   const { cwd } = useWorkspace();
   const nameFormat = useDisplayNameFormat();
+  const compactHeader = useMediaQuery({ max: 1160 });
+  const denseHeader = useMediaQuery({ max: 940 });
   const [editing, setEditing] = useState(false);
   const [editValue, setEditValue] = useState(pr.title);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -89,17 +93,21 @@ export function CompactPrHeader({
   };
 
   return (
-    <div className="border-border bg-bg-surface shrink-0 border-b px-4 py-2">
+    <div
+      className={`border-border bg-bg-surface shrink-0 border-b py-2 ${denseHeader ? "px-3" : "px-4"}`}
+    >
       {/* Row 1: Avatar + name + draft badge + title + buttons */}
-      <div className="flex h-[22px] items-center gap-2">
+      <div className="flex h-[22px] min-w-0 items-center gap-2">
         <GitHubAvatar
           login={pr.author.login}
           size={20}
           className="border-border-strong shrink-0 border"
         />
-        <span className="text-text-secondary min-w-0 shrink truncate font-mono text-[11px]">
-          {formatAuthorName(pr.author, nameFormat)}
-        </span>
+        {!compactHeader && (
+          <span className="text-text-secondary min-w-0 shrink truncate font-mono text-[11px]">
+            {formatAuthorName(pr.author, nameFormat)}
+          </span>
+        )}
 
         {pr.isDraft && (
           <span className="bg-warning-muted text-warning shrink-0 rounded-xs px-1.5 py-0.5 text-[10px] font-semibold">
@@ -158,43 +166,47 @@ export function CompactPrHeader({
           <TooltipPopup>Refresh PR</TooltipPopup>
         </Tooltip>
 
-        {/* Copy PR number */}
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                onClick={() => {
-                  void navigator.clipboard.writeText(`#${pr.number}`);
-                  toastManager.add({ title: `Copied #${pr.number}`, type: "success" });
-                }}
-                className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors"
-              >
-                <Copy size={13} />
-              </button>
-            }
-          />
-          <TooltipPopup>Copy PR number</TooltipPopup>
-        </Tooltip>
+        {!compactHeader && (
+          <>
+            {/* Copy PR number */}
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(`#${pr.number}`);
+                      toastManager.add({ title: `Copied #${pr.number}`, type: "success" });
+                    }}
+                    className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors"
+                  >
+                    <Copy size={13} />
+                  </button>
+                }
+              />
+              <TooltipPopup>Copy PR number</TooltipPopup>
+            </Tooltip>
 
-        {/* Copy PR link */}
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <button
-                type="button"
-                onClick={() => {
-                  void navigator.clipboard.writeText(pr.url);
-                  toastManager.add({ title: "PR URL copied", type: "success" });
-                }}
-                className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors"
-              >
-                <Link size={13} />
-              </button>
-            }
-          />
-          <TooltipPopup>Copy PR link</TooltipPopup>
-        </Tooltip>
+            {/* Copy PR link */}
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(pr.url);
+                      toastManager.add({ title: "PR URL copied", type: "success" });
+                    }}
+                    className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary hover:border-border flex h-[22px] w-[22px] shrink-0 cursor-pointer items-center justify-center rounded-sm border border-transparent transition-colors"
+                  >
+                    <Link size={13} />
+                  </button>
+                }
+              />
+              <TooltipPopup>Copy PR link</TooltipPopup>
+            </Tooltip>
+          </>
+        )}
 
         {/* External link */}
         <Tooltip>
@@ -236,7 +248,7 @@ export function CompactPrHeader({
       </div>
 
       {/* Row 2: PR number + branch + stats — aligned with author name (20px avatar + 8px gap) */}
-      <div className="flex items-center gap-[5px] pt-0.5 pl-7">
+      <div className="flex min-w-0 items-center gap-[5px] pt-0.5 pl-7">
         <span className="text-text-tertiary shrink-0 font-mono text-[11px]">#{pr.number}</span>
         <span className="text-text-ghost text-[9px]">·</span>
         <span
@@ -245,10 +257,16 @@ export function CompactPrHeader({
         >
           {pr.headRefName}
         </span>
-        <span className="text-text-ghost text-[9px]">·</span>
-        <span className="text-success shrink-0 font-mono text-[10px]">+{totalAdditions}</span>
-        <span className="text-text-ghost shrink-0 text-[9px]">·</span>
-        <span className="text-destructive shrink-0 font-mono text-[10px]">-{totalDeletions}</span>
+        {!denseHeader && (
+          <>
+            <span className="text-text-ghost text-[9px]">·</span>
+            <span className="text-success shrink-0 font-mono text-[10px]">+{totalAdditions}</span>
+            <span className="text-text-ghost shrink-0 text-[9px]">·</span>
+            <span className="text-destructive shrink-0 font-mono text-[10px]">
+              -{totalDeletions}
+            </span>
+          </>
+        )}
       </div>
     </div>
   );

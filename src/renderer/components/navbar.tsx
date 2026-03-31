@@ -1,3 +1,4 @@
+/* eslint-disable import/max-dependencies -- Navbar intentionally composes app-level chrome controls. */
 import type { GhAccount } from "@/shared/ipc";
 
 import {
@@ -10,6 +11,7 @@ import {
   MenuTrigger,
 } from "@/components/ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   BarChart3,
@@ -44,6 +46,8 @@ import { NotificationCenter } from "./notification-center";
  */
 export function Navbar({ bannerVisible }: { bannerVisible?: boolean }) {
   const { route, navigate, toggleSettings } = useRouter();
+  const collapseNavLabels = useMediaQuery({ max: 1100 });
+  const collapseChromeLabels = useMediaQuery({ max: 940 });
 
   // Fetch authenticated GitHub user for avatar
   const userQuery = useQuery({
@@ -56,7 +60,7 @@ export function Navbar({ bannerVisible }: { bannerVisible?: boolean }) {
 
   return (
     <header
-      className="border-border bg-bg-surface flex h-10 shrink-0 items-center border-b pr-3"
+      className="border-border bg-bg-surface flex h-10 shrink-0 items-center overflow-hidden border-b pr-3"
       style={
         { WebkitAppRegion: "drag", paddingLeft: bannerVisible ? 16 : 92 } as React.CSSProperties
       }
@@ -64,46 +68,54 @@ export function Navbar({ bannerVisible }: { bannerVisible?: boolean }) {
       {/* Logo */}
       <button
         type="button"
-        className="flex cursor-pointer items-center gap-[7px] transition-opacity hover:opacity-80"
+        className="flex shrink-0 cursor-pointer items-center gap-[7px] transition-opacity hover:opacity-80"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
+        aria-label="Dispatch"
+        title={collapseChromeLabels ? "Dispatch" : undefined}
         onClick={() => navigate({ view: "review", prNumber: null })}
       >
         <DispatchLogo size={20} />
-        <span className="text-text-primary text-[13px] font-semibold tracking-[-0.02em]">
-          Dispatch
-        </span>
+        {!collapseChromeLabels && (
+          <span className="text-text-primary text-[13px] font-semibold tracking-[-0.02em]">
+            Dispatch
+          </span>
+        )}
       </button>
 
       {/* Nav tabs */}
       <nav
-        className="ml-6 flex items-center gap-0.5"
+        className={`flex min-w-0 items-center gap-0.5 overflow-hidden ${collapseChromeLabels ? "ml-3" : "ml-6"}`}
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
         <NavTab
           label="Review"
           icon={<GitPullRequest size={14} />}
+          compact={collapseNavLabels}
           active={route.view === "review"}
           onClick={() => navigate({ view: "review", prNumber: null })}
         />
         <NavTab
           label="Workflows"
           icon={<Zap size={14} />}
+          compact={collapseNavLabels}
           active={route.view === "workflows"}
           onClick={() => navigate({ view: "workflows" })}
         />
         <NavTab
           label="Metrics"
           icon={<BarChart3 size={14} />}
+          compact={collapseNavLabels}
           active={route.view === "metrics"}
           onClick={() => navigate({ view: "metrics" })}
         />
         <NavTab
           label="Releases"
           icon={<Tag size={14} />}
+          compact={collapseNavLabels}
           active={route.view === "releases"}
           onClick={() => navigate({ view: "releases" })}
         />
-        {route.view === "review" && route.prNumber && (
+        {!collapseChromeLabels && route.view === "review" && route.prNumber && (
           <>
             <span className="text-text-ghost mx-1 text-[11px]">/</span>
             <span className="text-text-tertiary font-mono text-[11px]">#{route.prNumber}</span>
@@ -116,13 +128,13 @@ export function Navbar({ bannerVisible }: { bannerVisible?: boolean }) {
 
       {/* Workspace switcher + icons */}
       <div
-        className="flex items-center gap-1.5"
+        className="flex shrink-0 items-center gap-1.5"
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
         {/* Hide workspace switcher on home page — it has its own repo selector */}
         {!(route.view === "review" && !route.prNumber) && (
           <>
-            <WorkspaceSwitcher />
+            <WorkspaceSwitcher compact={collapseChromeLabels} />
             <div className="bg-border mx-1 h-4 w-px" />
           </>
         )}
@@ -325,7 +337,7 @@ function AccountMenuItem({
 // Workspace switcher
 // ---------------------------------------------------------------------------
 
-function WorkspaceSwitcher() {
+function WorkspaceSwitcher({ compact = false }: { compact?: boolean }) {
   const { cwd, switchWorkspace } = useWorkspace();
   const { navigate } = useRouter();
   const repoName = cwd.split("/").pop() ?? "—";
@@ -339,12 +351,20 @@ function WorkspaceSwitcher() {
 
   return (
     <Menu>
-      <MenuTrigger className="text-text-secondary hover:bg-bg-raised hover:text-text-primary flex cursor-pointer items-center gap-1.5 rounded-sm px-2 py-1 text-xs">
+      <MenuTrigger
+        aria-label={compact ? `Current repository ${repoName}` : undefined}
+        title={compact ? repoName : undefined}
+        className={`text-text-secondary hover:bg-bg-raised hover:text-text-primary flex shrink-0 cursor-pointer items-center rounded-sm px-2 py-1 text-xs ${
+          compact ? "gap-1" : "gap-1.5"
+        }`}
+      >
         <GitBranch
           size={12}
           className="text-primary"
         />
-        <span className="max-w-[120px] truncate font-mono text-[11px]">{repoName}</span>
+        {!compact && (
+          <span className="max-w-[120px] truncate font-mono text-[11px]">{repoName}</span>
+        )}
         <ChevronDown
           size={10}
           className="text-text-ghost"
@@ -427,30 +447,46 @@ function WorkspaceSwitcher() {
 function NavTab({
   label,
   icon,
+  compact = false,
   active = false,
   onClick,
 }: {
   label: string;
   icon: React.ReactNode;
+  compact?: boolean;
   active?: boolean;
   onClick?: () => void;
 }) {
-  return (
+  const button = (
     <button
       type="button"
       onClick={onClick}
-      className={`relative flex cursor-pointer items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs transition-colors ${
+      aria-label={label}
+      className={`relative flex shrink-0 cursor-pointer items-center rounded-sm text-xs transition-colors ${
+        compact ? "gap-0 px-2 py-1.5" : "gap-1.5 px-2.5 py-1.5"
+      } ${
         active
           ? "text-text-primary font-medium"
           : "text-text-secondary hover:bg-bg-raised hover:text-text-primary font-[450]"
       }`}
     >
       {icon}
-      {label}
+      {!compact && label}
       {active && (
         <div className="bg-primary absolute bottom-[-7px] left-1/2 h-[1.5px] w-4 -translate-x-1/2 rounded-[1px]" />
       )}
     </button>
+  );
+
+  if (!compact) {
+    return button;
+  }
+
+  return (
+    <Tooltip>
+      <TooltipTrigger render={button} />
+      <TooltipPopup side="bottom">{label}</TooltipPopup>
+    </Tooltip>
   );
 }
 

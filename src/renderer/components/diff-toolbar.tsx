@@ -3,11 +3,13 @@ import type { DiffMode } from "./diff-viewer";
 import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   Check,
   ChevronLeft,
   ChevronRight,
   Columns2,
+  Eye,
   FileText,
   Rows2,
   Sparkles,
@@ -57,15 +59,60 @@ export function DiffToolbar({
   isAiSuggesting?: boolean;
   aiSuggestEnabled?: boolean;
 }) {
+  const compactToolbar = useMediaQuery({ max: 1240 });
+  const denseToolbar = useMediaQuery({ max: 980 });
   const filePath = currentFile ? getDiffFilePath(currentFile) : "";
   const fileName = filePath.split("/").pop() ?? "";
   const dirPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/") + 1) : "";
+  const showIconOnlyControls = compactToolbar;
+  const viewedButton = (
+    <button
+      type="button"
+      onClick={onToggleViewed}
+      title={denseToolbar ? (isViewed ? "Viewed" : "Mark file as viewed") : undefined}
+      aria-label={isViewed ? "Viewed" : "Mark file as viewed"}
+      className={`flex cursor-pointer items-center rounded-md border px-2 py-0.5 text-[11px] transition-colors ${
+        denseToolbar ? "gap-0" : "gap-1.5"
+      } ${
+        isViewed
+          ? "bg-accent-muted border-border-accent text-accent-text"
+          : "border-border bg-bg-raised text-text-secondary hover:text-text-primary"
+      }`}
+    >
+      {denseToolbar ? (
+        isViewed ? (
+          <Check
+            size={11}
+            className="text-accent-text"
+          />
+        ) : (
+          <Eye
+            size={11}
+            className="text-text-tertiary"
+          />
+        )
+      ) : (
+        <>
+          {isViewed && (
+            <Check
+              size={11}
+              className="text-accent-text"
+            />
+          )}
+          Viewed
+          <Kbd className="border-border bg-bg-raised text-text-ghost h-[14px] min-w-[14px] rounded-[2px] border px-1 font-mono text-[9px]">
+            v
+          </Kbd>
+        </>
+      )}
+    </button>
+  );
 
   return (
     <div className="border-border-subtle bg-bg-surface flex h-8 shrink-0 items-center gap-2 overflow-hidden border-b px-3">
       {/* File path */}
       <span className="text-text-tertiary min-w-0 truncate font-mono text-[11px] font-medium">
-        {dirPath}
+        {!denseToolbar && dirPath}
         <span className="text-text-secondary">{fileName}</span>
       </span>
 
@@ -74,13 +121,13 @@ export function DiffToolbar({
       {/* "Since review" callout — hidden in commit view */}
       {!hideReviewControls && hasLastReview && diffMode === "since-review" && (
         <span className="bg-purple-muted text-purple flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium">
-          Since last review
+          {compactToolbar ? "Review delta" : "Since last review"}
           <button
             type="button"
             onClick={() => onDiffModeChange("all")}
             className="text-purple cursor-pointer text-[10px] hover:underline"
           >
-            Show all
+            {denseToolbar ? "All" : "Show all"}
           </button>
         </span>
       )}
@@ -104,10 +151,11 @@ export function DiffToolbar({
                 type="button"
                 onClick={onAiSuggest}
                 disabled={isAiSuggesting}
+                aria-label="AI review"
                 className="text-primary hover:bg-primary/10 flex cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors disabled:opacity-50"
               >
                 {isAiSuggesting ? <Spinner className="h-3 w-3" /> : <Sparkles size={11} />}
-                AI Review
+                {!denseToolbar && "AI Review"}
               </button>
             }
           />
@@ -122,38 +170,50 @@ export function DiffToolbar({
         <button
           type="button"
           onClick={() => onViewModeChange("unified")}
-          className={`flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
+          title={showIconOnlyControls ? "Unified diff" : undefined}
+          aria-label="Unified diff"
+          className={`flex cursor-pointer items-center rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
+            showIconOnlyControls ? "gap-0" : "gap-1"
+          } ${
             viewMode === "unified"
               ? "bg-bg-elevated text-text-primary shadow-sm"
               : "text-text-tertiary"
           }`}
         >
           <Rows2 size={11} />
-          Unified
+          {!showIconOnlyControls && "Unified"}
         </button>
         <button
           type="button"
           onClick={() => onViewModeChange("split")}
-          className={`flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
+          title={showIconOnlyControls ? "Split diff" : undefined}
+          aria-label="Split diff"
+          className={`flex cursor-pointer items-center rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
+            showIconOnlyControls ? "gap-0" : "gap-1"
+          } ${
             viewMode === "split"
               ? "bg-bg-elevated text-text-primary shadow-sm"
               : "text-text-tertiary"
           }`}
         >
           <Columns2 size={11} />
-          Split
+          {!showIconOnlyControls && "Split"}
         </button>
         <button
           type="button"
           onClick={() => onViewModeChange("full-file")}
-          className={`flex cursor-pointer items-center gap-1 rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
+          title={showIconOnlyControls ? "Full file" : undefined}
+          aria-label="Full file"
+          className={`flex cursor-pointer items-center rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
+            showIconOnlyControls ? "gap-0" : "gap-1"
+          } ${
             viewMode === "full-file"
               ? "bg-bg-elevated text-text-primary shadow-sm"
               : "text-text-tertiary"
           }`}
         >
           <FileText size={11} />
-          Full file
+          {!showIconOnlyControls && "Full file"}
         </button>
       </div>
 
@@ -162,26 +222,14 @@ export function DiffToolbar({
         <>
           <div className="bg-border h-4 w-px" />
 
-          <button
-            type="button"
-            onClick={onToggleViewed}
-            className={`flex cursor-pointer items-center gap-1.5 rounded-md border px-2 py-0.5 text-[11px] transition-colors ${
-              isViewed
-                ? "bg-accent-muted border-border-accent text-accent-text"
-                : "border-border bg-bg-raised text-text-secondary hover:text-text-primary"
-            }`}
-          >
-            {isViewed && (
-              <Check
-                size={11}
-                className="text-accent-text"
-              />
-            )}
-            Viewed
-            <Kbd className="border-border bg-bg-raised text-text-ghost h-[14px] min-w-[14px] rounded-[2px] border px-1 font-mono text-[9px]">
-              v
-            </Kbd>
-          </button>
+          {denseToolbar ? (
+            <Tooltip>
+              <TooltipTrigger render={viewedButton} />
+              <TooltipPopup>{isViewed ? "Viewed" : "Mark viewed (v)"}</TooltipPopup>
+            </Tooltip>
+          ) : (
+            viewedButton
+          )}
         </>
       )}
 

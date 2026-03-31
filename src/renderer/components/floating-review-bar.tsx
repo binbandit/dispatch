@@ -1,7 +1,9 @@
+/* eslint-disable import/max-dependencies -- Floating review bar intentionally composes review and merge controls. */
 import type { GhPrDetail } from "@/shared/ipc";
 
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useMutation } from "@tanstack/react-query";
 import {
   Check,
@@ -58,6 +60,8 @@ export function FloatingReviewBar({
   isReRequested,
   panelOpen = false,
 }: FloatingReviewBarProps) {
+  const compactBar = useMediaQuery({ max: 1180 });
+  const denseBar = useMediaQuery({ max: 960 });
   const checks = summarizePrChecks(checkSummary);
   const allPassing = checks.state === "passing";
 
@@ -69,15 +73,17 @@ export function FloatingReviewBar({
         left: panelOpen ? "calc((100% - min(380px, 45%)) / 2)" : "50%",
         transform: "translateX(-50%)",
         zIndex: 3,
+        maxWidth: panelOpen ? "calc(100% - min(380px, 45%) - 24px)" : "calc(100% - 24px)",
         background: "var(--bar-glass)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         border: "1px solid var(--border-strong)",
         borderRadius: "var(--radius-xl)",
-        padding: "5px 5px 5px 12px",
+        padding: denseBar ? "4px 4px 4px 10px" : "5px 5px 5px 12px",
         display: "flex",
         alignItems: "center",
-        gap: "8px",
+        gap: compactBar ? "6px" : "8px",
+        overflow: "hidden",
         boxShadow: "var(--shadow-lg), var(--shadow-glow)",
         transition: "left 0.3s ease",
       }}
@@ -87,7 +93,7 @@ export function FloatingReviewBar({
         style={{
           display: "flex",
           alignItems: "center",
-          gap: "8px",
+          gap: compactBar ? "6px" : "8px",
           fontSize: "11px",
           color: "var(--text-secondary)",
           whiteSpace: "nowrap",
@@ -178,6 +184,8 @@ export function FloatingReviewBar({
         <UpdateBranchPill
           cwd={cwd}
           prNumber={prNumber}
+          compact={compactBar}
+          dense={denseBar}
         />
       )}
 
@@ -185,25 +193,29 @@ export function FloatingReviewBar({
       <div
         style={{
           width: "1px",
-          height: "18px",
+          height: denseBar ? "16px" : "18px",
           background: "var(--border)",
           flexShrink: 0,
         }}
       />
 
       {/* Action buttons */}
-      <div style={{ display: "flex", alignItems: "center", gap: "3px" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: compactBar ? "2px" : "3px" }}>
         {!isAuthor && (
           <>
             <RequestChangesBarButton
               cwd={cwd}
               prNumber={prNumber}
+              compact={compactBar}
+              dense={denseBar}
             />
             <ApproveBarButton
               cwd={cwd}
               prNumber={prNumber}
               currentUserReview={currentUserReview}
               isReRequested={isReRequested}
+              compact={compactBar}
+              dense={denseBar}
             />
           </>
         )}
@@ -214,6 +226,8 @@ export function FloatingReviewBar({
           canAdmin={canAdmin}
           hasMergeQueue={hasMergeQueue}
           isDraft={isDraft}
+          compact={compactBar}
+          dense={denseBar}
         />
       </div>
     </div>
@@ -239,9 +253,20 @@ const btnBase: React.CSSProperties = {
   userSelect: "none",
 };
 
-function RequestChangesBarButton({ cwd, prNumber }: { cwd: string; prNumber: number }) {
+function RequestChangesBarButton({
+  cwd,
+  prNumber,
+  compact,
+  dense,
+}: {
+  cwd: string;
+  prNumber: number;
+  compact: boolean;
+  dense: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
+  const hasReviewBody = body.trim().length > 0;
 
   const reviewMutation = useMutation({
     mutationFn: (reviewBody: string) =>
@@ -267,15 +292,21 @@ function RequestChangesBarButton({ cwd, prNumber }: { cwd: string; prNumber: num
       <button
         type="button"
         onClick={() => setOpen(!open)}
+        title={dense ? "Request changes" : undefined}
+        aria-label="Request changes"
         style={{
           ...btnBase,
           background: "transparent",
           color: "var(--text-secondary)",
           borderColor: "var(--border-strong)",
+          padding: dense ? "5px 7px" : compact ? "5px 8px" : btnBase.padding,
         }}
       >
-        Request Changes
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>r</span>
+        <MessageSquare size={11} />
+        {!dense && (compact ? "Request" : "Request Changes")}
+        {!compact && (
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>r</span>
+        )}
       </button>
       {open && (
         <div
@@ -349,14 +380,14 @@ function RequestChangesBarButton({ cwd, prNumber }: { cwd: string; prNumber: num
             </button>
             <button
               type="button"
-              disabled={!body.trim() || reviewMutation.isPending}
+              disabled={!hasReviewBody || reviewMutation.isPending}
               onClick={() => reviewMutation.mutate(body.trim())}
               style={{
                 ...btnBase,
-                background: !body.trim() ? "var(--bg-raised)" : "var(--danger)",
-                color: !body.trim() ? "var(--text-tertiary)" : "#fff",
-                borderColor: !body.trim() ? "var(--border)" : "var(--danger)",
-                cursor: !body.trim() ? "not-allowed" : "pointer",
+                background: hasReviewBody ? "var(--danger)" : "var(--bg-raised)",
+                color: hasReviewBody ? "#fff" : "var(--text-tertiary)",
+                borderColor: hasReviewBody ? "var(--danger)" : "var(--border)",
+                cursor: hasReviewBody ? "pointer" : "not-allowed",
                 opacity: reviewMutation.isPending ? 0.5 : 1,
               }}
             >
@@ -374,11 +405,15 @@ function ApproveBarButton({
   prNumber,
   currentUserReview,
   isReRequested,
+  compact,
+  dense,
 }: {
   cwd: string;
   prNumber: number;
   currentUserReview: string | null;
   isReRequested: boolean;
+  compact: boolean;
+  dense: boolean;
 }) {
   const alreadyApproved = currentUserReview === "APPROVED" && !isReRequested;
 
@@ -398,16 +433,19 @@ function ApproveBarButton({
       <button
         type="button"
         disabled
+        title={dense ? "Approved" : undefined}
+        aria-label="Approved"
         style={{
           ...btnBase,
           background: "var(--success)",
           color: "var(--bg-root)",
           borderColor: "var(--success)",
           opacity: 0.6,
+          padding: dense ? "5px 7px" : compact ? "5px 8px" : btnBase.padding,
         }}
       >
         <Check size={11} />
-        Approved
+        {!dense && "Approved"}
       </button>
     );
   }
@@ -417,16 +455,22 @@ function ApproveBarButton({
       type="button"
       onClick={() => reviewMutation.mutate()}
       disabled={reviewMutation.isPending}
+      title={dense ? "Approve" : undefined}
+      aria-label="Approve"
       style={{
         ...btnBase,
         background: "var(--success)",
         color: "var(--bg-root)",
         borderColor: "var(--success)",
         opacity: reviewMutation.isPending ? 0.5 : 1,
+        padding: dense ? "5px 7px" : compact ? "5px 8px" : btnBase.padding,
       }}
     >
-      {reviewMutation.isPending ? <Spinner className="h-3 w-3" /> : "Approve"}
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>a</span>
+      {reviewMutation.isPending ? <Spinner className="h-3 w-3" /> : <Check size={11} />}
+      {!dense && "Approve"}
+      {!compact && (
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>a</span>
+      )}
     </button>
   );
 }
@@ -438,6 +482,8 @@ function MergeBarButton({
   canAdmin,
   hasMergeQueue,
   isDraft,
+  compact,
+  dense,
 }: {
   cwd: string;
   prNumber: number;
@@ -453,6 +499,8 @@ function MergeBarButton({
   canAdmin: boolean;
   hasMergeQueue: boolean;
   isDraft: boolean;
+  compact: boolean;
+  dense: boolean;
 }) {
   const hasApproval = pr.reviewDecision === "APPROVED";
   const checkSummary = summarizePrChecks(pr.statusCheckRollup);
@@ -559,6 +607,8 @@ function MergeBarButton({
           type="button"
           onClick={() => mergeMutation.mutate()}
           disabled={isDraft || !canMerge || mergeMutation.isPending}
+          title={dense ? "Merge when ready" : undefined}
+          aria-label="Merge when ready"
           style={{
             ...btnBase,
             background: mainBg,
@@ -567,10 +617,11 @@ function MergeBarButton({
             cursor: mainCursor,
             borderTopRightRadius: canAdmin ? 0 : undefined,
             borderBottomRightRadius: canAdmin ? 0 : undefined,
+            padding: dense ? "5px 7px" : compact ? "5px 8px" : btnBase.padding,
           }}
         >
           {mergeMutation.isPending ? <Spinner className="h-3 w-3" /> : <GitMerge size={11} />}
-          Merge when ready
+          {!dense && (compact ? "Ready" : "Merge when ready")}
         </button>
         {canAdmin && (
           <button
@@ -646,6 +697,8 @@ function MergeBarButton({
         type="button"
         onClick={() => mergeMutation.mutate()}
         disabled={isDraft || !canMerge || mergeMutation.isPending}
+        title={dense ? labels[strategy] : undefined}
+        aria-label={labels[strategy]}
         style={{
           ...btnBase,
           background: mainBg,
@@ -654,10 +707,11 @@ function MergeBarButton({
           cursor: mainCursor,
           borderTopRightRadius: 0,
           borderBottomRightRadius: 0,
+          padding: dense ? "5px 7px" : compact ? "5px 8px" : btnBase.padding,
         }}
       >
         {mergeMutation.isPending ? <Spinner className="h-3 w-3" /> : <GitMerge size={11} />}
-        {labels[strategy]}
+        {!dense && (compact ? "Merge" : labels[strategy])}
       </button>
       <button
         type="button"
@@ -721,7 +775,17 @@ function MergeBarButton({
   );
 }
 
-function UpdateBranchPill({ cwd, prNumber }: { cwd: string; prNumber: number }) {
+function UpdateBranchPill({
+  cwd,
+  prNumber,
+  compact,
+  dense,
+}: {
+  cwd: string;
+  prNumber: number;
+  compact: boolean;
+  dense: boolean;
+}) {
   const updateMutation = useMutation({
     mutationFn: () => ipc("pr.updateBranch", { cwd, prNumber }),
     onSuccess: () => {
@@ -742,19 +806,21 @@ function UpdateBranchPill({ cwd, prNumber }: { cwd: string; prNumber: number }) 
       type="button"
       onClick={() => updateMutation.mutate()}
       disabled={updateMutation.isPending}
+      title={dense ? "Update branch" : undefined}
+      aria-label="Update branch"
       style={{
         ...btnBase,
         background: "transparent",
         color: "var(--warning)",
         borderColor: "var(--border)",
         fontSize: "10px",
-        padding: "2px 7px",
+        padding: dense ? "2px 6px" : "2px 7px",
         gap: "3px",
         opacity: updateMutation.isPending ? 0.5 : 1,
       }}
     >
       {updateMutation.isPending ? <Spinner className="h-2.5 w-2.5" /> : <RefreshCw size={9} />}
-      Update branch
+      {!dense && (compact ? "Update" : "Update branch")}
     </button>
   );
 }
