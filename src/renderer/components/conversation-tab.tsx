@@ -1,3 +1,4 @@
+/* eslint-disable import/max-dependencies -- This timeline surface composes many focused conversation primitives. */
 import type { GhReactionGroup, GhReviewThread } from "@/shared/ipc";
 
 import { toastManager } from "@/components/ui/toast";
@@ -49,7 +50,12 @@ export function ConversationTab({
   const { minimizedSet, toggleMinimized } = useMinimizedComments(repo, prNumber);
 
   // Build a unified timeline from reviews (status events) and issue comments (content events)
-  const timeline = buildTimeline(reviews, issueComments, isBot, issueCommentReactions);
+  const timeline = buildTimeline({
+    reviews,
+    issueComments,
+    isBot,
+    issueCommentReactions,
+  });
 
   // Thread resolution counts from GitHub's reviewThreads data
   const unresolvedThreads = (reviewThreads ?? []).filter((t) => !t.isResolved);
@@ -194,12 +200,17 @@ interface ContentTimelineEvent {
 
 type TimelineEvent = StatusTimelineEvent | ContentTimelineEvent;
 
-function buildTimeline(
-  reviews: Array<{ author: { login: string }; state: string; submittedAt: string }>,
-  issueComments: Array<{ id: string; body: string; author: { login: string }; createdAt: string }>,
-  isBot: (login: string) => boolean,
-  issueCommentReactions?: Record<string, GhReactionGroup[]>,
-): TimelineEvent[] {
+function buildTimeline({
+  reviews,
+  issueComments,
+  isBot,
+  issueCommentReactions,
+}: {
+  reviews: Array<{ author: { login: string }; state: string; submittedAt: string }>;
+  issueComments: Array<{ id: string; body: string; author: { login: string }; createdAt: string }>;
+  isBot: (login: string) => boolean;
+  issueCommentReactions?: Record<string, GhReactionGroup[]>;
+}): TimelineEvent[] {
   const events: TimelineEvent[] = [];
 
   // Reviews become status events
@@ -207,7 +218,7 @@ function buildTimeline(
     const { state } = review;
     let action = "reviewed";
     let dotColor = "var(--text-ghost)";
-    let actionColor: string | undefined;
+    let actionColor: string | undefined = undefined;
 
     if (state === "APPROVED") {
       action = "approved";
@@ -315,7 +326,7 @@ function StatusEvent({
   );
 }
 
-function ContentEvent({
+export function ContentEvent({
   commentId,
   login,
   action,
@@ -359,7 +370,20 @@ function ContentEvent({
       }}
     >
       {/* Header */}
-      <div className="mb-[3px] flex items-center gap-1.5">
+      <div
+        role="button"
+        tabIndex={0}
+        aria-expanded={!minimized}
+        aria-label={minimized ? `Expand comment from ${login}` : `Minimize comment from ${login}`}
+        className="hover:bg-bg-raised/50 mb-[3px] flex cursor-pointer items-center gap-1.5 rounded-sm transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)] focus-visible:outline-none"
+        onClick={onToggleMinimized}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            onToggleMinimized();
+          }
+        }}
+      >
         <GitHubAvatar
           login={login}
           size={18}
@@ -368,9 +392,8 @@ function ContentEvent({
           }
         />
         <span
-          className="cursor-pointer text-xs font-medium"
+          className="text-xs font-medium"
           style={{ color: isBotUser ? "var(--accent-text)" : "var(--text-primary)" }}
-          onClick={onClick}
         >
           {login}
         </span>
@@ -411,15 +434,12 @@ function ContentEvent({
         <span className="text-text-tertiary ml-auto font-mono text-[10px]">
           {relativeTime(time)}
         </span>
-        {/* Minimize toggle */}
-        <button
-          type="button"
-          onClick={onToggleMinimized}
-          className="text-text-ghost hover:text-text-primary cursor-pointer rounded-sm p-0.5 transition-colors"
+        <span
+          className="text-text-ghost p-0.5"
           title={minimized ? "Expand" : "Minimize"}
         >
           {minimized ? <ChevronRight size={11} /> : <ChevronDown size={11} />}
-        </button>
+        </span>
       </div>
 
       {/* Body — hidden when minimized */}
@@ -605,7 +625,7 @@ function UnresolvedThreadItem({
   thread: GhReviewThread;
   onClick: () => void;
 }) {
-  const firstComment = thread.comments[0];
+  const [firstComment] = thread.comments;
   if (!firstComment) {
     return null;
   }
