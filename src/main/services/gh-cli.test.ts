@@ -8,6 +8,7 @@ import {
   getPrReactions,
   invalidateAllCaches,
   listPrsCore,
+  listPrsEnrichment,
   listWorkflowRuns,
   rerunWorkflowRun,
   switchAccount,
@@ -55,6 +56,25 @@ function createPrListStdout(title: string): string {
       updatedAt: "2026-03-20T00:00:00Z",
       url: "https://github.com/octo/dispatch/pull/42",
       isDraft: false,
+    },
+  ]);
+}
+
+function createPrEnrichmentStdout(): string {
+  return JSON.stringify([
+    {
+      number: 42,
+      statusCheckRollup: [
+        {
+          conclusion: "SUCCESS",
+          name: "CI",
+          status: "COMPLETED",
+        },
+      ],
+      additions: 24,
+      deletions: 8,
+      mergeable: "MERGEABLE",
+      autoMergeRequest: null,
     },
   ]);
 }
@@ -177,6 +197,46 @@ describe("gh-cli caching", () => {
       3,
       "gh",
       expect.arrayContaining(["pr", "list", "--limit", "50"]),
+      expect.anything(),
+    );
+  });
+
+  it("caps broad enrichment queries so large repositories do not request status rollups for 200 PRs at once", async () => {
+    getPreferenceMock.mockImplementation((key) => (key === "prFetchLimit" ? "200" : null));
+
+    execFileMock
+      .mockResolvedValueOnce({ stdout: createRepoInfoStdout(), stderr: "" })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
+      .mockResolvedValueOnce({ stdout: createPrEnrichmentStdout(), stderr: "" });
+
+    await expect(listPrsEnrichment("/repo-enrichment-limit", "all", "all")).resolves.toMatchObject([
+      { number: 42 },
+    ]);
+
+    expect(execFileMock).toHaveBeenNthCalledWith(
+      3,
+      "gh",
+      expect.arrayContaining(["pr", "list", "--state", "all", "--limit", "50"]),
+      expect.anything(),
+    );
+  });
+
+  it("keeps authored enrichment queries at the configured limit", async () => {
+    getPreferenceMock.mockImplementation((key) => (key === "prFetchLimit" ? "200" : null));
+
+    execFileMock
+      .mockResolvedValueOnce({ stdout: createRepoInfoStdout(), stderr: "" })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
+      .mockResolvedValueOnce({ stdout: createPrEnrichmentStdout(), stderr: "" });
+
+    await expect(listPrsEnrichment("/repo-authored-enrichment", "authored")).resolves.toMatchObject(
+      [{ number: 42 }],
+    );
+
+    expect(execFileMock).toHaveBeenNthCalledWith(
+      3,
+      "gh",
+      expect.arrayContaining(["pr", "list", "--author", "@me", "--limit", "200"]),
       expect.anything(),
     );
   });

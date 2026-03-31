@@ -78,10 +78,10 @@ export function HomeView() {
     refetchInterval: 30_000,
   });
 
-  // Enrichment for the selected repository.
+  // Enrichment for open PRs only. Closed and merged PRs do not need live CI state.
   const allEnrichmentQuery = useQuery({
-    queryKey: ["pr", "enrichment", cwd, "all", "all"],
-    queryFn: () => ipc("pr.listEnrichment", { cwd, filter: "all", state: "all" }),
+    queryKey: ["pr", "enrichment", cwd, "all", "open"],
+    queryFn: () => ipc("pr.listEnrichment", { cwd, filter: "all", state: "open" }),
     refetchInterval: 30_000,
   });
 
@@ -228,8 +228,8 @@ export function HomeView() {
       },
       {
         method: "pr.listEnrichment" as const,
-        args: { cwd, filter: "all" as const, state: "all" as const },
-        queryKey: ["pr", "enrichment", cwd, "all", "all"],
+        args: { cwd, filter: "all" as const, state: "open" as const },
+        queryKey: ["pr", "enrichment", cwd, "all", "open"],
       },
     ],
     [cwd],

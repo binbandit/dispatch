@@ -33,6 +33,30 @@ import {
   setCache,
 } from "./core";
 
+const MAX_BROAD_ENRICHMENT_LIMIT = 100;
+const MAX_ALL_STATE_ENRICHMENT_LIMIT = 50;
+
+function resolvePrEnrichmentLimit(
+  filter: "reviewRequested" | "authored" | "all",
+  state: "open" | "closed" | "merged" | "all",
+): string {
+  const configuredLimit = Number.parseInt(resolvePrListLimit(), 10);
+
+  if (!Number.isFinite(configuredLimit)) {
+    return resolvePrListLimit();
+  }
+
+  if (state === "all") {
+    return String(Math.min(configuredLimit, MAX_ALL_STATE_ENRICHMENT_LIMIT));
+  }
+
+  if (filter === "all") {
+    return String(Math.min(configuredLimit, MAX_BROAD_ENRICHMENT_LIMIT));
+  }
+
+  return String(configuredLimit);
+}
+
 export function listPrsCore(
   cwd: string,
   filter: "reviewRequested" | "authored" | "all" = "reviewRequested",
@@ -70,7 +94,7 @@ export function listPrsEnrichment(
   state: "open" | "closed" | "merged" | "all" = "open",
   forceRefresh = false,
 ): Promise<GhPrEnrichment[]> {
-  const limit = resolvePrListLimit();
+  const limit = resolvePrEnrichmentLimit(filter, state);
   const key = cacheKey({ cwd, filter, state, limit });
   if (forceRefresh) {
     invalidateCacheKey(prEnrichmentCache, key);
