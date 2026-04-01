@@ -813,8 +813,14 @@ export function SettingsView() {
                     const resolvedSlotModel =
                       slotConfig?.model ??
                       (typeof rawModelPreference === "string" ? rawModelPreference : "");
+                    const slotProviderConfig =
+                      slotProvider === null ? null : (aiConfig?.providers[slotProvider] ?? null);
                     const providerModelOptions = slotProvider
-                      ? getAiProviderModelOptions(slotProvider, resolvedSlotModel)
+                      ? getAiProviderModelOptions(
+                          slotProvider,
+                          resolvedSlotModel,
+                          slotProviderConfig?.suggestedModels,
+                        )
                       : [];
                     const slotTaskLabels = tasksBySlot[slot].map((task) => task.label);
                     const slotHelperText =

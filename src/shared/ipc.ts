@@ -40,6 +40,7 @@ export type AiTaskId =
 export interface AiProviderResolvedConfig {
   provider: AiProvider;
   model: string | null;
+  suggestedModels?: string[];
   binaryPath: string | null;
   homePath: string | null;
   baseUrl: string | null;
@@ -316,6 +317,15 @@ export interface GhWorkflowRunJob {
 export interface GhWorkflowRunDetail extends GhWorkflowRun {
   headSha: string;
   jobs: GhWorkflowRunJob[];
+}
+
+export interface GhWorkflowJobGraphNode {
+  id: string;
+  needs: string[];
+}
+
+export interface GhWorkflowJobGraph {
+  jobs: GhWorkflowJobGraphNode[];
 }
 
 export interface BlameLine {

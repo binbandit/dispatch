@@ -25,6 +25,7 @@ import {
   normalizeAiTaskSlot,
 } from "../../shared/ai-provider-settings";
 import * as repo from "../db/repository";
+import { resolveClaudeSuggestedModels } from "./claude-models";
 
 const AI_PREFERENCE_KEYS = [
   LEGACY_AI_PREFERENCE_KEYS.provider,
@@ -88,6 +89,7 @@ interface ResolveProviderConfigOptions {
   activeProviderForLegacy: AiProvider | "none" | null;
   overrides?: AiDirectConfigOverrides;
   defaultModel?: string;
+  suggestedModels?: string[];
 }
 
 interface ResolveSlotConfigOptions {
@@ -100,6 +102,10 @@ interface ResolveSlotConfigOptions {
 interface AiProviderStatusConfig {
   binaryPath: string | null;
   baseUrl: string | null;
+}
+
+interface ResolveAiConfigFromSourcesOptions {
+  claudeSuggestedModels?: string[];
 }
 
 const GENERIC_ENV_KEYS = {
@@ -326,6 +332,7 @@ function resolveProviderConfig({
   activeProviderForLegacy,
   overrides = {},
   defaultModel = DEFAULT_AI_MODEL_BY_PROVIDER[provider],
+  suggestedModels = [],
 }: ResolveProviderConfigOptions): AiProviderResolvedConfig {
   const providerEnvKeys = PROVIDER_ENV_KEYS[provider];
   const modelResult = resolveProviderValue({
@@ -390,6 +397,7 @@ function resolveProviderConfig({
   return {
     provider,
     model: modelResult.value,
+    suggestedModels,
     binaryPath: binaryPathResult.value,
     homePath: homePathResult.value,
     baseUrl: baseUrlResult.value,
@@ -526,6 +534,7 @@ function resolveTaskConfig(
 export function resolveAiConfigFromSources(
   preferences: AiPreferences,
   env: EnvMap,
+  options: ResolveAiConfigFromSourcesOptions = {},
 ): AiResolvedConfig {
   const legacyProviderSelection = resolveLegacyProviderSelection(preferences, env);
   const activeProviderForLegacy = legacyProviderSelection.provider;
@@ -541,6 +550,7 @@ export function resolveAiConfigFromSources(
       env,
       provider: "claude",
       activeProviderForLegacy,
+      suggestedModels: options.claudeSuggestedModels ?? [],
     }),
     copilot: resolveProviderConfig({
       preferences,
@@ -602,7 +612,9 @@ export function resolveAiConfigFromSources(
 }
 
 export function getAiConfig(): AiResolvedConfig {
-  return resolveAiConfigFromSources(readAiPreferences(), process.env);
+  return resolveAiConfigFromSources(readAiPreferences(), process.env, {
+    claudeSuggestedModels: resolveClaudeSuggestedModels(process.env),
+  });
 }
 
 export function getAiTaskConfigWithSecrets(task: AiTaskId): AiTaskResolvedConfig {
@@ -625,6 +637,7 @@ export function getAiProviderConfigWithSecrets(
     provider,
     activeProviderForLegacy: legacyProviderSelection.provider,
     overrides,
+    suggestedModels: provider === "claude" ? resolveClaudeSuggestedModels(process.env) : [],
   });
 
   return {

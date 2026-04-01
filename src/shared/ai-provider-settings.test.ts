@@ -16,6 +16,18 @@ describe("getAiProviderModelOptions", () => {
       value: "default",
     });
   });
+
+  it("prefers detected model suggestions when provided", () => {
+    expect(
+      getAiProviderModelOptions("claude", "claude-haiku-custom", [
+        "claude-sonnet-custom",
+        "claude-haiku-custom",
+      ]),
+    ).toEqual([
+      { label: "claude-sonnet-custom", value: "claude-sonnet-custom" },
+      { label: "claude-haiku-custom", value: "claude-haiku-custom" },
+    ]);
+  });
 });
 
 describe("resolveAiSlotModelValue", () => {

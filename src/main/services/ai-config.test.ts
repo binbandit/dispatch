@@ -103,6 +103,23 @@ describe("resolveAiConfigFromSources", () => {
     expect(config.tasks.reviewSummary.provider).toBe("claude");
   });
 
+  it("passes detected Claude model suggestions through provider config", () => {
+    const config = resolveAiConfigFromSources(
+      createPreferences({
+        aiBigProvider: "claude",
+      }),
+      {},
+      {
+        claudeSuggestedModels: ["claude-sonnet-custom", "claude-haiku-custom"],
+      },
+    );
+
+    expect(config.providers.claude.suggestedModels).toEqual([
+      "claude-sonnet-custom",
+      "claude-haiku-custom",
+    ]);
+  });
+
   it("allows the small slot to use a different provider and task routing", () => {
     const config = resolveAiConfigFromSources(
       createPreferences({

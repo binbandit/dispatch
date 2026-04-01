@@ -287,9 +287,24 @@ export function resolveAiSlotModelValue(
 export function getAiProviderModelOptions(
   provider: AiProvider,
   currentModel: string | null | undefined,
+  suggestedModels?: readonly string[] | null,
 ): readonly AiProviderModelOption[] {
   const normalizedCurrentModel = normalizePreferenceValue(currentModel);
-  const options = AI_PROVIDER_MODEL_OPTIONS[provider];
+  const presetOptions = AI_PROVIDER_MODEL_OPTIONS[provider];
+  const options =
+    suggestedModels && suggestedModels.length > 0
+      ? suggestedModels.reduce<AiProviderModelOption[]>((modelOptions, model) => {
+          const normalizedModel = normalizePreferenceValue(model);
+
+          if (!normalizedModel || modelOptions.some((option) => option.value === normalizedModel)) {
+            return modelOptions;
+          }
+
+          const presetOption = presetOptions.find((option) => option.value === normalizedModel);
+          modelOptions.push(presetOption ?? { label: normalizedModel, value: normalizedModel });
+          return modelOptions;
+        }, [])
+      : presetOptions;
 
   if (
     !normalizedCurrentModel ||

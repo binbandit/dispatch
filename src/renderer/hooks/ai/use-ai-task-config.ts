@@ -14,6 +14,7 @@ function createFallbackProviderConfig(provider: AiProvider): AiProviderResolvedC
   return {
     provider,
     model: null,
+    suggestedModels: [],
     binaryPath: null,
     homePath: null,
     baseUrl: null,
