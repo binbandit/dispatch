@@ -29,6 +29,7 @@ import {
   DEFAULT_PR_FETCH_LIMIT,
   PR_FETCH_LIMIT_OPTIONS,
   PR_FETCH_LIMIT_PREFERENCE_KEY,
+  PR_FETCH_LIMIT_UNLIMITED,
   normalizePrFetchLimit,
 } from "@/shared/pr-fetch-limit";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -624,7 +625,7 @@ export function SettingsView() {
                 <p className="text-text-tertiary mt-0.5 text-xs">
                   How many pull requests Dispatch asks GitHub for on each refresh.
                 </p>
-                <div className="mt-3 grid grid-cols-4 gap-1.5">
+                <div className="mt-3 grid grid-cols-5 gap-1.5">
                   {PR_FETCH_LIMIT_OPTIONS.map((option) => {
                     const isActive = prFetchLimit === String(option);
                     return (
@@ -638,7 +639,7 @@ export function SettingsView() {
                             : "border-border bg-bg-raised text-text-tertiary hover:text-text-secondary hover:bg-[--bg-elevated]"
                         }`}
                       >
-                        {option}
+                        {option === PR_FETCH_LIMIT_UNLIMITED ? "All" : option}
                       </button>
                     );
                   })}
@@ -649,8 +650,9 @@ export function SettingsView() {
                     className="text-accent-text mt-0.5 shrink-0"
                   />
                   <p className="text-text-ghost text-[10px] leading-[1.45]">
-                    Higher limits show more pull requests per refresh, but each fetch can take
-                    longer.
+                    Higher limits show more pull requests per refresh. All keeps paging until GitHub
+                    runs out of matching pull requests, so refreshes can take noticeably longer on
+                    large repositories.
                   </p>
                 </div>
               </section>

@@ -10,6 +10,7 @@ import type {
   GhReviewComment,
 } from "../../../shared/ipc";
 
+import { PR_FETCH_LIMIT_UNLIMITED } from "../../../shared/pr-fetch-limit";
 import {
   PR_LIST_ALL_FIELDS,
   PR_LIST_CORE_FIELDS,
@@ -35,6 +36,374 @@ import {
 
 const MAX_BROAD_ENRICHMENT_LIMIT = 100;
 const MAX_ALL_STATE_ENRICHMENT_LIMIT = 50;
+const UNLIMITED_PR_PAGE_SIZE = 100;
+
+interface RawPullRequestAuthor {
+  __typename: string;
+  login?: string | null;
+  name?: string | null;
+}
+
+interface RawCheckRunNode {
+  __typename: "CheckRun";
+  name: string;
+  status: string;
+  conclusion: string | null;
+}
+
+interface RawStatusContextNode {
+  __typename: "StatusContext";
+  context: string;
+  state: string;
+}
+
+type RawStatusCheckNode = RawCheckRunNode | RawStatusContextNode | null;
+
+interface RawPullRequestNode {
+  number: number;
+  title: string;
+  state: "OPEN" | "CLOSED" | "MERGED";
+  author: RawPullRequestAuthor | null;
+  headRefName: string;
+  baseRefName: string;
+  reviewDecision: string | null;
+  updatedAt: string;
+  url: string;
+  isDraft: boolean;
+  statusCheckRollup: {
+    contexts: {
+      nodes: RawStatusCheckNode[];
+    };
+  } | null;
+  additions: number | null;
+  deletions: number | null;
+  mergeable: string | null;
+  autoMergeRequest: {
+    enabledBy: { login: string } | null;
+    mergeMethod: string;
+  } | null;
+}
+
+const UNLIMITED_PULL_REQUEST_FIELDS = `
+  number
+  title
+  state
+  author {
+    __typename
+    login
+    ... on User { name }
+    ... on Mannequin { name }
+  }
+  headRefName
+  baseRefName
+  reviewDecision
+  updatedAt
+  url
+  isDraft
+  statusCheckRollup {
+    contexts(first: 100) {
+      nodes {
+        __typename
+        ... on CheckRun { name status conclusion }
+        ... on StatusContext { context state }
+      }
+    }
+  }
+  additions
+  deletions
+  mergeable
+  autoMergeRequest {
+    enabledBy { login }
+    mergeMethod
+  }
+`;
+
+function mapPullRequestAuthor(author: RawPullRequestAuthor | null): GhPrListItem["author"] {
+  return {
+    login: author?.login ?? "ghost",
+    name: author?.name ?? null,
+  };
+}
+
+function mapStatusCheckRollup(
+  statusCheckRollup: RawPullRequestNode["statusCheckRollup"],
+): GhPrListItem["statusCheckRollup"] {
+  return (statusCheckRollup?.contexts.nodes ?? []).flatMap((node) => {
+    if (!node) {
+      return [];
+    }
+
+    if (node.__typename === "CheckRun") {
+      return [
+        {
+          name: node.name,
+          status: node.status,
+          conclusion: node.conclusion,
+        },
+      ];
+    }
+
+    const normalizedState = node.state.toUpperCase();
+    const isPendingState = normalizedState === "EXPECTED" || normalizedState === "PENDING";
+
+    return [
+      {
+        name: node.context,
+        status: isPendingState ? normalizedState : "COMPLETED",
+        conclusion: isPendingState ? null : normalizedState,
+      },
+    ];
+  });
+}
+
+function mapRawPullRequest(pr: RawPullRequestNode): GhPrListItem {
+  return {
+    number: pr.number,
+    title: pr.title,
+    state: pr.state,
+    author: mapPullRequestAuthor(pr.author),
+    headRefName: pr.headRefName,
+    baseRefName: pr.baseRefName,
+    reviewDecision: pr.reviewDecision ?? "",
+    statusCheckRollup: mapStatusCheckRollup(pr.statusCheckRollup),
+    updatedAt: pr.updatedAt,
+    url: pr.url,
+    isDraft: pr.isDraft,
+    additions: pr.additions ?? 0,
+    deletions: pr.deletions ?? 0,
+    mergeable: pr.mergeable ?? "UNKNOWN",
+    autoMergeRequest:
+      pr.autoMergeRequest && pr.autoMergeRequest.enabledBy
+        ? {
+            enabledBy: { login: pr.autoMergeRequest.enabledBy.login },
+            mergeMethod: pr.autoMergeRequest.mergeMethod,
+          }
+        : null,
+  };
+}
+
+function toCorePrListItem({
+  statusCheckRollup: _statusCheckRollup,
+  additions: _additions,
+  deletions: _deletions,
+  mergeable: _mergeable,
+  autoMergeRequest: _autoMergeRequest,
+  ...core
+}: GhPrListItem): GhPrListItemCore {
+  return core;
+}
+
+function toPrEnrichment({
+  number,
+  statusCheckRollup,
+  additions,
+  deletions,
+  mergeable,
+  autoMergeRequest,
+}: GhPrListItem): GhPrEnrichment {
+  return {
+    number,
+    statusCheckRollup,
+    additions,
+    deletions,
+    mergeable,
+    autoMergeRequest,
+  };
+}
+
+function buildPullRequestStateArgument(state: "open" | "closed" | "merged" | "all"): string {
+  switch (state) {
+    case "open": {
+      return ", states: OPEN";
+    }
+    case "closed": {
+      return ", states: CLOSED";
+    }
+    case "merged": {
+      return ", states: MERGED";
+    }
+    case "all": {
+      return "";
+    }
+  }
+}
+
+function buildUnlimitedPullRequestSearchQuery(
+  repoFullName: string,
+  filter: "reviewRequested" | "authored",
+  state: "open" | "closed" | "merged" | "all",
+): string {
+  const searchTerms = [`repo:${repoFullName}`, "is:pr", "sort:updated-desc"];
+
+  switch (state) {
+    case "open": {
+      searchTerms.push("is:open");
+      break;
+    }
+    case "closed": {
+      searchTerms.push("is:closed", "-is:merged");
+      break;
+    }
+    case "merged": {
+      searchTerms.push("is:merged");
+      break;
+    }
+    case "all": {
+      break;
+    }
+  }
+
+  if (filter === "reviewRequested") {
+    searchTerms.push("review-requested:@me");
+  } else {
+    searchTerms.push("author:@me");
+  }
+
+  return searchTerms.join(" ");
+}
+
+async function fetchUnlimitedRepositoryPullRequests(
+  cwd: string,
+  state: "open" | "closed" | "merged" | "all",
+): Promise<RawPullRequestNode[]> {
+  const { owner, repo } = await getPullRequestRepo(cwd);
+  const stateArgument = buildPullRequestStateArgument(state);
+  const query = `query($owner: String!, $repo: String!, $after: String) {
+    repository(owner: $owner, name: $repo) {
+      pullRequests(first: ${UNLIMITED_PR_PAGE_SIZE}, after: $after${stateArgument}, orderBy: { field: UPDATED_AT, direction: DESC }) {
+        nodes {
+          ${UNLIMITED_PULL_REQUEST_FIELDS}
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  }`;
+
+  const nodes: RawPullRequestNode[] = [];
+  let after: string | null = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const args = [
+      "api",
+      "graphql",
+      "-f",
+      `owner=${owner}`,
+      "-f",
+      `repo=${repo}`,
+      "-f",
+      `query=${query}`,
+    ];
+
+    if (after) {
+      args.push("-f", `after=${after}`);
+    }
+
+    const { stdout } = await ghExec(args, { cwd, timeout: 60_000 });
+    const data = parseJsonOutput<{
+      data?: {
+        repository?: {
+          pullRequests?: {
+            nodes: RawPullRequestNode[];
+            pageInfo: { hasNextPage: boolean; endCursor: string | null };
+          };
+        };
+      };
+    }>(stdout);
+    const connection = data.data?.repository?.pullRequests;
+
+    nodes.push(...(connection?.nodes ?? []));
+    hasNextPage = connection?.pageInfo.hasNextPage ?? false;
+    after = connection?.pageInfo.endCursor ?? null;
+  }
+
+  return nodes;
+}
+
+async function fetchUnlimitedFilteredPullRequests(
+  cwd: string,
+  filter: "reviewRequested" | "authored",
+  state: "open" | "closed" | "merged" | "all",
+): Promise<RawPullRequestNode[]> {
+  const repoFullName = await getPullRequestRepoFullName(cwd);
+  const searchQuery = buildUnlimitedPullRequestSearchQuery(repoFullName, filter, state);
+  const query = `query($searchQuery: String!, $after: String) {
+    search(type: ISSUE, query: $searchQuery, first: ${UNLIMITED_PR_PAGE_SIZE}, after: $after) {
+      nodes {
+        ... on PullRequest {
+          ${UNLIMITED_PULL_REQUEST_FIELDS}
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }`;
+
+  const nodes: RawPullRequestNode[] = [];
+  let after: string | null = null;
+  let hasNextPage = true;
+
+  while (hasNextPage) {
+    const args = ["api", "graphql", "-f", `searchQuery=${searchQuery}`, "-f", `query=${query}`];
+
+    if (after) {
+      args.push("-f", `after=${after}`);
+    }
+
+    const { stdout } = await ghExec(args, { cwd, timeout: 60_000 });
+    const data = parseJsonOutput<{
+      data?: {
+        search?: {
+          nodes: RawPullRequestNode[];
+          pageInfo: { hasNextPage: boolean; endCursor: string | null };
+        };
+      };
+    }>(stdout);
+    const connection = data.data?.search;
+
+    nodes.push(...(connection?.nodes ?? []));
+    hasNextPage = connection?.pageInfo.hasNextPage ?? false;
+    after = connection?.pageInfo.endCursor ?? null;
+  }
+
+  return nodes;
+}
+
+function listUnlimitedPrs(
+  cwd: string,
+  filter: "reviewRequested" | "authored" | "all",
+  state: "open" | "closed" | "merged" | "all",
+  forceRefresh = false,
+): Promise<GhPrListItem[]> {
+  const key = cacheKey({ cwd, filter, state, limit: PR_FETCH_LIMIT_UNLIMITED });
+
+  if (forceRefresh) {
+    invalidateCacheKey(prFullCache, key);
+  }
+
+  return getOrLoadCached({
+    cache: prFullCache,
+    key,
+    loader: async () => {
+      const rawPullRequests =
+        filter === "all"
+          ? await fetchUnlimitedRepositoryPullRequests(cwd, state)
+          : await fetchUnlimitedFilteredPullRequests(cwd, filter, state);
+      const data = rawPullRequests.map((pr) => mapRawPullRequest(pr));
+
+      cacheAuthorDisplayNames(data);
+      setCache(prListCache, key, { data: data.map((pr) => toCorePrListItem(pr)) });
+      setCache(prEnrichmentCache, key, { data: data.map((pr) => toPrEnrichment(pr)) });
+
+      return data;
+    },
+  });
+}
 
 function resolvePrEnrichmentLimit(
   filter: "reviewRequested" | "authored" | "all",
@@ -72,6 +441,11 @@ export function listPrsCore(
     cache: prListCache,
     key,
     loader: async () => {
+      if (limit === PR_FETCH_LIMIT_UNLIMITED) {
+        const data = await listUnlimitedPrs(cwd, filter, state, forceRefresh);
+        return data.map((pr) => toCorePrListItem(pr));
+      }
+
       const repoArgs = await getUpstreamArgs(cwd);
       const args = buildFilterArgs({
         filter,
@@ -94,7 +468,11 @@ export function listPrsEnrichment(
   state: "open" | "closed" | "merged" | "all" = "open",
   forceRefresh = false,
 ): Promise<GhPrEnrichment[]> {
-  const limit = resolvePrEnrichmentLimit(filter, state);
+  const configuredLimit = resolvePrListLimit();
+  const limit =
+    configuredLimit === PR_FETCH_LIMIT_UNLIMITED
+      ? configuredLimit
+      : resolvePrEnrichmentLimit(filter, state);
   const key = cacheKey({ cwd, filter, state, limit });
   if (forceRefresh) {
     invalidateCacheKey(prEnrichmentCache, key);
@@ -103,6 +481,11 @@ export function listPrsEnrichment(
     cache: prEnrichmentCache,
     key,
     loader: async () => {
+      if (limit === PR_FETCH_LIMIT_UNLIMITED) {
+        const data = await listUnlimitedPrs(cwd, filter, state, forceRefresh);
+        return data.map((pr) => toPrEnrichment(pr));
+      }
+
       const repoArgs = await getUpstreamArgs(cwd);
       const args = buildFilterArgs({
         filter,
@@ -123,6 +506,11 @@ export function listPrs(
   state: "open" | "closed" | "merged" | "all" = "open",
 ): Promise<GhPrListItem[]> {
   const limit = resolvePrListLimit();
+
+  if (limit === PR_FETCH_LIMIT_UNLIMITED) {
+    return listUnlimitedPrs(cwd, filter, state);
+  }
+
   const key = cacheKey({ cwd, filter, state, limit });
   return getOrLoadCached({
     cache: prFullCache,
@@ -140,28 +528,10 @@ export function listPrs(
       const data = parseJsonOutput<GhPrListItem[]>(stdout);
 
       setCache(prListCache, key, {
-        data: data.map(
-          ({
-            statusCheckRollup: _,
-            additions: _additions,
-            deletions: _deletions,
-            mergeable: _mergeable,
-            autoMergeRequest: _autoMergeRequest,
-            ...core
-          }) => core,
-        ),
+        data: data.map((pr) => toCorePrListItem(pr)),
       });
       setCache(prEnrichmentCache, key, {
-        data: data.map(
-          ({ number, statusCheckRollup, additions, deletions, mergeable, autoMergeRequest }) => ({
-            number,
-            statusCheckRollup,
-            additions,
-            deletions,
-            mergeable,
-            autoMergeRequest,
-          }),
-        ),
+        data: data.map((pr) => toPrEnrichment(pr)),
       });
 
       return data;

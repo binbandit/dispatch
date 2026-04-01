@@ -10,6 +10,7 @@ import {
   getPrDiff,
   getPrReactions,
   invalidateAllCaches,
+  listPrs,
   listPrsCore,
   listPrsEnrichment,
   listWorkflowRuns,
@@ -173,6 +174,98 @@ function createPullRequestFilesStdout(count: number, start = 1): string {
   );
 }
 
+function createGraphqlPullRequestNode({
+  number = 42,
+  title = "Unlimited",
+  state = "OPEN",
+  reviewDecision = "REVIEW_REQUIRED",
+  authorLogin = "octocat",
+  authorName = "The Octocat",
+  statusNodes = [],
+  additions = 24,
+  deletions = 8,
+  mergeable = "MERGEABLE",
+  autoMergeRequest = null,
+}: {
+  number?: number;
+  title?: string;
+  state?: "OPEN" | "CLOSED" | "MERGED";
+  reviewDecision?: string | null;
+  authorLogin?: string;
+  authorName?: string | null;
+  statusNodes?: unknown[];
+  additions?: number;
+  deletions?: number;
+  mergeable?: string;
+  autoMergeRequest?: { enabledBy: { login: string }; mergeMethod: string } | null;
+} = {}): object {
+  return {
+    number,
+    title,
+    state,
+    author: {
+      __typename: "User",
+      login: authorLogin,
+      name: authorName,
+    },
+    headRefName: "feature/unlimited",
+    baseRefName: "main",
+    reviewDecision,
+    updatedAt: "2026-03-20T00:00:00Z",
+    url: `https://github.com/octo/dispatch/pull/${number}`,
+    isDraft: false,
+    statusCheckRollup: {
+      contexts: {
+        nodes: statusNodes,
+      },
+    },
+    additions,
+    deletions,
+    mergeable,
+    autoMergeRequest,
+  };
+}
+
+function createGraphqlPullRequestConnectionStdout({
+  kind,
+  nodes,
+  hasNextPage = false,
+  endCursor = null,
+}: {
+  kind: "repository" | "search";
+  nodes: object[];
+  hasNextPage?: boolean;
+  endCursor?: string | null;
+}): string {
+  if (kind === "repository") {
+    return JSON.stringify({
+      data: {
+        repository: {
+          pullRequests: {
+            nodes,
+            pageInfo: {
+              hasNextPage,
+              endCursor,
+            },
+          },
+        },
+      },
+    });
+  }
+
+  return JSON.stringify({
+    data: {
+      search: {
+        nodes,
+        pageInfo: {
+          hasNextPage,
+          endCursor,
+        },
+      },
+    },
+  });
+}
+
 function resolvePendingRequest(
   resolve: (value: { stdout: string; stderr: string }) => void,
 ): (value: { stdout: string; stderr: string }) => void {
@@ -259,6 +352,47 @@ describe("gh-cli caching", () => {
     );
   });
 
+  it("paginates repository pull request queries when the fetch limit is unlimited", async () => {
+    getPreferenceMock.mockImplementation((key) => (key === "prFetchLimit" ? "all" : null));
+
+    execFileMock
+      .mockResolvedValueOnce({ stdout: createRepoInfoStdout(), stderr: "" })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
+      .mockResolvedValueOnce({
+        stdout: createGraphqlPullRequestConnectionStdout({
+          kind: "repository",
+          nodes: [createGraphqlPullRequestNode({ number: 42, title: "First page" })],
+          hasNextPage: true,
+          endCursor: "cursor-2",
+        }),
+        stderr: "",
+      })
+      .mockResolvedValueOnce({
+        stdout: createGraphqlPullRequestConnectionStdout({
+          kind: "repository",
+          nodes: [createGraphqlPullRequestNode({ number: 84, title: "Second page" })],
+        }),
+        stderr: "",
+      });
+
+    await expect(listPrsCore("/repo-unlimited", "all", "all")).resolves.toMatchObject([
+      { number: 42, title: "First page" },
+      { number: 84, title: "Second page" },
+    ]);
+
+    const firstUnlimitedCallArgs = execFileMock.mock.calls[2]?.[1] as string[];
+    const secondUnlimitedCallArgs = execFileMock.mock.calls[3]?.[1] as string[];
+
+    expect(firstUnlimitedCallArgs).toEqual(
+      expect.arrayContaining(["api", "graphql", "-f", "owner=octo", "-f", "repo=dispatch"]),
+    );
+    expect(
+      firstUnlimitedCallArgs.some((arg) => arg.includes("pullRequests(first: 100")),
+    ).toBeTruthy();
+    expect(firstUnlimitedCallArgs.includes("--limit")).toBeFalsy();
+    expect(secondUnlimitedCallArgs).toEqual(expect.arrayContaining(["-f", "after=cursor-2"]));
+  });
+
   it("creates left-side review comments for deleted lines", async () => {
     execFileMock
       .mockResolvedValueOnce({ stdout: "abc123def456\n", stderr: "" })
@@ -332,6 +466,64 @@ describe("gh-cli caching", () => {
       expect.arrayContaining(["pr", "list", "--author", "@me", "--limit", "200"]),
       expect.anything(),
     );
+  });
+
+  it("uses GraphQL search for unlimited filtered pull request queries", async () => {
+    getPreferenceMock.mockImplementation((key) => (key === "prFetchLimit" ? "all" : null));
+
+    execFileMock
+      .mockResolvedValueOnce({ stdout: createRepoInfoStdout(), stderr: "" })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
+      .mockResolvedValueOnce({
+        stdout: createGraphqlPullRequestConnectionStdout({
+          kind: "search",
+          nodes: [
+            createGraphqlPullRequestNode({
+              number: 77,
+              title: "Authored unlimited",
+              statusNodes: [
+                { __typename: "StatusContext", context: "lint", state: "PENDING" },
+                {
+                  __typename: "CheckRun",
+                  name: "CI",
+                  status: "COMPLETED",
+                  conclusion: "SUCCESS",
+                },
+              ],
+              autoMergeRequest: {
+                enabledBy: { login: "octocat" },
+                mergeMethod: "SQUASH",
+              },
+            }),
+          ],
+        }),
+        stderr: "",
+      });
+
+    await expect(listPrs("/repo-unlimited-authored", "authored")).resolves.toMatchObject([
+      {
+        number: 77,
+        title: "Authored unlimited",
+        statusCheckRollup: [
+          { name: "lint", status: "PENDING", conclusion: null },
+          { name: "CI", status: "COMPLETED", conclusion: "SUCCESS" },
+        ],
+        autoMergeRequest: {
+          enabledBy: { login: "octocat" },
+          mergeMethod: "SQUASH",
+        },
+      },
+    ]);
+
+    const unlimitedSearchCallArgs = execFileMock.mock.calls[2]?.[1] as string[];
+
+    expect(unlimitedSearchCallArgs).toEqual(expect.arrayContaining(["api", "graphql"]));
+    expect(
+      unlimitedSearchCallArgs.some((arg) =>
+        arg.includes("searchQuery=repo:octo/dispatch is:pr sort:updated-desc is:open author:@me"),
+      ),
+    ).toBeTruthy();
+    expect(unlimitedSearchCallArgs.includes("--limit")).toBeFalsy();
   });
 
   it("bypasses the cached PR list when a forced refresh is requested", async () => {
