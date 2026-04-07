@@ -14,6 +14,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  Clock,
   GitGraph,
   List,
   Loader2,
@@ -458,14 +459,18 @@ function resolveStatusIcon(conclusion: string | null, status?: string) {
   if (conclusion === "failure" || conclusion === "error") {
     return { icon: XCircle, color: "text-destructive", spin: false };
   }
-  if (conclusion === "cancelled" || conclusion === "skipped") {
+  if (conclusion === "cancelled") {
     return { icon: XCircle, color: "text-text-tertiary", spin: false };
   }
-  // Only spin if the job/step is actively running
-  if (status === "completed") {
-    return { icon: CheckCircle2, color: "text-text-tertiary", spin: false };
+  if (conclusion === "skipped") {
+    return { icon: Clock, color: "text-text-tertiary", spin: false };
   }
-  return { icon: Loader2, color: "text-warning", spin: true };
+  // No conclusion yet — check status
+  if (status === "in_progress") {
+    return { icon: Loader2, color: "text-warning", spin: true };
+  }
+  // Queued, completed-with-unknown-conclusion, or unresolved
+  return { icon: Clock, color: "text-text-tertiary", spin: false };
 }
 
 function isWorkflowFailure(conclusion: string | null): boolean {

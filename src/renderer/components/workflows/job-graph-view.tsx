@@ -1,7 +1,7 @@
 import type { GhWorkflowJobGraph, GhWorkflowRunJob } from "@/shared/ipc";
 
 import { cn } from "@/lib/utils";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Loader2, XCircle } from "lucide-react";
 import { useMemo, useRef } from "react";
 
 /**
@@ -189,9 +189,18 @@ function resolveNodeStatus(conclusion: string | null, status: string) {
       spin: false,
     };
   }
-  if (conclusion === "cancelled" || conclusion === "skipped") {
+  if (conclusion === "cancelled") {
     return {
       icon: XCircle,
+      color: "text-text-tertiary",
+      borderColor: "border-border",
+      bgColor: "bg-bg-raised",
+      spin: false,
+    };
+  }
+  if (conclusion === "skipped") {
+    return {
+      icon: Clock,
       color: "text-text-tertiary",
       borderColor: "border-border",
       bgColor: "bg-bg-raised",
@@ -207,19 +216,19 @@ function resolveNodeStatus(conclusion: string | null, status: string) {
       spin: true,
     };
   }
-  if (status === "completed") {
+  if (status === "queued") {
     return {
-      icon: CheckCircle2,
+      icon: Clock,
       color: "text-text-tertiary",
       borderColor: "border-border",
       bgColor: "bg-bg-raised",
       spin: false,
     };
   }
-  // Queued or unknown
+  // Completed with unknown conclusion or unmatched graph node
   return {
-    icon: Loader2,
-    color: "text-text-ghost",
+    icon: Clock,
+    color: "text-text-tertiary",
     borderColor: "border-border",
     bgColor: "bg-bg-raised",
     spin: false,
