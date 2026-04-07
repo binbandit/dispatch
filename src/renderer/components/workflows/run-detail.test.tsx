@@ -31,6 +31,7 @@ function createRunDetail(overrides?: Partial<GhWorkflowRunDetail>): GhWorkflowRu
     workflowName: "CI",
     attempt: 1,
     headSha: "1234567890abcdef",
+    workflowDatabaseId: 1,
     jobs: [
       {
         name: "test",

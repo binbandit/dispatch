@@ -8,6 +8,8 @@ import type {
   GhWorkflowRunDetail,
 } from "../../../shared/ipc";
 
+import { parse as parseYaml } from "yaml";
+
 import {
   genericCache,
   getOrLoadCached,
@@ -183,7 +185,7 @@ export async function getWorkflowRunDetail(
       "view",
       String(runId),
       "--json",
-      "databaseId,displayTitle,name,status,conclusion,headBranch,headSha,createdAt,updatedAt,event,workflowName,jobs,attempt",
+      "databaseId,displayTitle,name,status,conclusion,headBranch,headSha,createdAt,updatedAt,event,workflowName,workflowDatabaseId,jobs,attempt",
     ],
     { cwd },
   );
@@ -223,35 +225,50 @@ export async function getWorkflowYaml(cwd: string, workflowId: string): Promise<
   return stdout;
 }
 
-export function getWorkflowJobGraph(cwd: string, workflowId: string): Promise<GhWorkflowJobGraph> {
-  const key = `workflowJobGraph::${cwd}::${workflowId}`;
-  return getOrLoadCached({
-    cache: genericCache,
-    key,
-    loader: async () => {
-      const yamlContent = await getWorkflowYaml(cwd, workflowId);
+interface WorkflowYamlJob {
+  needs?: string | string[];
+}
 
-      // Dynamic import so the yaml package is only loaded when needed
-      const { parse } = await import("yaml");
-      const parsed = parse(yamlContent) as {
-        jobs?: Record<string, { needs?: string | string[] }>;
-      } | null;
+interface WorkflowYamlDocument {
+  jobs?: Record<string, WorkflowYamlJob>;
+}
 
-      if (!parsed?.jobs) {
-        return { jobs: [] };
-      }
+/**
+ * Parse job dependency edges from a workflow YAML definition.
+ * Returns each job ID with the list of job IDs it depends on (`needs`).
+ */
+export function parseJobGraphFromYaml(yaml: string): GhWorkflowJobGraph {
+  let doc: WorkflowYamlDocument;
+  try {
+    doc = parseYaml(yaml) as WorkflowYamlDocument;
+  } catch {
+    return { jobs: [] };
+  }
 
-      const jobs = Object.entries(parsed.jobs).map(([id, definition]) => {
-        const rawNeeds = definition?.needs;
-        const needs: string[] = Array.isArray(rawNeeds)
-          ? rawNeeds
-          : typeof rawNeeds === "string"
-            ? [rawNeeds]
-            : [];
-        return { id, needs };
-      });
+  if (!doc?.jobs || typeof doc.jobs !== "object") {
+    return { jobs: [] };
+  }
 
-      return { jobs };
-    },
-  }) as Promise<GhWorkflowJobGraph>;
+  return {
+    jobs: Object.entries(doc.jobs).map(([id, job]) => ({
+      id,
+      needs: Array.isArray(job?.needs)
+        ? job.needs.filter((dep): dep is string => typeof dep === "string")
+        : typeof job?.needs === "string"
+          ? [job.needs]
+          : [],
+    })),
+  };
+}
+
+/**
+ * Fetch the workflow YAML for the given workflow and extract the job
+ * dependency graph.
+ */
+export async function getWorkflowJobGraph(
+  cwd: string,
+  workflowId: string,
+): Promise<GhWorkflowJobGraph> {
+  const yaml = await getWorkflowYaml(cwd, workflowId);
+  return parseJobGraphFromYaml(yaml);
 }

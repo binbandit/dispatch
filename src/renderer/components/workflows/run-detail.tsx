@@ -4,6 +4,7 @@ import type { GhWorkflowRunDetail, GhWorkflowRunJob } from "@/shared/ipc";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { AiFailureExplainer } from "@/renderer/components/review/ai/ai-failure-explainer";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
@@ -13,7 +14,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
-  GitBranch,
+  GitGraph,
   List,
   Loader2,
   RotateCcw,
@@ -22,15 +23,15 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+import { JobGraphView } from "./job-graph-view";
 import { LogViewer } from "./log-viewer";
-import { WorkflowFlowchart } from "./workflow-flowchart";
 
 /**
  * Run detail panel — Gantt-style job timeline + step viewer + log search.
- * Supports two view modes: "timeline" (default Gantt + logs) and "flowchart" (DAG graph).
+ * Supports two view modes: "list" (default Gantt + logs) and "graph" (DAG graph).
  */
 
-type DetailViewMode = "timeline" | "flowchart";
+type DetailViewMode = "list" | "graph";
 
 interface RunDetailProps {
   cwd: string;
@@ -38,10 +39,10 @@ interface RunDetailProps {
 }
 
 export function RunDetail({ cwd, runId }: RunDetailProps) {
-  const [viewMode, setViewMode] = useState<DetailViewMode>("timeline");
   const [logSearch, setLogSearch] = useState("");
   const [matchIndex, setMatchIndex] = useState(0);
   const [matchCount, setMatchCount] = useState(0);
+  const [viewMode, setViewMode] = useState<DetailViewMode>("list");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Reset search when run changes
@@ -59,22 +60,13 @@ export function RunDetail({ cwd, runId }: RunDetailProps) {
     refetchInterval: 10_000,
   });
 
-  // Resolve workflow name → workflow ID for the flowchart view
-  const workflowsQuery = useQuery({
-    queryKey: ["workflows", "list", cwd],
-    queryFn: () => ipc("workflows.list", { cwd }),
-    enabled: viewMode === "flowchart",
-    staleTime: 60_000,
+  const workflowId = detailQuery.data?.workflowDatabaseId;
+  const jobGraphQuery = useQuery({
+    queryKey: ["workflows", "jobGraph", cwd, workflowId],
+    queryFn: () => ipc("workflows.jobGraph", { cwd, workflowId: String(workflowId ?? "") }),
+    enabled: viewMode === "graph" && workflowId !== undefined,
+    staleTime: 300_000,
   });
-
-  const resolvedWorkflowId = useMemo(() => {
-    const workflowName = detailQuery.data?.workflowName;
-    if (!workflowName || !workflowsQuery.data) {
-      return null;
-    }
-    const match = workflowsQuery.data.find((wf) => wf.name === workflowName);
-    return match ? String(match.id) : null;
-  }, [detailQuery.data?.workflowName, workflowsQuery.data]);
 
   const rerunMutation = useMutation({
     mutationFn: () => ipc("workflows.rerunAll", { cwd, runId }),
@@ -134,18 +126,37 @@ export function RunDetail({ cwd, runId }: RunDetailProps) {
     <div className="flex flex-col">
       {/* Header */}
       <div className="border-border border-b px-4 py-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
             <h3 className="text-text-primary text-sm font-semibold">{run.displayTitle}</h3>
             <p className="text-text-tertiary mt-0.5 font-mono text-[11px]">
               {run.workflowName} · {run.headBranch} · {run.headSha.slice(0, 8)}
             </p>
           </div>
-          {/* View mode toggle */}
-          <ViewModeToggle
-            value={viewMode}
-            onChange={setViewMode}
-          />
+          <ToggleGroup
+            variant="outline"
+            size="sm"
+            value={[viewMode]}
+            onValueChange={(values) => {
+              const next = values[0] as DetailViewMode | undefined;
+              if (next) {
+                setViewMode(next);
+              }
+            }}
+          >
+            <ToggleGroupItem
+              value="list"
+              aria-label="List view"
+            >
+              <List size={13} />
+            </ToggleGroupItem>
+            <ToggleGroupItem
+              value="graph"
+              aria-label="Graph view"
+            >
+              <GitGraph size={13} />
+            </ToggleGroupItem>
+          </ToggleGroup>
         </div>
         <div className="mt-2 flex items-center gap-1.5">
           <Button
@@ -186,18 +197,19 @@ export function RunDetail({ cwd, runId }: RunDetailProps) {
         )}
       </div>
 
-      {viewMode === "flowchart" ? (
-        workflowsQuery.isLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <Spinner className="text-primary h-5 w-5" />
-          </div>
-        ) : (
-          <WorkflowFlowchart
-            cwd={cwd}
-            workflowId={resolvedWorkflowId}
-            jobs={run.jobs}
-          />
-        )
+      {viewMode === "graph" ? (
+        <div className="flex-1 overflow-auto">
+          {jobGraphQuery.isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Spinner className="text-primary h-5 w-5" />
+            </div>
+          ) : (
+            <JobGraphView
+              jobs={run.jobs}
+              graph={jobGraphQuery.data ?? { jobs: [] }}
+            />
+          )}
+        </div>
       ) : (
         <>
           {/* Log search bar */}
@@ -274,43 +286,6 @@ export function RunDetail({ cwd, runId }: RunDetailProps) {
           </div>
         </>
       )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// View mode toggle (design system §8.11 toggle groups)
-// ---------------------------------------------------------------------------
-
-function ViewModeToggle({
-  value,
-  onChange,
-}: {
-  value: DetailViewMode;
-  onChange: (mode: DetailViewMode) => void;
-}) {
-  const options: Array<{ mode: DetailViewMode; icon: typeof List; label: string }> = [
-    { mode: "timeline", icon: List, label: "Timeline" },
-    { mode: "flowchart", icon: GitBranch, label: "Graph" },
-  ];
-
-  return (
-    <div className="border-border bg-bg-raised flex shrink-0 items-center gap-0 rounded-md border p-0.5">
-      {options.map(({ mode, icon: Icon, label }) => (
-        <button
-          key={mode}
-          type="button"
-          onClick={() => onChange(mode)}
-          className={`flex cursor-pointer items-center gap-1.5 rounded px-2.5 py-1 text-[11px] transition-all ${
-            value === mode
-              ? "bg-bg-elevated text-text-primary shadow-sm"
-              : "text-text-tertiary hover:text-text-secondary"
-          }`}
-        >
-          <Icon size={12} />
-          {label}
-        </button>
-      ))}
     </div>
   );
 }

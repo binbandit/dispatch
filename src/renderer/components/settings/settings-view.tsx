@@ -204,7 +204,7 @@ export function SettingsView() {
   );
   const availableProviders = useMemo<Set<AiProvider> | undefined>(() => {
     if (!aiProvidersQuery.data) {
-      return undefined;
+      return;
     }
 
     return new Set(

@@ -316,6 +316,7 @@ export interface GhWorkflowRunJob {
 
 export interface GhWorkflowRunDetail extends GhWorkflowRun {
   headSha: string;
+  workflowDatabaseId: number;
   jobs: GhWorkflowRunJob[];
 }
 
