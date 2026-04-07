@@ -14,10 +14,12 @@ import {
   buildCopilotCommandArgs,
   buildCodexCommandArgs,
   buildCompletionPrompt,
+  buildOpencodeCommandArgs,
   buildProviderTestMessages,
   normalizeProviderVersion,
   parseClaudeAuthStatus,
   parseCodexAuthStatus,
+  parseOpencodeJsonOutput,
   resolveCopilotCommandSpec,
   resolveOllamaEndpointUrl,
 } from "./ai";
@@ -178,6 +180,49 @@ describe("resolveOllamaEndpointUrl", () => {
     expect(resolveOllamaEndpointUrl("http://localhost:11434/api")).toBe(
       "http://localhost:11434/api/chat",
     );
+  });
+});
+
+describe("buildOpencodeCommandArgs", () => {
+  it("produces the expected argument array", () => {
+    expect(buildOpencodeCommandArgs("anthropic/claude-sonnet-4-20250514")).toEqual([
+      "run",
+      "--format",
+      "json",
+      "--pure",
+      "-m",
+      "anthropic/claude-sonnet-4-20250514",
+    ]);
+  });
+});
+
+describe("parseOpencodeJsonOutput", () => {
+  it("extracts text from NDJSON text events", () => {
+    const output = [
+      '{"type":"start"}',
+      '{"type":"text","part":{"type":"text","text":"Hello "}}',
+      '{"type":"text","part":{"type":"text","text":"world"}}',
+      '{"type":"end"}',
+    ].join("\n");
+    expect(parseOpencodeJsonOutput(output)).toBe("Hello world");
+  });
+
+  it("skips non-JSON lines gracefully", () => {
+    const output = [
+      "some debug output",
+      '{"type":"text","part":{"type":"text","text":"result"}}',
+      "another debug line",
+    ].join("\n");
+    expect(parseOpencodeJsonOutput(output)).toBe("result");
+  });
+
+  it("returns empty string for empty input", () => {
+    expect(parseOpencodeJsonOutput("")).toBe("");
+  });
+
+  it("returns empty string when no text events are present", () => {
+    const output = '{"type":"start"}\n{"type":"end"}';
+    expect(parseOpencodeJsonOutput(output)).toBe("");
   });
 });
 

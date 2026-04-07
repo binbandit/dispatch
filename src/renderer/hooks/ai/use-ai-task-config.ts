@@ -62,6 +62,7 @@ const FALLBACK_AI_CONFIG: AiResolvedConfig = {
     claude: createFallbackProviderConfig("claude"),
     copilot: createFallbackProviderConfig("copilot"),
     ollama: createFallbackProviderConfig("ollama"),
+    opencode: createFallbackProviderConfig("opencode"),
   },
   slots: {
     big: {

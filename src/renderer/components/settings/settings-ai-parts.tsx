@@ -24,12 +24,13 @@ export function getProviderLabel(provider: AiProvider | null | undefined): strin
 
 export function normalizeAiProvider(
   value: string | null | undefined,
-): "codex" | "claude" | "copilot" | "ollama" | "none" {
+): "codex" | "claude" | "copilot" | "ollama" | "opencode" | "none" {
   switch (value) {
     case "codex":
     case "claude":
     case "copilot":
     case "ollama":
+    case "opencode":
     case "none": {
       return value;
     }
@@ -70,6 +71,13 @@ export const AI_PROVIDER_LIST: Array<{
     description: "Local Ollama runtime integration over HTTP for self-hosted models.",
     hint: "Dispatch talks directly to the local Ollama daemon over HTTP.",
   },
+  {
+    id: "opencode",
+    label: "OpenCode",
+    description:
+      "OpenCode CLI integration — provider-agnostic agent supporting Anthropic, OpenAI, Google, and more.",
+    hint: "Install via brew install opencode. Models use provider/model format (e.g. anthropic/claude-sonnet-4-20250514).",
+  },
 ];
 
 export function formatCheckedAgo(timestamp: number): string {
@@ -96,7 +104,7 @@ export function resolveProviderDotClass(status: AiProviderStatus | undefined): s
     return "bg-text-ghost";
   }
 
-  if (status.provider === "ollama") {
+  if (status.authenticated === null) {
     return status.available ? "bg-info shadow-[0_0_12px_rgba(91,164,230,0.25)]" : "bg-danger";
   }
 

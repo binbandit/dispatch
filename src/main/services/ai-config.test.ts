@@ -19,6 +19,8 @@ function createPreferences(
       | "aiCopilotBinaryPath"
       | "aiOllamaModel"
       | "aiOllamaBaseUrl"
+      | "aiOpencodeModel"
+      | "aiOpencodeBinaryPath"
       | "aiBigProvider"
       | "aiBigModel"
       | "aiSmallProvider"
@@ -48,6 +50,8 @@ function createPreferences(
     aiCopilotBinaryPath: null,
     aiOllamaModel: null,
     aiOllamaBaseUrl: null,
+    aiOpencodeModel: null,
+    aiOpencodeBinaryPath: null,
     aiBigProvider: null,
     aiBigModel: null,
     aiSmallProvider: null,

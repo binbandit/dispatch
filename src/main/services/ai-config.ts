@@ -141,6 +141,12 @@ const PROVIDER_ENV_KEYS: Record<AiProvider, ProviderEnvKeys> = {
     homePath: [],
     baseUrl: ["OLLAMA_BASE_URL", "OLLAMA_HOST"],
   },
+  opencode: {
+    model: ["OPENCODE_MODEL"],
+    binaryPath: ["OPENCODE_BINARY_PATH"],
+    homePath: [],
+    baseUrl: [],
+  },
 };
 
 function normalizeValue(value: string | null | undefined): string | null {
@@ -160,6 +166,7 @@ function normalizeProvider(value: string | null | undefined): AiProvider | "none
     case "claude":
     case "copilot":
     case "ollama":
+    case "opencode":
     case "none": {
       return normalizedValue;
     }
@@ -562,6 +569,12 @@ export function resolveAiConfigFromSources(
       preferences,
       env,
       provider: "ollama",
+      activeProviderForLegacy,
+    }),
+    opencode: resolveProviderConfig({
+      preferences,
+      env,
+      provider: "opencode",
       activeProviderForLegacy,
     }),
   } as const satisfies Record<AiProvider, AiProviderResolvedConfig>;

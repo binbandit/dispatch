@@ -104,6 +104,22 @@ function createAiConfigResponse(): AiResolvedConfig {
         homePathEnvVar: null,
         baseUrlEnvVar: null,
       },
+      opencode: {
+        provider: "opencode",
+        model: null,
+        binaryPath: null,
+        homePath: null,
+        baseUrl: null,
+        isConfigured: false,
+        modelSource: "none",
+        binaryPathSource: "none",
+        homePathSource: "none",
+        baseUrlSource: "none",
+        modelEnvVar: null,
+        binaryPathEnvVar: null,
+        homePathEnvVar: null,
+        baseUrlEnvVar: null,
+      },
     },
     slots: {
       big: {

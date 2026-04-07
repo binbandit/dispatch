@@ -26,7 +26,7 @@ export const ANALYTICS_CHANNEL = "analytics:track";
 // Service types shared across processes
 // ---------------------------------------------------------------------------
 
-export type AiProvider = "codex" | "claude" | "copilot" | "ollama";
+export type AiProvider = "codex" | "claude" | "copilot" | "ollama" | "opencode";
 export type AiConfigSource = "preference" | "environment" | "default" | "none";
 export type AiModelSlot = "big" | "small";
 export type AiTaskId =

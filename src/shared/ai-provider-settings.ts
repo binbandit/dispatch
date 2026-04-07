@@ -73,6 +73,12 @@ export const AI_PROVIDER_PREFERENCE_KEYS: Record<AiProvider, ScopedProviderPrefe
     homePath: null,
     baseUrl: "aiOllamaBaseUrl",
   },
+  opencode: {
+    model: "aiOpencodeModel",
+    binaryPath: "aiOpencodeBinaryPath",
+    homePath: null,
+    baseUrl: null,
+  },
 };
 
 export const AI_PROVIDER_SCOPED_PREFERENCE_KEYS = [
@@ -85,6 +91,8 @@ export const AI_PROVIDER_SCOPED_PREFERENCE_KEYS = [
   "aiCopilotBinaryPath",
   "aiOllamaModel",
   "aiOllamaBaseUrl",
+  "aiOpencodeModel",
+  "aiOpencodeBinaryPath",
 ] as const;
 
 export const AI_MODEL_SLOT_SCOPED_PREFERENCE_KEYS = [
@@ -108,6 +116,7 @@ export const DEFAULT_AI_MODEL_BY_PROVIDER: Record<AiProvider, string> = {
   claude: "default",
   copilot: "gpt-5.3-codex",
   ollama: "llama3.1",
+  opencode: "anthropic/claude-sonnet-4-20250514",
 };
 
 export const DEFAULT_AI_MODEL_BY_SLOT_AND_PROVIDER: Record<
@@ -119,12 +128,14 @@ export const DEFAULT_AI_MODEL_BY_SLOT_AND_PROVIDER: Record<
     claude: "opus",
     copilot: "gpt-5.3-codex",
     ollama: "llama3.1",
+    opencode: "anthropic/claude-opus-4-20250115",
   },
   small: {
     codex: "gpt-5.4-mini",
     claude: "haiku",
     copilot: "claude-haiku-4.5",
     ollama: "qwen2.5-coder",
+    opencode: "anthropic/claude-haiku-4-5-20251001",
   },
 };
 
@@ -198,12 +209,21 @@ export const AI_PROVIDER_MODEL_OPTIONS: Record<AiProvider, readonly AiProviderMo
     { label: "Qwen 2.5 Coder", value: "qwen2.5-coder" },
     { label: "DeepSeek R1", value: "deepseek-r1" },
   ],
+  opencode: [
+    { label: "Claude Sonnet 4", value: "anthropic/claude-sonnet-4-20250514" },
+    { label: "Claude Opus 4", value: "anthropic/claude-opus-4-20250115" },
+    { label: "Claude Haiku 4.5", value: "anthropic/claude-haiku-4-5-20251001" },
+    { label: "GPT-5.4", value: "openai/gpt-5.4" },
+    { label: "GPT-5.4 Mini", value: "openai/gpt-5.4-mini" },
+    { label: "Gemini 2.5 Pro", value: "google/gemini-2.5-pro" },
+  ],
 };
 
 export const DEFAULT_AI_BINARY_PATH_BY_PROVIDER: Partial<Record<AiProvider, string>> = {
   codex: "codex",
   claude: "claude",
   copilot: "copilot",
+  opencode: "opencode",
 };
 
 export const DEFAULT_AI_BASE_URL_BY_PROVIDER: Partial<Record<AiProvider, string>> = {

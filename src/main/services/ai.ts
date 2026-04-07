@@ -57,6 +57,7 @@ const CODEX_TIMEOUT_MS = 180_000;
 const CLAUDE_TIMEOUT_MS = 180_000;
 const COPILOT_TIMEOUT_MS = 180_000;
 const OLLAMA_TIMEOUT_MS = 180_000;
+const OPENCODE_TIMEOUT_MS = 180_000;
 const PROVIDER_STATUS_TIMEOUT_MS = 5000;
 const COPILOT_READ_ONLY_TOOLS = "view,grep,glob";
 
@@ -228,6 +229,32 @@ export function buildCopilotCommandArgs(
   ];
 }
 
+export function buildOpencodeCommandArgs(model: string): string[] {
+  return ["run", "--format", "json", "--pure", "-m", model];
+}
+
+export function parseOpencodeJsonOutput(output: string): string {
+  const textParts: string[] = [];
+
+  for (const line of output.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      continue;
+    }
+
+    try {
+      const event = JSON.parse(trimmed) as { type: string; part?: { type: string; text?: string } };
+      if (event.type === "text" && event.part?.type === "text" && event.part.text) {
+        textParts.push(event.part.text);
+      }
+    } catch {
+      // Skip non-JSON lines.
+    }
+  }
+
+  return textParts.join("");
+}
+
 function resolveWorkingDirectory(cwd?: string): string {
   return cwd ?? repo.getActiveWorkspace() ?? process.cwd();
 }
@@ -238,14 +265,20 @@ function getCommandBasename(command: string): string {
     .replace(/\.exe$/u, "");
 }
 
+const CLI_PROVIDER_LABELS: Record<"codex" | "claude" | "opencode", string> = {
+  codex: "Codex",
+  claude: "Claude",
+  opencode: "OpenCode",
+};
+
 function resolveConfiguredBinaryPath(
-  provider: "codex" | "claude",
+  provider: "codex" | "claude" | "opencode",
   binaryPath: string | null,
 ): string {
+  const label = CLI_PROVIDER_LABELS[provider];
+
   if (!binaryPath) {
-    throw new Error(
-      `${provider === "codex" ? "Codex" : "Claude"} CLI is not configured. Set a binary path in Settings.`,
-    );
+    throw new Error(`${label} CLI is not configured. Set a binary path in Settings.`);
   }
 
   if (binaryPath.includes("/") || binaryPath.includes("\\")) {
@@ -257,9 +290,7 @@ function resolveConfiguredBinaryPath(
     return resolvedBinaryPath;
   }
 
-  throw new Error(
-    `${provider === "codex" ? "Codex" : "Claude"} CLI (\`${binaryPath}\`) is not available on PATH.`,
-  );
+  throw new Error(`${label} CLI (\`${binaryPath}\`) is not available on PATH.`);
 }
 
 export function resolveCopilotCommandSpec(binaryPath: string | null): ResolvedCommandSpec {
@@ -299,9 +330,15 @@ export function resolveCopilotCommandSpec(binaryPath: string | null): ResolvedCo
   );
 }
 
-function createCliError(provider: "codex" | "claude" | "copilot", detail: string): Error {
+function createCliError(provider: "codex" | "claude" | "copilot" | "opencode", detail: string): Error {
   const providerName =
-    provider === "codex" ? "Codex" : provider === "claude" ? "Claude" : "GitHub Copilot";
+    provider === "codex"
+      ? "Codex"
+      : provider === "claude"
+        ? "Claude"
+        : provider === "copilot"
+          ? "GitHub Copilot"
+          : "OpenCode";
   return new Error(`${providerName} CLI error: ${detail}`);
 }
 
@@ -536,12 +573,40 @@ async function probeOllamaStatus(): Promise<AiProviderStatus> {
   }
 }
 
+async function probeOpencodeStatus(): Promise<AiProviderStatus> {
+  const { binaryPath } = getAiProviderStatusConfig("opencode");
+  const command = binaryPath ?? "opencode";
+  const version = normalizeProviderVersion(await whichVersion(command));
+
+  if (!version) {
+    return {
+      provider: "opencode",
+      version: null,
+      available: false,
+      authenticated: false,
+      statusText: "Not installed",
+    };
+  }
+
+  // opencode doesn't have a dedicated auth status command; if the binary
+  // exists we report it as available. Authentication is handled per-provider
+  // inside opencode's own config.
+  return {
+    provider: "opencode",
+    version,
+    available: true,
+    authenticated: null,
+    statusText: "Installed",
+  };
+}
+
 export function getProvidersStatus(): Promise<AiProviderStatus[]> {
   return Promise.all([
     probeCodexStatus(),
     probeClaudeStatus(),
     probeCopilotStatus(),
     probeOllamaStatus(),
+    probeOpencodeStatus(),
   ]);
 }
 
@@ -610,6 +675,9 @@ export function complete(args: AiCompletionArgs): Promise<string> {
     }
     case "ollama": {
       return completeWithOllama(request);
+    }
+    case "opencode": {
+      return completeWithOpencode(request);
     }
   }
 }
@@ -756,5 +824,40 @@ async function completeWithOllama(args: ResolvedAiCompletionArgs): Promise<strin
     throw error;
   } finally {
     clearTimeout(timeout);
+  }
+}
+
+async function completeWithOpencode(args: ResolvedAiCompletionArgs): Promise<string> {
+  const binaryPath = resolveConfiguredBinaryPath("opencode", args.binaryPath);
+  const { systemPrompt, prompt } = buildCompletionPrompt(args.messages);
+  const input = systemPrompt ? `System instructions:\n${systemPrompt}\n\n${prompt}` : prompt;
+
+  try {
+    const result = await runProcess(binaryPath, buildOpencodeCommandArgs(args.model), {
+      cwd: args.cwd,
+      env: process.env,
+      input,
+      timeoutMs: OPENCODE_TIMEOUT_MS,
+    });
+
+    if (result.exitCode !== 0) {
+      const detail = result.stderr.length > 0 ? result.stderr : result.stdout;
+      throw createCliError(
+        "opencode",
+        detail.length > 0 ? detail : `Command failed with code ${result.exitCode}.`,
+      );
+    }
+
+    const parsed = parseOpencodeJsonOutput(result.stdout);
+    if (parsed.length > 0) {
+      return parsed;
+    }
+
+    return result.stdout;
+  } catch (error) {
+    if (error instanceof Error && !/^OpenCode CLI error:/u.test(error.message)) {
+      throw createCliError("opencode", error.message);
+    }
+    throw error;
   }
 }
