@@ -197,10 +197,64 @@ export function RunDetail({ cwd, runId }: RunDetailProps) {
         )}
       </div>
 
-      {viewMode === "graph" ? (
-        <div className="flex-1 overflow-auto">
-          {jobGraphQuery.isLoading ? (
-            <div className="flex items-center justify-center py-12">
+      {/* Log search bar */}
+      <div className="border-border flex items-center gap-2 border-b px-4 py-2">
+        <Search
+          size={13}
+          className="text-text-tertiary shrink-0"
+        />
+        <input
+          ref={searchInputRef}
+          type="text"
+          value={logSearch}
+          onChange={(e) => setLogSearch(e.target.value)}
+          placeholder="Search logs..."
+          className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
+          onKeyDown={(e) => {
+            if (e.key === "Escape") {
+              setLogSearch("");
+              (e.target as HTMLElement).blur();
+            }
+            if (e.key === "Enter") {
+              if (e.shiftKey) {
+                setMatchIndex((i) => (i > 0 ? i - 1 : matchCount - 1));
+              } else {
+                setMatchIndex((i) => (i < matchCount - 1 ? i + 1 : 0));
+              }
+            }
+          }}
+        />
+        {logSearch && matchCount > 0 && (
+          <div className="flex items-center gap-1">
+            <span className="text-text-tertiary font-mono text-[10px]">
+              {matchIndex + 1}/{matchCount}
+            </span>
+            <button
+              type="button"
+              onClick={() => setMatchIndex((i) => (i > 0 ? i - 1 : matchCount - 1))}
+              className="text-text-tertiary hover:text-text-primary cursor-pointer rounded-sm p-0.5"
+            >
+              <ChevronUp size={12} />
+            </button>
+            <button
+              type="button"
+              onClick={() => setMatchIndex((i) => (i < matchCount - 1 ? i + 1 : 0))}
+              className="text-text-tertiary hover:text-text-primary cursor-pointer rounded-sm p-0.5"
+            >
+              <ChevronDown size={12} />
+            </button>
+          </div>
+        )}
+        {logSearch && matchCount === 0 && (
+          <span className="text-text-ghost text-[10px]">No matches</span>
+        )}
+      </div>
+
+      {/* Timeline — toggleable between Gantt bars and dependency graph */}
+      <div className="border-border border-b px-4 py-3">
+        {viewMode === "graph" ? (
+          jobGraphQuery.isLoading ? (
+            <div className="flex items-center justify-center py-6">
               <Spinner className="text-primary h-5 w-5" />
             </div>
           ) : (
@@ -208,84 +262,26 @@ export function RunDetail({ cwd, runId }: RunDetailProps) {
               jobs={run.jobs}
               graph={jobGraphQuery.data ?? { jobs: [] }}
             />
-          )}
-        </div>
-      ) : (
-        <>
-          {/* Log search bar */}
-          <div className="border-border flex items-center gap-2 border-b px-4 py-2">
-            <Search
-              size={13}
-              className="text-text-tertiary shrink-0"
-            />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={logSearch}
-              onChange={(e) => setLogSearch(e.target.value)}
-              placeholder="Search logs..."
-              className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setLogSearch("");
-                  (e.target as HTMLElement).blur();
-                }
-                if (e.key === "Enter") {
-                  if (e.shiftKey) {
-                    setMatchIndex((i) => (i > 0 ? i - 1 : matchCount - 1));
-                  } else {
-                    setMatchIndex((i) => (i < matchCount - 1 ? i + 1 : 0));
-                  }
-                }
-              }}
-            />
-            {logSearch && matchCount > 0 && (
-              <div className="flex items-center gap-1">
-                <span className="text-text-tertiary font-mono text-[10px]">
-                  {matchIndex + 1}/{matchCount}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setMatchIndex((i) => (i > 0 ? i - 1 : matchCount - 1))}
-                  className="text-text-tertiary hover:text-text-primary cursor-pointer rounded-sm p-0.5"
-                >
-                  <ChevronUp size={12} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setMatchIndex((i) => (i < matchCount - 1 ? i + 1 : 0))}
-                  className="text-text-tertiary hover:text-text-primary cursor-pointer rounded-sm p-0.5"
-                >
-                  <ChevronDown size={12} />
-                </button>
-              </div>
-            )}
-            {logSearch && matchCount === 0 && (
-              <span className="text-text-ghost text-[10px]">No matches</span>
-            )}
-          </div>
+          )
+        ) : (
+          <GanttTimeline jobs={run.jobs} />
+        )}
+      </div>
 
-          {/* Gantt timeline */}
-          <div className="border-border border-b px-4 py-3">
-            <GanttTimeline jobs={run.jobs} />
-          </div>
-
-          {/* Job list */}
-          <div className="flex-1">
-            {run.jobs.map((job) => (
-              <JobRow
-                key={job.name}
-                job={job}
-                cwd={cwd}
-                runId={runId}
-                searchQuery={logSearch}
-                activeMatchIndex={matchIndex}
-                onMatchCountChange={handleMatchCountChange}
-              />
-            ))}
-          </div>
-        </>
-      )}
+      {/* Job list */}
+      <div className="flex-1">
+        {run.jobs.map((job) => (
+          <JobRow
+            key={job.name}
+            job={job}
+            cwd={cwd}
+            runId={runId}
+            searchQuery={logSearch}
+            activeMatchIndex={matchIndex}
+            onMatchCountChange={handleMatchCountChange}
+          />
+        ))}
+      </div>
     </div>
   );
 }
@@ -381,7 +377,7 @@ function JobRow({
   onMatchCountChange: (count: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const statusIcon = resolveStatusIcon(job.conclusion);
+  const statusIcon = resolveStatusIcon(job.conclusion, job.status);
 
   // Auto-expand failed jobs (render-time state adjustment)
   const [prevConclusion, setPrevConclusion] = useState(job.conclusion);
@@ -421,7 +417,7 @@ function JobRow({
         <div className="bg-bg-root px-4 pb-2">
           {/* Steps */}
           {job.steps.map((step) => {
-            const stepStatus = resolveStatusIcon(step.conclusion);
+            const stepStatus = resolveStatusIcon(step.conclusion, step.status);
             return (
               <div
                 key={step.number}
@@ -455,7 +451,7 @@ function JobRow({
 // Utilities
 // ---------------------------------------------------------------------------
 
-function resolveStatusIcon(conclusion: string | null) {
+function resolveStatusIcon(conclusion: string | null, status?: string) {
   if (conclusion === "success") {
     return { icon: CheckCircle2, color: "text-success", spin: false };
   }
@@ -464,6 +460,10 @@ function resolveStatusIcon(conclusion: string | null) {
   }
   if (conclusion === "cancelled" || conclusion === "skipped") {
     return { icon: XCircle, color: "text-text-tertiary", spin: false };
+  }
+  // Only spin if the job/step is actively running
+  if (status === "completed") {
+    return { icon: CheckCircle2, color: "text-text-tertiary", spin: false };
   }
   return { icon: Loader2, color: "text-warning", spin: true };
 }
