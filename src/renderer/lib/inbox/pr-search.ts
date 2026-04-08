@@ -1,6 +1,4 @@
-import type { GhPrEnrichment, GhPrListItemCore } from "@/shared/ipc";
-
-import { summarizePrChecks, type PrCheckSummaryState } from "@/renderer/lib/review/pr-check-status";
+import type { GhPrListItemCore } from "@/shared/ipc";
 
 export type PrSearchField =
   | "text"
@@ -10,7 +8,6 @@ export type PrSearchField =
   | "branch"
   | "head"
   | "base"
-  | "status"
   | "is"
   | "size"
   | "number";
@@ -24,7 +21,6 @@ export interface PrSearchToken {
 
 export interface SearchablePrItem {
   pr: GhPrListItemCore & { workspace?: string; workspacePath?: string };
-  enrichment?: GhPrEnrichment;
   hasNewActivity?: boolean;
 }
 
@@ -49,18 +45,9 @@ const SEARCH_FIELD_ALIASES: Record<string, Exclude<PrSearchField, "text">> = {
   pr: "number",
   repo: "repo",
   size: "size",
-  status: "status",
   title: "title",
   user: "author",
   workspace: "repo",
-};
-
-const CHECK_STATUS_ALIASES: Record<PrCheckSummaryState, string[]> = {
-  failing: ["broken", "error", "fail", "failing", "red"],
-  neutral: ["neutral", "skipped"],
-  none: ["none", "no-checks", "unchecked"],
-  passing: ["green", "healthy", "pass", "passing", "success"],
-  pending: ["pending", "queued", "running", "waiting", "yellow"],
 };
 
 const REVIEW_STATE_ALIASES: Record<ReviewState, string[]> = {
@@ -92,7 +79,6 @@ interface SearchIndex {
   author: string;
   base: string;
   branches: string[];
-  checkState: PrCheckSummaryState;
   head: string;
   number: string;
   repo: string;
@@ -179,12 +165,12 @@ function resolveReviewStates(item: SearchablePrItem): Set<ReviewState> {
   return states;
 }
 
-function resolveSizeBucket(enrichment: GhPrEnrichment | undefined): PrSizeBucket | null {
-  if (!enrichment) {
+function resolveSizeBucket(pr: GhPrListItemCore): PrSizeBucket | null {
+  const total = pr.additions + pr.deletions;
+  if (total === 0) {
     return null;
   }
 
-  const total = enrichment.additions + enrichment.deletions;
   if (total < 50) {
     return "s";
   }
@@ -205,12 +191,11 @@ function createSearchIndex(item: SearchablePrItem): SearchIndex {
       normalizeSearchValue(item.pr.headRefName),
       normalizeSearchValue(item.pr.baseRefName),
     ].filter(Boolean),
-    checkState: summarizePrChecks(item.enrichment?.statusCheckRollup ?? []).state,
     head: normalizeSearchValue(item.pr.headRefName),
     number: String(item.pr.number),
     repo: resolveRepoLabel(item.pr.workspace, item.pr.workspacePath),
     reviewStates: resolveReviewStates(item),
-    size: resolveSizeBucket(item.enrichment),
+    size: resolveSizeBucket(item.pr),
     title: normalizeSearchValue(item.pr.title),
   };
 }
@@ -246,16 +231,6 @@ function scoreTextMatch(
   }
 
   return 0;
-}
-
-function resolveStatusAlias(value: string): PrCheckSummaryState | null {
-  for (const [state, aliases] of Object.entries(CHECK_STATUS_ALIASES)) {
-    if (aliases.includes(value)) {
-      return state as PrCheckSummaryState;
-    }
-  }
-
-  return null;
 }
 
 function resolveReviewAlias(value: string): ReviewState | null {
@@ -348,15 +323,6 @@ function matchTextToken(index: SearchIndex, value: string): MatchResult {
       field: "is",
       matched: true,
       score: 60,
-    });
-  }
-
-  const statusAlias = resolveStatusAlias(value);
-  if (statusAlias && index.checkState === statusAlias) {
-    candidates.push({
-      field: "status",
-      matched: true,
-      score: 56,
     });
   }
 
@@ -459,20 +425,6 @@ function matchFieldToken(index: SearchIndex, token: PrSearchToken): MatchResult 
         word: 40,
       });
       return { field: "base", matched: score > 0, score };
-    }
-    case "status": {
-      const canonicalState = resolveStatusAlias(token.value);
-      const score = canonicalState
-        ? canonicalState === index.checkState
-          ? 72
-          : 0
-        : scoreTextMatch(index.checkState, token.value, {
-            contains: 28,
-            exact: 56,
-            prefix: 48,
-            word: 40,
-          });
-      return { field: "status", matched: score > 0, score };
     }
     case "is": {
       const canonicalState = resolveReviewAlias(token.value);

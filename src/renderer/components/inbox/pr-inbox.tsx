@@ -1,5 +1,5 @@
 /* eslint-disable import/max-dependencies -- The inbox owns search, filtering, actions, and activity state for the PR list sidebar. */
-import type { GhPrEnrichment, GhPrListItemCore, IpcApi } from "@/shared/ipc";
+import type { GhPrListItemCore, IpcApi } from "@/shared/ipc";
 
 import { Kbd } from "@/components/ui/kbd";
 import { MenuItem, MenuPopup, MenuSeparator } from "@/components/ui/menu";
@@ -25,21 +25,10 @@ import {
   hasNewPrActivity,
   indexPrActivityStates,
 } from "@/renderer/lib/review/pr-activity";
-import { summarizePrChecks, type PrCheckSummary } from "@/renderer/lib/review/pr-check-status";
 import { clamp, relativeTime } from "@/shared/format";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  Check,
-  Copy,
-  ExternalLink,
-  GitMerge,
-  Inbox,
-  Loader2,
-  Search,
-  X,
-  XCircle,
-} from "lucide-react";
+import { Check, Copy, ExternalLink, GitMerge, Inbox, Search, X, XCircle } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 /**
@@ -66,11 +55,7 @@ interface StatusIndicator {
   label: string;
 }
 
-function resolveStatusIndicator(
-  pr: GhPrListItemCore,
-  enrichment: GhPrEnrichment | undefined,
-  checkSummary: PrCheckSummary,
-): StatusIndicator {
+function resolveStatusIndicator(pr: GhPrListItemCore): StatusIndicator {
   // Closed → red
   if (pr.state === "CLOSED") {
     return { dotColor: "bg-destructive", pulse: false, label: "Closed" };
@@ -79,37 +64,17 @@ function resolveStatusIndicator(
   if (pr.state === "MERGED") {
     return { dotColor: "bg-purple", pulse: false, label: "Merged" };
   }
-  // In merge queue → pulsing blue
-  if (enrichment?.autoMergeRequest) {
-    return { dotColor: "bg-info", pulse: true, label: "Auto-merge" };
-  }
-  // Conflicts → red
-  if (enrichment?.mergeable === "CONFLICTING") {
-    return { dotColor: "bg-destructive", pulse: false, label: "Conflicts" };
-  }
   // Changes requested → orange
   if (pr.reviewDecision === "CHANGES_REQUESTED") {
     return { dotColor: "bg-warning", pulse: false, label: "Changes requested" };
   }
-  // Ready to merge → green (approved + checks passing)
-  if (!pr.isDraft && pr.reviewDecision === "APPROVED" && checkSummary.state === "passing") {
-    return { dotColor: "bg-success", pulse: false, label: "Ready to merge" };
-  }
-  // Approved (checks still running or not all passing)
+  // Approved → green
   if (!pr.isDraft && pr.reviewDecision === "APPROVED") {
     return { dotColor: "bg-success", pulse: false, label: "Approved" };
   }
   // Draft → ghost
   if (pr.isDraft) {
     return { dotColor: "bg-text-ghost", pulse: false, label: "Draft" };
-  }
-  // Checks failing → red dot
-  if (checkSummary.state === "failing") {
-    return { dotColor: "bg-destructive", pulse: false, label: "Checks failing" };
-  }
-  // Checks pending → amber dot
-  if (checkSummary.state === "pending") {
-    return { dotColor: "bg-warning", pulse: false, label: "Checks pending" };
   }
   // Default → open, needs review (purple for review requested)
   return { dotColor: "bg-purple", pulse: false, label: "Review requested" };
@@ -151,21 +116,6 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
     activeFilter === "mine" ? "authored" : activeFilter === "all" ? "all" : "reviewRequested";
   const activeState: IpcApi["pr.list"]["args"]["state"] = activeFilter === "all" ? "all" : "open";
 
-  const enrichmentQuery = useQuery({
-    queryKey: ["pr", "enrichment", cwd, activeFilterIpc, activeState],
-    queryFn: () => ipc("pr.listEnrichment", { cwd, filter: activeFilterIpc, state: activeState }),
-    refetchInterval: 30_000,
-  });
-
-  // Build enrichment index for O(1) lookups
-  const enrichmentIndex = useMemo(() => {
-    const map = new Map<string, GhPrEnrichment>();
-    for (const e of enrichmentQuery.data ?? []) {
-      map.set(String(e.number), e);
-    }
-    return map;
-  }, [enrichmentQuery.data]);
-
   const reviewPrs = reviewQuery.data ?? [];
   const authorPrs = authorQuery.data ?? [];
   const allPrs = allQuery.data ?? [];
@@ -194,14 +144,13 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
   const searchablePrs = useMemo<SearchablePrItem[]>(
     () =>
       visiblePrs.map((pr) => ({
-        enrichment: enrichmentIndex.get(String(pr.number)),
         hasNewActivity: hasNewPrActivity(
           pr.updatedAt,
           prActivityIndex.get(getPrActivityKey(cwd, pr.number)),
         ),
         pr,
       })),
-    [cwd, enrichmentIndex, prActivityIndex, visiblePrs],
+    [cwd, prActivityIndex, visiblePrs],
   );
 
   const filteredResults = useMemo(
@@ -214,11 +163,6 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
         method: "pr.list",
         args: { cwd, filter: activeFilterIpc, state: activeState },
         queryKey: ["pr", "list", cwd, activeFilterIpc, activeState],
-      },
-      {
-        method: "pr.listEnrichment",
-        args: { cwd, filter: activeFilterIpc, state: activeState },
-        queryKey: ["pr", "enrichment", cwd, activeFilterIpc, activeState],
       },
     ],
     [activeFilterIpc, activeState, cwd],
@@ -307,8 +251,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
   const isLoading =
     (activeFilter === "review" && reviewQuery.isLoading) ||
     (activeFilter === "mine" && authorQuery.isLoading) ||
-    (activeFilter === "all" && allQuery.isLoading) ||
-    enrichmentQuery.isLoading;
+    (activeFilter === "all" && allQuery.isLoading);
 
   return (
     <aside className="border-border bg-bg-surface flex h-full flex-col">
@@ -443,17 +386,14 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
       {!isLoading && filteredResults.length > 0 && (
         <div className="flex-1 overflow-y-auto">
           {filteredResults.map(({ item }, index) => {
-            const { enrichment, pr } = item;
-            const checkSummary = summarizePrChecks(enrichment?.statusCheckRollup ?? []);
+            const { pr } = item;
 
             return (
               <PrItem
                 key={pr.number}
                 pr={pr}
-                enrichment={enrichment}
                 cwd={cwd}
-                checkSummary={checkSummary}
-                statusIndicator={resolveStatusIndicator(pr, enrichment, checkSummary)}
+                statusIndicator={resolveStatusIndicator(pr)}
                 isActive={selectedPr === pr.number}
                 isFocused={safeFocusIndex === index}
                 hasNewActivity={item.hasNewActivity ?? false}
@@ -524,8 +464,6 @@ function prSizeLabel(additions: number, deletions: number): { label: string; bgC
 
 function PrItem({
   pr,
-  enrichment,
-  checkSummary,
   statusIndicator,
   isActive,
   isFocused,
@@ -534,8 +472,6 @@ function PrItem({
   cwd,
 }: {
   pr: GhPrListItemCore;
-  enrichment?: GhPrEnrichment;
-  checkSummary: PrCheckSummary;
   statusIndicator: StatusIndicator;
   isActive: boolean;
   isFocused: boolean;
@@ -544,7 +480,7 @@ function PrItem({
   cwd: string;
 }) {
   const nameFormat = useDisplayNameFormat();
-  const size = enrichment ? prSizeLabel(enrichment.additions, enrichment.deletions) : null;
+  const size = prSizeLabel(pr.additions, pr.deletions);
 
   const approveMutation = useMutation({
     mutationFn: () => ipc("pr.submitReview", { cwd, prNumber: pr.number, event: "APPROVE" }),
@@ -623,12 +559,6 @@ function PrItem({
             <span>#{pr.number}</span>
             <span className="text-text-ghost">&middot;</span>
             <span className="truncate">{formatAuthorName(pr.author, nameFormat)}</span>
-            {checkSummary.state !== "passing" && checkSummary.state !== "none" && (
-              <>
-                <span className="text-text-ghost">&middot;</span>
-                <CheckStatusBadge summary={checkSummary} />
-              </>
-            )}
           </div>
         </div>
         {/* Right column — time + size badge */}
@@ -699,56 +629,4 @@ function PrItem({
       </MenuPopup>
     </ContextMenu.Root>
   );
-}
-
-function CheckStatusBadge({ summary }: { summary: PrCheckSummary }) {
-  if (summary.state === "failing") {
-    return (
-      <span
-        title={checkSummaryTitle(summary)}
-        className="text-destructive inline-flex shrink-0 items-center gap-0.5 text-[10px]"
-      >
-        <XCircle size={10} />
-        {summary.failed}
-      </span>
-    );
-  }
-
-  if (summary.state === "pending") {
-    return (
-      <span
-        title={checkSummaryTitle(summary)}
-        className="text-warning inline-flex shrink-0 items-center gap-0.5 text-[10px]"
-      >
-        <Loader2
-          size={10}
-          className="animate-spin"
-        />
-        {summary.pending}
-      </span>
-    );
-  }
-
-  return null;
-}
-
-function checkSummaryTitle(summary: PrCheckSummary): string {
-  const parts: string[] = [];
-
-  if (summary.failed > 0) {
-    parts.push(summary.failed === 1 ? "1 failed check" : `${summary.failed} failed checks`);
-  }
-  if (summary.pending > 0) {
-    parts.push(summary.pending === 1 ? "1 pending check" : `${summary.pending} pending checks`);
-  }
-  if (summary.passed > 0) {
-    parts.push(summary.passed === 1 ? "1 passing check" : `${summary.passed} passing checks`);
-  }
-  if (summary.neutral > 0) {
-    parts.push(
-      summary.neutral === 1 ? "1 non-blocking check" : `${summary.neutral} non-blocking checks`,
-    );
-  }
-
-  return parts.join(", ");
 }

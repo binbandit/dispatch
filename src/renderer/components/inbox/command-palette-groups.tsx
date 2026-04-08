@@ -1,5 +1,5 @@
 /* eslint-disable import/max-dependencies -- The command palette groups intentionally gather cross-cutting command sources in one place. */
-import type { GhPrEnrichment, GhPrListItemCore } from "@/shared/ipc";
+import type { GhPrListItemCore } from "@/shared/ipc";
 
 import {
   CommandGroup,
@@ -113,29 +113,6 @@ export function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
     return [...new Map(all.map((pr) => [pr.number, pr])).values()];
   }, [reviewQuery.data, authorQuery.data, allQuery.data]);
 
-  const enrichmentMap = useMemo(() => {
-    const map = new Map<number, GhPrEnrichment>();
-    for (const [filter, state] of [
-      ["reviewRequested", "open"],
-      ["authored", "open"],
-      ["all", "all"],
-    ] as const) {
-      const cached = queryClient.getQueryData<GhPrEnrichment[]>([
-        "pr",
-        "enrichment",
-        cwd,
-        filter,
-        state,
-      ]);
-      if (cached) {
-        for (const enrichment of cached) {
-          map.set(enrichment.number, enrichment);
-        }
-      }
-    }
-    return map;
-  }, [cwd, prs]);
-
   const visible = useMemo(() => {
     let filtered = prs;
 
@@ -194,13 +171,7 @@ export function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
 
     if (filters.size) {
       const target = filters.size as PrSize;
-      filtered = filtered.filter((pr) => {
-        const enrichment = enrichmentMap.get(pr.number);
-        if (!enrichment) {
-          return false;
-        }
-        return classifyPrSize(enrichment.additions, enrichment.deletions) === target;
-      });
+      filtered = filtered.filter((pr) => classifyPrSize(pr.additions, pr.deletions) === target);
     }
 
     if (filters.text) {
@@ -210,7 +181,7 @@ export function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
     }
 
     return filtered.slice(0, 15);
-  }, [enrichmentMap, filters, prs]);
+  }, [filters, prs]);
 
   const searchRefreshRequests = useMemo<PrSearchRefreshRequest[]>(() => {
     const baseRequests: PrSearchRefreshRequest[] = [
@@ -230,28 +201,8 @@ export function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
         queryKey: ["pr", "list", cwd, "all", "all"],
       },
     ];
-    const enrichmentRequests: PrSearchRefreshRequest[] = filters.size
-      ? [
-          {
-            method: "pr.listEnrichment",
-            args: { cwd, filter: "reviewRequested", state: "open" },
-            queryKey: ["pr", "enrichment", cwd, "reviewRequested", "open"],
-          },
-          {
-            method: "pr.listEnrichment",
-            args: { cwd, filter: "authored", state: "open" },
-            queryKey: ["pr", "enrichment", cwd, "authored", "open"],
-          },
-          {
-            method: "pr.listEnrichment",
-            args: { cwd, filter: "all", state: "all" },
-            queryKey: ["pr", "enrichment", cwd, "all", "all"],
-          },
-        ]
-      : [];
-
-    return [...baseRequests, ...enrichmentRequests];
-  }, [cwd, filters.size]);
+    return baseRequests;
+  }, [cwd]);
 
   usePrSearchRefreshOnMiss({
     scope: `command-palette:${cwd}`,

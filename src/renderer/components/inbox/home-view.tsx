@@ -1,6 +1,4 @@
 /* eslint-disable import/max-dependencies -- The home view intentionally centralizes dashboard data and section rendering for the main workspace surface. */
-import type { GhPrEnrichment } from "@/shared/ipc";
-
 import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
@@ -24,7 +22,6 @@ import {
   hasNewPrActivity,
   indexPrActivityStates,
 } from "@/renderer/lib/review/pr-activity";
-import { summarizePrChecks } from "@/renderer/lib/review/pr-check-status";
 import { useQuery } from "@tanstack/react-query";
 import { RefreshCw, Search } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -78,13 +75,6 @@ export function HomeView() {
     refetchInterval: 30_000,
   });
 
-  // Enrichment for open PRs only. Closed and merged PRs do not need live CI state.
-  const allEnrichmentQuery = useQuery({
-    queryKey: ["pr", "enrichment", cwd, "all", "open"],
-    queryFn: () => ipc("pr.listEnrichment", { cwd, filter: "all", state: "open" }),
-    refetchInterval: 30_000,
-  });
-
   const workspaceCountsQuery = useQuery({
     queryKey: ["pr", "listAll", "all", "all"],
     queryFn: () => ipc("pr.listAll", { filter: "all", state: "all" }),
@@ -109,67 +99,37 @@ export function HomeView() {
     staleTime: 60_000,
   });
 
-  // Build enrichment indexes
   const repoIdentity = repoInfoQuery.data?.nameWithOwner ?? repoName;
   const pullRequestRepository = repoInfoQuery.data?.parent ?? repoIdentity;
   const isForkWorkspace = repoInfoQuery.data?.isFork ?? false;
 
-  const allEnrichmentIndex = useMemo(() => {
-    const map = new Map<string, GhPrEnrichment>();
-    for (const e of allEnrichmentQuery.data ?? []) {
-      map.set(getDashboardPrKey(pullRequestRepository, e.number), e);
-    }
-    return map;
-  }, [allEnrichmentQuery.data, pullRequestRepository]);
-
-  // Enrich PR lists
-  const enrichPr = useCallback(
-    (pr: DashboardPr, enrichmentIndex: Map<string, GhPrEnrichment>): EnrichedDashboardPr => {
-      const enrichmentData = enrichmentIndex.get(
-        getDashboardPrKey(pr.pullRequestRepository, pr.number),
-      );
-      const enrichment = enrichmentData
-        ? {
-            ...enrichmentData,
-            workspacePath: pr.workspacePath,
-            repository: pr.repository,
-            pullRequestRepository: pr.pullRequestRepository,
-            isForkWorkspace: pr.isForkWorkspace,
-          }
-        : undefined;
-      return {
-        pr,
-        enrichment,
-        checkSummary: summarizePrChecks(enrichmentData?.statusCheckRollup ?? []),
-        hasNewActivity: hasNewPrActivity(
-          pr.updatedAt,
-          prActivityIndex.get(getPrActivityKey(pr.workspacePath, pr.number)),
-        ),
-      };
-    },
+  const decoratePr = useCallback(
+    (pr: DashboardPr): EnrichedDashboardPr => ({
+      pr,
+      hasNewActivity: hasNewPrActivity(
+        pr.updatedAt,
+        prActivityIndex.get(getPrActivityKey(pr.workspacePath, pr.number)),
+      ),
+    }),
     [prActivityIndex],
   );
 
   const allPrs = useMemo(
     () =>
       (allQuery.data ?? []).map((pr) =>
-        enrichPr(
-          {
-            ...pr,
-            workspace: repoName,
-            workspacePath: cwd,
-            repository: repoIdentity,
-            pullRequestRepository,
-            isForkWorkspace,
-          },
-          allEnrichmentIndex,
-        ),
+        decoratePr({
+          ...pr,
+          workspace: repoName,
+          workspacePath: cwd,
+          repository: repoIdentity,
+          pullRequestRepository,
+          isForkWorkspace,
+        }),
       ),
     [
-      allEnrichmentIndex,
       allQuery.data,
       cwd,
-      enrichPr,
+      decoratePr,
       isForkWorkspace,
       pullRequestRepository,
       repoIdentity,
@@ -225,11 +185,6 @@ export function HomeView() {
         method: "pr.list" as const,
         args: { cwd, filter: "reviewRequested" as const },
         queryKey: ["pr", "list", cwd, "reviewRequested", "open"],
-      },
-      {
-        method: "pr.listEnrichment" as const,
-        args: { cwd, filter: "all" as const, state: "open" as const },
-        queryKey: ["pr", "enrichment", cwd, "all", "open"],
       },
     ],
     [cwd],
@@ -351,7 +306,6 @@ export function HomeView() {
       repoInfoQuery.refetch(),
       allQuery.refetch(),
       reviewQuery.refetch(),
-      allEnrichmentQuery.refetch(),
       workspaceCountsQuery.refetch(),
       prActivityQuery.refetch(),
       workspacesQuery.refetch(),
@@ -370,7 +324,6 @@ export function HomeView() {
       }
     });
   }, [
-    allEnrichmentQuery,
     allQuery,
     prActivityQuery,
     repoInfoQuery,
@@ -380,17 +333,12 @@ export function HomeView() {
     workspacesQuery,
   ]);
 
-  const isLoading =
-    allQuery.isLoading ||
-    allEnrichmentQuery.isLoading ||
-    reviewQuery.isLoading ||
-    repoInfoQuery.isLoading;
+  const isLoading = allQuery.isLoading || reviewQuery.isLoading || repoInfoQuery.isLoading;
   const isRefreshing =
     userQuery.isFetching ||
     repoInfoQuery.isFetching ||
     allQuery.isFetching ||
     reviewQuery.isFetching ||
-    allEnrichmentQuery.isFetching ||
     workspaceCountsQuery.isFetching ||
     prActivityQuery.isFetching ||
     workspacesQuery.isFetching;

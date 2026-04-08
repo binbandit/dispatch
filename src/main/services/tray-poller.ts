@@ -1,8 +1,8 @@
 /* eslint-disable no-console -- Background tray polling failures should remain visible during local debugging. */
-import type { GhPrListItem } from "../../shared/ipc";
+import type { GhPrListItemCore } from "../../shared/ipc";
 
 import { getActiveWorkspace, getWorkspaces } from "../db/repository";
-import { listPrs } from "./gh-cli";
+import { listPrsCore } from "./gh-cli";
 
 /**
  * Background PR polling for the tray icon.
@@ -12,8 +12,8 @@ import { listPrs } from "./gh-cli";
  */
 
 export interface TrayState {
-  reviewPrs: GhPrListItem[];
-  authorPrs: GhPrListItem[];
+  reviewPrs: GhPrListItemCore[];
+  authorPrs: GhPrListItemCore[];
   lastUpdated: Date;
 }
 
@@ -45,8 +45,8 @@ export function pollOnce(): Promise<TrayState> {
 async function pollForCwd(cwd: string): Promise<TrayState> {
   try {
     const [reviewPrs, authorPrs] = await Promise.all([
-      listPrs(cwd, "reviewRequested"),
-      listPrs(cwd, "authored"),
+      listPrsCore(cwd, "reviewRequested"),
+      listPrsCore(cwd, "authored"),
     ]);
     state = { reviewPrs, authorPrs, lastUpdated: new Date() };
   } catch (error) {

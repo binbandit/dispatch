@@ -12,7 +12,6 @@ import type {
 
 import { PR_FETCH_LIMIT_UNLIMITED } from "../../../shared/pr-fetch-limit";
 import {
-  PR_LIST_ALL_FIELDS,
   PR_LIST_CORE_FIELDS,
   PR_LIST_ENRICHMENT_FIELDS,
   buildFilterArgs,
@@ -32,6 +31,7 @@ import {
   prListCache,
   resolvePrListLimit,
   setCache,
+  PR_LIST_SLIM,
 } from "./core";
 
 const MAX_BROAD_ENRICHMENT_LIMIT = 100;
@@ -84,7 +84,31 @@ interface RawPullRequestNode {
   } | null;
 }
 
-const UNLIMITED_PULL_REQUEST_FIELDS = `
+interface RawPullRequestCoreNode {
+  number: number;
+  title: string;
+  state: "OPEN" | "CLOSED" | "MERGED";
+  author: RawPullRequestAuthor | null;
+  headRefName: string;
+  baseRefName: string;
+  reviewDecision: string | null;
+  updatedAt: string;
+  url: string;
+  isDraft: boolean;
+  additions: number | null;
+  deletions: number | null;
+}
+
+interface RawPullRequestEnrichmentNode {
+  number: number;
+  statusCheckRollup: RawPullRequestNode["statusCheckRollup"];
+  additions: number | null;
+  deletions: number | null;
+  mergeable: string | null;
+  autoMergeRequest: RawPullRequestNode["autoMergeRequest"];
+}
+
+const UNLIMITED_PULL_REQUEST_CORE_FIELDS = `
   number
   title
   state
@@ -100,6 +124,12 @@ const UNLIMITED_PULL_REQUEST_FIELDS = `
   updatedAt
   url
   isDraft
+  additions
+  deletions
+`;
+
+const UNLIMITED_PULL_REQUEST_ENRICHMENT_FIELDS = `
+  number
   statusCheckRollup {
     contexts(first: 100) {
       nodes {
@@ -116,6 +146,11 @@ const UNLIMITED_PULL_REQUEST_FIELDS = `
     enabledBy { login }
     mergeMethod
   }
+`;
+
+const UNLIMITED_PULL_REQUEST_FIELDS = `
+  ${UNLIMITED_PULL_REQUEST_CORE_FIELDS}
+  ${UNLIMITED_PULL_REQUEST_ENRICHMENT_FIELDS}
 `;
 
 function mapPullRequestAuthor(author: RawPullRequestAuthor | null): GhPrListItem["author"] {
@@ -182,10 +217,42 @@ function mapRawPullRequest(pr: RawPullRequestNode): GhPrListItem {
   };
 }
 
+function mapRawPullRequestCore(pr: RawPullRequestCoreNode): GhPrListItemCore {
+  return {
+    number: pr.number,
+    title: pr.title,
+    state: pr.state,
+    author: mapPullRequestAuthor(pr.author),
+    headRefName: pr.headRefName,
+    baseRefName: pr.baseRefName,
+    reviewDecision: pr.reviewDecision ?? "",
+    updatedAt: pr.updatedAt,
+    url: pr.url,
+    isDraft: pr.isDraft,
+    additions: pr.additions ?? 0,
+    deletions: pr.deletions ?? 0,
+  };
+}
+
+function mapRawPullRequestEnrichment(pr: RawPullRequestEnrichmentNode): GhPrEnrichment {
+  return {
+    number: pr.number,
+    statusCheckRollup: mapStatusCheckRollup(pr.statusCheckRollup),
+    additions: pr.additions ?? 0,
+    deletions: pr.deletions ?? 0,
+    mergeable: pr.mergeable ?? "UNKNOWN",
+    autoMergeRequest:
+      pr.autoMergeRequest && pr.autoMergeRequest.enabledBy
+        ? {
+            enabledBy: { login: pr.autoMergeRequest.enabledBy.login },
+            mergeMethod: pr.autoMergeRequest.mergeMethod,
+          }
+        : null,
+  };
+}
+
 function toCorePrListItem({
   statusCheckRollup: _statusCheckRollup,
-  additions: _additions,
-  deletions: _deletions,
   mergeable: _mergeable,
   autoMergeRequest: _autoMergeRequest,
   ...core
@@ -265,6 +332,7 @@ function buildUnlimitedPullRequestSearchQuery(
 async function fetchUnlimitedRepositoryPullRequests(
   cwd: string,
   state: "open" | "closed" | "merged" | "all",
+  fields = UNLIMITED_PULL_REQUEST_FIELDS,
 ): Promise<RawPullRequestNode[]> {
   const { owner, repo } = await getPullRequestRepo(cwd);
   const stateArgument = buildPullRequestStateArgument(state);
@@ -272,7 +340,7 @@ async function fetchUnlimitedRepositoryPullRequests(
     repository(owner: $owner, name: $repo) {
       pullRequests(first: ${UNLIMITED_PR_PAGE_SIZE}, after: $after${stateArgument}, orderBy: { field: UPDATED_AT, direction: DESC }) {
         nodes {
-          ${UNLIMITED_PULL_REQUEST_FIELDS}
+          ${fields}
         }
         pageInfo {
           hasNextPage
@@ -327,6 +395,7 @@ async function fetchUnlimitedFilteredPullRequests(
   cwd: string,
   filter: "reviewRequested" | "authored",
   state: "open" | "closed" | "merged" | "all",
+  fields = UNLIMITED_PULL_REQUEST_FIELDS,
 ): Promise<RawPullRequestNode[]> {
   const repoFullName = await getPullRequestRepoFullName(cwd);
   const searchQuery = buildUnlimitedPullRequestSearchQuery(repoFullName, filter, state);
@@ -334,7 +403,7 @@ async function fetchUnlimitedFilteredPullRequests(
     search(type: ISSUE, query: $searchQuery, first: ${UNLIMITED_PR_PAGE_SIZE}, after: $after) {
       nodes {
         ... on PullRequest {
-          ${UNLIMITED_PULL_REQUEST_FIELDS}
+          ${fields}
         }
       }
       pageInfo {
@@ -442,8 +511,24 @@ export function listPrsCore(
     key,
     loader: async () => {
       if (limit === PR_FETCH_LIMIT_UNLIMITED) {
-        const data = await listUnlimitedPrs(cwd, filter, state, forceRefresh);
-        return data.map((pr) => toCorePrListItem(pr));
+        const rawPullRequests =
+          filter === "all"
+            ? await fetchUnlimitedRepositoryPullRequests(
+                cwd,
+                state,
+                UNLIMITED_PULL_REQUEST_CORE_FIELDS,
+              )
+            : await fetchUnlimitedFilteredPullRequests(
+                cwd,
+                filter,
+                state,
+                UNLIMITED_PULL_REQUEST_CORE_FIELDS,
+              );
+        const data = rawPullRequests.map((pr) =>
+          mapRawPullRequestCore(pr as RawPullRequestCoreNode),
+        );
+        cacheAuthorDisplayNames(data);
+        return data;
       }
 
       const repoArgs = await getUpstreamArgs(cwd);
@@ -482,8 +567,22 @@ export function listPrsEnrichment(
     key,
     loader: async () => {
       if (limit === PR_FETCH_LIMIT_UNLIMITED) {
-        const data = await listUnlimitedPrs(cwd, filter, state, forceRefresh);
-        return data.map((pr) => toPrEnrichment(pr));
+        const rawPullRequests =
+          filter === "all"
+            ? await fetchUnlimitedRepositoryPullRequests(
+                cwd,
+                state,
+                UNLIMITED_PULL_REQUEST_ENRICHMENT_FIELDS,
+              )
+            : await fetchUnlimitedFilteredPullRequests(
+                cwd,
+                filter,
+                state,
+                UNLIMITED_PULL_REQUEST_ENRICHMENT_FIELDS,
+              );
+        return rawPullRequests.map((pr) =>
+          mapRawPullRequestEnrichment(pr as RawPullRequestEnrichmentNode),
+        );
       }
 
       const repoArgs = await getUpstreamArgs(cwd);
@@ -519,7 +618,7 @@ export function listPrs(
       const repoArgs = await getUpstreamArgs(cwd);
       const args = buildFilterArgs({
         filter,
-        jsonFields: PR_LIST_ALL_FIELDS,
+        jsonFields: PR_LIST_SLIM,
         repoArgs,
         state,
         limit,

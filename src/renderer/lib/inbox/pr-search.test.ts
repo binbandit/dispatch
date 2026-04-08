@@ -6,14 +6,6 @@ import {
 } from "@/renderer/lib/inbox/pr-search";
 import { describe, expect, it } from "vitest";
 
-function check(status: string, conclusion: string | null) {
-  return {
-    name: "CI",
-    status,
-    conclusion,
-  };
-}
-
 function createItem(
   overrides: Partial<Omit<SearchablePrItem, "pr">> & { pr?: Partial<SearchablePrItem["pr"]> },
 ): SearchablePrItem {
@@ -30,10 +22,11 @@ function createItem(
       reviewDecision: "",
       updatedAt: "2026-03-20T00:00:00Z",
       url: "https://github.com/example/repo/pull/1",
+      additions: 0,
+      deletions: 0,
       ...prOverrides,
       isDraft: prOverrides?.isDraft ?? false,
     },
-    enrichment: overrides.enrichment,
     hasNewActivity: overrides.hasNewActivity ?? false,
   };
 }
@@ -56,10 +49,10 @@ describe("parsePrSearchQuery", () => {
         value: "42",
       },
       {
-        field: "status",
+        field: "text",
         negated: false,
         raw: "status:failing",
-        value: "failing",
+        value: "status:failing",
       },
       {
         field: "text",
@@ -91,14 +84,6 @@ describe("parsePrSearchQuery", () => {
 describe("searchPrs", () => {
   const items: SearchablePrItem[] = [
     createItem({
-      enrichment: {
-        number: 42,
-        statusCheckRollup: [check("COMPLETED", "SUCCESS")],
-        additions: 120,
-        deletions: 30,
-        mergeable: "MERGEABLE",
-        autoMergeRequest: null,
-      },
       hasNewActivity: true,
       pr: {
         number: 42,
@@ -109,19 +94,13 @@ describe("searchPrs", () => {
         reviewDecision: "REVIEW_REQUIRED",
         updatedAt: "2026-03-20T10:00:00Z",
         url: "https://github.com/example/dispatch/pull/42",
+        additions: 120,
+        deletions: 30,
         workspace: "dispatch",
         workspacePath: "/repos/dispatch",
       },
     }),
     createItem({
-      enrichment: {
-        number: 9,
-        statusCheckRollup: [check("COMPLETED", "FAILURE")],
-        additions: 18,
-        deletions: 9,
-        mergeable: "MERGEABLE",
-        autoMergeRequest: null,
-      },
       pr: {
         number: 9,
         title: "WIP sync onboarding copy",
@@ -132,19 +111,13 @@ describe("searchPrs", () => {
         updatedAt: "2026-03-19T09:00:00Z",
         url: "https://github.com/example/marketing/pull/9",
         isDraft: true,
+        additions: 18,
+        deletions: 9,
         workspace: "marketing",
         workspacePath: "/repos/marketing",
       },
     }),
     createItem({
-      enrichment: {
-        number: 120,
-        statusCheckRollup: [check("IN_PROGRESS", null)],
-        additions: 410,
-        deletions: 150,
-        mergeable: "MERGEABLE",
-        autoMergeRequest: null,
-      },
       pr: {
         number: 120,
         title: "Search cache cleanup",
@@ -154,19 +127,13 @@ describe("searchPrs", () => {
         reviewDecision: "APPROVED",
         updatedAt: "2026-03-20T12:00:00Z",
         url: "https://github.com/example/api/pull/120",
+        additions: 410,
+        deletions: 150,
         workspace: "api",
         workspacePath: "/repos/api",
       },
     }),
     createItem({
-      enrichment: {
-        number: 240,
-        statusCheckRollup: [check("COMPLETED", "SUCCESS")],
-        additions: 22,
-        deletions: 6,
-        mergeable: "MERGEABLE",
-        autoMergeRequest: null,
-      },
       pr: {
         number: 240,
         title: "Search",
@@ -176,6 +143,8 @@ describe("searchPrs", () => {
         reviewDecision: "",
         updatedAt: "2026-03-18T08:00:00Z",
         url: "https://github.com/example/ops/pull/240",
+        additions: 22,
+        deletions: 6,
         workspace: "ops",
         workspacePath: "/repos/ops",
       },
@@ -191,14 +160,10 @@ describe("searchPrs", () => {
 
   it("supports structured filters, negation, and size buckets", () => {
     expect(
-      searchPrs(items, "status:failing is:draft -author:brayden size:s").map(
-        ({ item }) => item.pr.number,
-      ),
+      searchPrs(items, "is:draft -author:brayden size:s").map(({ item }) => item.pr.number),
     ).toEqual([9]);
 
-    expect(searchPrs(items, "status:failing -is:draft").map(({ item }) => item.pr.number)).toEqual(
-      [],
-    );
+    expect(searchPrs(items, "size:xl -is:draft").map(({ item }) => item.pr.number)).toEqual([120]);
   });
 
   it("orders positive matches by relevance before recency", () => {

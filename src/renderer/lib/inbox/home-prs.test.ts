@@ -1,5 +1,3 @@
-import type { PrCheckSummary } from "@/renderer/lib/review/pr-check-status";
-
 import {
   categorizeHomePrs,
   getDashboardPrKey,
@@ -8,27 +6,14 @@ import {
 } from "@/renderer/lib/inbox/home-prs";
 import { describe, expect, it } from "vitest";
 
-const BASE_CHECK_SUMMARY: PrCheckSummary = {
-  total: 0,
-  passed: 0,
-  failed: 0,
-  pending: 0,
-  neutral: 0,
-  state: "none",
-};
-
 function createDashboardItem(
   overrides: Partial<EnrichedDashboardPr["pr"]> & {
     workspace?: string;
     workspacePath?: string;
-    checkState?: PrCheckSummary["state"];
-    mergeable?: string;
   } = {},
 ): EnrichedDashboardPr {
   const workspace = overrides.workspace ?? "dispatch";
   const workspacePath = overrides.workspacePath ?? `/tmp/${workspace}`;
-  const checkState = overrides.checkState ?? "none";
-  const mergeable = overrides.mergeable ?? "MERGEABLE";
 
   return {
     pr: {
@@ -42,27 +27,13 @@ function createDashboardItem(
       updatedAt: overrides.updatedAt ?? "2026-03-31T00:00:00.000Z",
       url: overrides.url ?? "https://example.com/pr/42",
       isDraft: overrides.isDraft ?? false,
+      additions: overrides.additions ?? 10,
+      deletions: overrides.deletions ?? 4,
       workspace,
       workspacePath,
       repository: overrides.repository ?? `${workspace}-owner/${workspace}`,
       pullRequestRepository: overrides.pullRequestRepository ?? `${workspace}-owner/${workspace}`,
       isForkWorkspace: overrides.isForkWorkspace ?? false,
-    },
-    enrichment: {
-      number: overrides.number ?? 42,
-      statusCheckRollup: [],
-      additions: 10,
-      deletions: 4,
-      mergeable,
-      autoMergeRequest: null,
-      workspacePath,
-      repository: overrides.repository ?? `${workspace}-owner/${workspace}`,
-      pullRequestRepository: overrides.pullRequestRepository ?? `${workspace}-owner/${workspace}`,
-      isForkWorkspace: overrides.isForkWorkspace ?? false,
-    },
-    checkSummary: {
-      ...BASE_CHECK_SUMMARY,
-      state: checkState,
     },
     hasNewActivity: false,
   };

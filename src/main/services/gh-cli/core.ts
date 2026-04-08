@@ -45,12 +45,28 @@ function categoriseGhError(error: unknown): string {
   return "unknown";
 }
 
+const GH_API_MIN_TIMEOUT_MS = 120_000;
+
+function resolveGhExecTimeout(
+  args: string[],
+  requestedTimeout: number | undefined,
+): number | undefined {
+  if (args[0] !== "api") {
+    return requestedTimeout;
+  }
+
+  return Math.max(requestedTimeout ?? 0, GH_API_MIN_TIMEOUT_MS);
+}
+
 export async function ghExec(
   args: string[],
   options: { cwd?: string; timeout?: number } = {},
 ): Promise<ExecResult> {
   try {
-    return await execFile("gh", args, options);
+    return await execFile("gh", args, {
+      ...options,
+      timeout: resolveGhExecTimeout(args, options.timeout),
+    });
   } catch (error) {
     const subcommand = args[0] ?? "unknown";
     const category = categoriseGhError(error);
@@ -330,6 +346,8 @@ export const PR_LIST_CORE_FIELDS = [
   "updatedAt",
   "url",
   "isDraft",
+  "additions",
+  "deletions",
 ].join(",");
 
 export const PR_LIST_ENRICHMENT_FIELDS = [
@@ -348,6 +366,16 @@ export const PR_LIST_ALL_FIELDS = [
   "deletions",
   "mergeable",
   "autoMergeRequest",
+].join(",");
+
+export const PR_LIST_SLIM = [
+  "number",
+  "title",
+  "state",
+  "author",
+  "headRefName",
+  "updatedAt",
+  "isDraft",
 ].join(",");
 
 export function resolvePrListLimit(): string {

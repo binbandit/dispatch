@@ -1,5 +1,4 @@
-import type { PrCheckSummary } from "@/renderer/lib/review/pr-check-status";
-import type { GhPrEnrichment, GhPrListItemCore } from "@/shared/ipc";
+import type { GhPrListItemCore } from "@/shared/ipc";
 
 export type DashboardPr = GhPrListItemCore & {
   workspace: string;
@@ -9,17 +8,8 @@ export type DashboardPr = GhPrListItemCore & {
   isForkWorkspace: boolean;
 };
 
-export type DashboardPrEnrichment = GhPrEnrichment & {
-  workspacePath: string;
-  repository: string;
-  pullRequestRepository: string;
-  isForkWorkspace: boolean;
-};
-
 export interface EnrichedDashboardPr {
   pr: DashboardPr;
-  enrichment?: DashboardPrEnrichment;
-  checkSummary: PrCheckSummary;
   hasNewActivity: boolean;
 }
 
@@ -56,16 +46,10 @@ export function categorizeHomePrs(
     } else if (
       currentUser !== null &&
       item.pr.author.login === currentUser &&
-      (item.checkSummary.state === "failing" ||
-        item.pr.reviewDecision === "CHANGES_REQUESTED" ||
-        item.enrichment?.mergeable === "CONFLICTING")
+      item.pr.reviewDecision === "CHANGES_REQUESTED"
     ) {
       attention.push(item);
-    } else if (
-      !item.pr.isDraft &&
-      item.pr.reviewDecision === "APPROVED" &&
-      item.checkSummary.state === "passing"
-    ) {
+    } else if (!item.pr.isDraft && item.pr.reviewDecision === "APPROVED") {
       ship.push(item);
     } else {
       progress.push(item);

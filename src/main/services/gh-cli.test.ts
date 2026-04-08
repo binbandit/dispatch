@@ -9,8 +9,8 @@ import {
   getPrDetail,
   getPrDiff,
   getPrReactions,
+  getPrReviewThreads,
   invalidateAllCaches,
-  listPrs,
   listPrsCore,
   listPrsEnrichment,
   listWorkflowRuns,
@@ -389,6 +389,8 @@ describe("gh-cli caching", () => {
     expect(
       firstUnlimitedCallArgs.some((arg) => arg.includes("pullRequests(first: 100")),
     ).toBeTruthy();
+    expect(firstUnlimitedCallArgs.some((arg) => arg.includes("statusCheckRollup"))).toBeFalsy();
+    expect(firstUnlimitedCallArgs.some((arg) => arg.includes("autoMergeRequest"))).toBeFalsy();
     expect(firstUnlimitedCallArgs.includes("--limit")).toBeFalsy();
     expect(secondUnlimitedCallArgs).toEqual(expect.arrayContaining(["-f", "after=cursor-2"]));
   });
@@ -468,7 +470,7 @@ describe("gh-cli caching", () => {
     );
   });
 
-  it("uses GraphQL search for unlimited filtered pull request queries", async () => {
+  it("uses slim GraphQL search fields for unlimited filtered core pull request queries", async () => {
     getPreferenceMock.mockImplementation((key) => (key === "prFetchLimit" ? "all" : null));
 
     execFileMock
@@ -500,10 +502,63 @@ describe("gh-cli caching", () => {
         stderr: "",
       });
 
-    await expect(listPrs("/repo-unlimited-authored", "authored")).resolves.toMatchObject([
+    await expect(listPrsCore("/repo-unlimited-authored", "authored")).resolves.toMatchObject([
       {
         number: 77,
         title: "Authored unlimited",
+        additions: 24,
+        deletions: 8,
+      },
+    ]);
+
+    const unlimitedSearchCallArgs = execFileMock.mock.calls[2]?.[1] as string[];
+
+    expect(unlimitedSearchCallArgs).toEqual(expect.arrayContaining(["api", "graphql"]));
+    expect(
+      unlimitedSearchCallArgs.some((arg) =>
+        arg.includes("searchQuery=repo:octo/dispatch is:pr sort:updated-desc is:open author:@me"),
+      ),
+    ).toBeTruthy();
+    expect(unlimitedSearchCallArgs.some((arg) => arg.includes("statusCheckRollup"))).toBeFalsy();
+    expect(unlimitedSearchCallArgs.some((arg) => arg.includes("autoMergeRequest"))).toBeFalsy();
+    expect(unlimitedSearchCallArgs.includes("--limit")).toBeFalsy();
+  });
+
+  it("uses full GraphQL search fields for unlimited enrichment pull request queries", async () => {
+    getPreferenceMock.mockImplementation((key) => (key === "prFetchLimit" ? "all" : null));
+
+    execFileMock
+      .mockResolvedValueOnce({ stdout: createRepoInfoStdout(), stderr: "" })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
+      .mockResolvedValueOnce({
+        stdout: createGraphqlPullRequestConnectionStdout({
+          kind: "search",
+          nodes: [
+            createGraphqlPullRequestNode({
+              number: 77,
+              title: "Authored unlimited",
+              statusNodes: [
+                { __typename: "StatusContext", context: "lint", state: "PENDING" },
+                {
+                  __typename: "CheckRun",
+                  name: "CI",
+                  status: "COMPLETED",
+                  conclusion: "SUCCESS",
+                },
+              ],
+              autoMergeRequest: {
+                enabledBy: { login: "octocat" },
+                mergeMethod: "SQUASH",
+              },
+            }),
+          ],
+        }),
+        stderr: "",
+      });
+
+    await expect(listPrsEnrichment("/repo-unlimited-authored", "authored")).resolves.toMatchObject([
+      {
+        number: 77,
         statusCheckRollup: [
           { name: "lint", status: "PENDING", conclusion: null },
           { name: "CI", status: "COMPLETED", conclusion: "SUCCESS" },
@@ -517,13 +572,37 @@ describe("gh-cli caching", () => {
 
     const unlimitedSearchCallArgs = execFileMock.mock.calls[2]?.[1] as string[];
 
-    expect(unlimitedSearchCallArgs).toEqual(expect.arrayContaining(["api", "graphql"]));
-    expect(
-      unlimitedSearchCallArgs.some((arg) =>
-        arg.includes("searchQuery=repo:octo/dispatch is:pr sort:updated-desc is:open author:@me"),
-      ),
-    ).toBeTruthy();
-    expect(unlimitedSearchCallArgs.includes("--limit")).toBeFalsy();
+    expect(unlimitedSearchCallArgs.some((arg) => arg.includes("statusCheckRollup"))).toBeTruthy();
+    expect(unlimitedSearchCallArgs.some((arg) => arg.includes("autoMergeRequest"))).toBeTruthy();
+  });
+
+  it("raises gh api graphql calls to a higher timeout floor", async () => {
+    execFileMock
+      .mockResolvedValueOnce({ stdout: createRepoInfoStdout(), stderr: "" })
+      .mockRejectedValueOnce(new Error("merge queue unavailable"))
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          data: {
+            repository: {
+              pullRequest: {
+                reviewThreads: {
+                  nodes: [],
+                },
+              },
+            },
+          },
+        }),
+        stderr: "",
+      });
+
+    await expect(getPrReviewThreads("/repo-review-threads", 42)).resolves.toEqual([]);
+
+    expect(execFileMock).toHaveBeenNthCalledWith(
+      3,
+      "gh",
+      expect.arrayContaining(["api", "graphql"]),
+      expect.objectContaining({ timeout: 120_000 }),
+    );
   });
 
   it("bypasses the cached PR list when a forced refresh is requested", async () => {

@@ -137,7 +137,7 @@ export interface GhPrListItem {
 /** Lightweight version returned by the core list query (no heavy fields). */
 export type GhPrListItemCore = Omit<
   GhPrListItem,
-  "statusCheckRollup" | "additions" | "deletions" | "mergeable" | "autoMergeRequest"
+  "statusCheckRollup" | "mergeable" | "autoMergeRequest"
 >;
 
 /** Enrichment payload keyed by PR number. */

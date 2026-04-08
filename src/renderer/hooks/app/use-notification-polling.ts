@@ -1,4 +1,4 @@
-import type { GhPrEnrichment, GhPrListItemCore } from "@/shared/ipc";
+import type { GhPrListItemCore } from "@/shared/ipc";
 
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
@@ -11,39 +11,27 @@ import { useEffect, useRef } from "react";
  * when important events occur:
  *
  * - New PR assigned for review
- * - CI fails on your PR
  * - Your PR gets approved
  *
  * Uses the same query keys as the PR inbox so React Query deduplicates
- * the network calls. The enrichment queries (statusCheckRollup) are
- * fetched lazily — CI failure notifications only fire once enrichment
- * data arrives.
+ * the network calls.
  */
 export function useNotificationPolling(): void {
   const { cwd } = useWorkspace();
   const previousReviewPrs = useRef<Map<number, GhPrListItemCore>>(new Map());
   const previousAuthorPrs = useRef<Map<number, GhPrListItemCore>>(new Map());
-  const previousEnrichment = useRef<Map<number, GhPrEnrichment>>(new Map());
   const initialized = useRef(false);
-  const enrichmentInitialized = useRef(false);
 
   // Core queries — shared with PR inbox via query keys
   const reviewQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "reviewRequested"],
+    queryKey: ["pr", "list", cwd, "reviewRequested", "open"],
     queryFn: () => ipc("pr.list", { cwd, filter: "reviewRequested" }),
     refetchInterval: 30_000,
   });
 
   const authorQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "authored"],
+    queryKey: ["pr", "list", cwd, "authored", "open"],
     queryFn: () => ipc("pr.list", { cwd, filter: "authored" }),
-    refetchInterval: 30_000,
-  });
-
-  // Enrichment query for authored PRs — needed for CI failure detection
-  const authorEnrichmentQuery = useQuery({
-    queryKey: ["pr", "enrichment", cwd, "authored"],
-    queryFn: () => ipc("pr.listEnrichment", { cwd, filter: "authored" }),
     refetchInterval: 30_000,
   });
 
@@ -105,46 +93,4 @@ export function useNotificationPolling(): void {
     // Update dock badge with pending review count
     globalThis.api.setBadgeCount(reviewQuery.data.length);
   }, [reviewQuery.data, authorQuery.data, cwd]);
-
-  // Handle enrichment data: CI failure notifications
-  useEffect(() => {
-    if (!authorEnrichmentQuery.data || !authorQuery.data) {
-      return;
-    }
-
-    // Skip first load
-    if (!enrichmentInitialized.current) {
-      enrichmentInitialized.current = true;
-      for (const e of authorEnrichmentQuery.data) {
-        previousEnrichment.current.set(e.number, e);
-      }
-      return;
-    }
-
-    // Build a lookup for authored PR titles (for notification body)
-    const authorPrMap = new Map(authorQuery.data.map((pr) => [pr.number, pr]));
-
-    for (const e of authorEnrichmentQuery.data) {
-      const prev = previousEnrichment.current.get(e.number);
-      const prevFailing = prev?.statusCheckRollup.some(
-        (c) => c.conclusion?.toUpperCase() === "FAILURE",
-      );
-      const nowFailing = e.statusCheckRollup.some((c) => c.conclusion?.toUpperCase() === "FAILURE");
-      if (prev && nowFailing && !prevFailing) {
-        const pr = authorPrMap.get(e.number);
-        void ipc("notifications.show", {
-          type: "ci-fail",
-          title: "CI failed",
-          body: `#${e.number} ${pr?.title ?? ""}`,
-          prNumber: e.number,
-          workspace: cwd,
-          authorLogin: pr?.author.login,
-        }).then(() => {
-          queryClient.invalidateQueries({ queryKey: ["notifications"] });
-        });
-      }
-    }
-
-    previousEnrichment.current = new Map(authorEnrichmentQuery.data.map((e) => [e.number, e]));
-  }, [authorEnrichmentQuery.data, authorQuery.data, cwd]);
 }

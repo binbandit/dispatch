@@ -13,7 +13,6 @@ import {
   type EnrichedDashboardPr,
   type PrSection,
 } from "@/renderer/lib/inbox/home-prs";
-import { type PrCheckSummary } from "@/renderer/lib/review/pr-check-status";
 import { useMutation } from "@tanstack/react-query";
 import {
   Check,
@@ -152,11 +151,7 @@ function resolveStatusTag(pr: DashboardPr, currentUser: string | null): StatusTa
   return null;
 }
 
-function resolveBarColor(
-  pr: DashboardPr,
-  checkSummary: PrCheckSummary,
-  currentUser: string | null,
-): string {
+function resolveBarColor(pr: DashboardPr, currentUser: string | null): string {
   if (pr.state === "MERGED") {
     return "bg-purple opacity-30";
   }
@@ -166,17 +161,11 @@ function resolveBarColor(
   if (pr.isDraft) {
     return "bg-text-ghost";
   }
-  if (checkSummary.state === "failing") {
-    return "bg-destructive";
-  }
   if (pr.reviewDecision === "CHANGES_REQUESTED") {
     return "bg-warning";
   }
-  if (pr.reviewDecision === "APPROVED" && checkSummary.state === "passing") {
+  if (pr.reviewDecision === "APPROVED") {
     return "bg-success";
-  }
-  if (checkSummary.state === "pending") {
-    return "bg-info";
   }
   if (currentUser && pr.author.login !== currentUser) {
     return "bg-purple";
@@ -490,10 +479,10 @@ function PrRow({
   isFocused: boolean;
   isShipSection: boolean;
 }) {
-  const { pr, enrichment, checkSummary, hasNewActivity } = item;
+  const { pr, hasNewActivity } = item;
   const statusTag = resolveStatusTag(pr, currentUser);
-  const barColor = resolveBarColor(pr, checkSummary, currentUser);
-  const size = enrichment ? prSizeLabel(enrichment.additions, enrichment.deletions) : null;
+  const barColor = resolveBarColor(pr, currentUser);
+  const size = prSizeLabel(pr.additions, pr.deletions);
   const isDim = pr.state === "MERGED" || pr.state === "CLOSED" || pr.isDraft;
   const isAuthor = currentUser && pr.author.login === currentUser;
   const authorDisplay = isAuthor ? "you" : formatAuthorName(pr.author, nameFormat);
@@ -609,23 +598,20 @@ function PrRow({
 
           <div className="flex shrink-0 items-center gap-1.5">
             {statusTag && <StatusTagBadge tag={statusTag} />}
-            <CiBadge checkSummary={checkSummary} />
 
-            {isShipSection && enrichment && (
-              <span
-                aria-label={`${enrichment.additions} additions, ${enrichment.deletions} deletions`}
-              >
+            {isShipSection && size && (
+              <span aria-label={`${pr.additions} additions, ${pr.deletions} deletions`}>
                 <span
                   className="text-success font-mono text-[10px]"
                   aria-hidden="true"
                 >
-                  +{enrichment.additions}
+                  +{pr.additions}
                 </span>{" "}
                 <span
                   className="text-destructive font-mono text-[10px]"
                   aria-hidden="true"
                 >
-                  &minus;{enrichment.deletions}
+                  &minus;{pr.deletions}
                 </span>
               </span>
             )}
@@ -762,69 +748,6 @@ function StatusTagIcon({ icon }: { icon: StatusTag["icon"] }) {
       );
     }
   }
-}
-
-function CiBadge({ checkSummary }: { checkSummary: PrCheckSummary }) {
-  if (checkSummary.state === "none") {
-    return null;
-  }
-
-  if (checkSummary.state === "failing") {
-    const label =
-      checkSummary.failed > 0 && checkSummary.total > checkSummary.failed
-        ? `${checkSummary.passed} of ${checkSummary.total} checks passing`
-        : `${checkSummary.failed} checks failed`;
-    return (
-      <span
-        className="text-destructive flex items-center gap-0.5 font-mono text-[10px] font-medium"
-        title={label}
-      >
-        <XCircle
-          size={9}
-          strokeWidth={2.5}
-          aria-hidden="true"
-        />
-        {checkSummary.failed > 0 && checkSummary.total > checkSummary.failed
-          ? `${checkSummary.passed}/${checkSummary.total}`
-          : `${checkSummary.failed} failed`}
-      </span>
-    );
-  }
-
-  if (checkSummary.state === "pending") {
-    return (
-      <span
-        className="text-warning flex items-center gap-0.5 font-mono text-[10px] font-medium"
-        title={`${checkSummary.passed} of ${checkSummary.total} checks complete`}
-      >
-        <Loader2
-          size={9}
-          strokeWidth={2.5}
-          className="animate-spin"
-          aria-hidden="true"
-        />
-        {`${checkSummary.passed}/${checkSummary.total}`}
-      </span>
-    );
-  }
-
-  if (checkSummary.state === "passing") {
-    return (
-      <span
-        className="text-success flex items-center gap-0.5 font-mono text-[10px] font-medium"
-        title={`All ${checkSummary.total} checks passing`}
-      >
-        <Check
-          size={9}
-          strokeWidth={2.5}
-          aria-hidden="true"
-        />
-        {checkSummary.total}
-      </span>
-    );
-  }
-
-  return null;
 }
 
 export function KbdHint({ keys, label }: { keys: string[]; label: string }) {

@@ -5,17 +5,11 @@ import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useEffect, useEffectEvent, useRef } from "react";
 
-export type PrSearchRefreshRequest =
-  | {
-      method: "pr.list";
-      args: IpcApi["pr.list"]["args"];
-      queryKey: QueryKey;
-    }
-  | {
-      method: "pr.listEnrichment";
-      args: IpcApi["pr.listEnrichment"]["args"];
-      queryKey: QueryKey;
-    };
+export type PrSearchRefreshRequest = {
+  method: "pr.list";
+  args: IpcApi["pr.list"]["args"];
+  queryKey: QueryKey;
+};
 
 interface UsePrSearchRefreshOnMissOptions {
   requests: PrSearchRefreshRequest[];
@@ -25,13 +19,7 @@ interface UsePrSearchRefreshOnMissOptions {
 }
 
 async function refreshPrSearchRequest(request: PrSearchRefreshRequest): Promise<void> {
-  if (request.method === "pr.list") {
-    const data = await ipc("pr.list", { ...request.args, forceRefresh: true });
-    queryClient.setQueryData(request.queryKey, data);
-    return;
-  }
-
-  const data = await ipc("pr.listEnrichment", { ...request.args, forceRefresh: true });
+  const data = await ipc("pr.list", { ...request.args, forceRefresh: true });
   queryClient.setQueryData(request.queryKey, data);
 }
 
