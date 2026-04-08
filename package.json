@@ -12,6 +12,8 @@
     "dev": "vite",
     "build": "vite build",
     "build:app": "bun ./scripts/build-app.mjs",
+    "build:app:dir": "bun ./scripts/build-app.mjs --dir",
+    "build:app:dmg": "bun ./scripts/build-app.mjs --mac dmg zip",
     "preview": "vite preview",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
@@ -102,7 +104,6 @@
       "icon": "resources/icon.icns",
       "category": "public.app-category.developer-tools",
       "target": [
-        "dmg",
         "zip"
       ],
       "darkModeSupport": true

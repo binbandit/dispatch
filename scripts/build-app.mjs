@@ -32,4 +32,4 @@ if (!hasPublishMode) {
 }
 
 await run("bun", ["run", "build"]);
-await run("bunx", ["electron-builder", ...builderArgs]);
+await run("node_modules/.bin/electron-builder", builderArgs);

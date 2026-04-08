@@ -69,9 +69,6 @@ export default defineConfig({
         vite: {
           clearScreen: false,
           build: {
-            watch: {
-              clearScreen: false,
-            },
             rollupOptions: {
               external: ["better-sqlite3"],
             },
@@ -83,9 +80,6 @@ export default defineConfig({
         vite: {
           clearScreen: false,
           build: {
-            watch: {
-              clearScreen: false,
-            },
             rollupOptions: {
               output: {
                 entryFileNames: "preload.js",
