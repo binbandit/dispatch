@@ -58,11 +58,17 @@ export function DiffToolbar({
   isAiSuggesting?: boolean;
   aiSuggestEnabled?: boolean;
 }) {
+  const compressedPathToolbar = useMediaQuery({ max: 1320 });
   const compactToolbar = useMediaQuery({ max: 1100 });
   const denseToolbar = useMediaQuery({ max: 920 });
   const filePath = currentFile ? getDiffFilePath(currentFile) : "";
   const fileName = filePath.split("/").pop() ?? "";
   const dirPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/") + 1) : "";
+  const displayDirPath = denseToolbar
+    ? ""
+    : compressedPathToolbar
+      ? getCondensedDirPath(dirPath)
+      : dirPath;
   const showIconOnlyControls = compactToolbar;
   const viewedButton = (
     <button
@@ -111,10 +117,25 @@ export function DiffToolbar({
     <div className="border-border-subtle bg-bg-surface flex h-8 shrink-0 items-center gap-2 overflow-hidden border-b px-3">
       {/* File path */}
       <div className="min-w-0 flex-1 basis-0 overflow-hidden">
-        <span className="text-text-tertiary block truncate font-mono text-[11px] font-medium">
-          {!denseToolbar && dirPath}
-          <span className="text-text-secondary">{fileName}</span>
-        </span>
+        {filePath ? (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <span className="text-text-tertiary block truncate font-mono text-[11px] font-medium">
+                  {displayDirPath}
+                  <span className="text-text-secondary">{fileName}</span>
+                </span>
+              }
+            />
+            <TooltipPopup className="max-w-96 font-mono text-[10px] break-all">
+              {filePath}
+            </TooltipPopup>
+          </Tooltip>
+        ) : (
+          <span className="text-text-tertiary block truncate font-mono text-[11px] font-medium">
+            <span className="text-text-secondary">{fileName}</span>
+          </span>
+        )}
       </div>
 
       {/* "Since review" callout — hidden in commit view */}
@@ -272,4 +293,13 @@ export function DiffToolbar({
       </div>
     </div>
   );
+}
+
+function getCondensedDirPath(dirPath: string): string {
+  const segments = dirPath.split("/").filter(Boolean);
+  if (segments.length <= 2) {
+    return dirPath;
+  }
+
+  return `.../${segments.slice(-2).join("/")}/`;
 }
