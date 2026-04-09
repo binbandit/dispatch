@@ -58,8 +58,8 @@ export function DiffToolbar({
   isAiSuggesting?: boolean;
   aiSuggestEnabled?: boolean;
 }) {
-  const compactToolbar = useMediaQuery({ max: 1240 });
-  const denseToolbar = useMediaQuery({ max: 980 });
+  const compactToolbar = useMediaQuery({ max: 1100 });
+  const denseToolbar = useMediaQuery({ max: 920 });
   const filePath = currentFile ? getDiffFilePath(currentFile) : "";
   const fileName = filePath.split("/").pop() ?? "";
   const dirPath = filePath.includes("/") ? filePath.slice(0, filePath.lastIndexOf("/") + 1) : "";
@@ -110,16 +110,16 @@ export function DiffToolbar({
   return (
     <div className="border-border-subtle bg-bg-surface flex h-8 shrink-0 items-center gap-2 overflow-hidden border-b px-3">
       {/* File path */}
-      <span className="text-text-tertiary min-w-0 truncate font-mono text-[11px] font-medium">
-        {!denseToolbar && dirPath}
-        <span className="text-text-secondary">{fileName}</span>
-      </span>
-
-      <div className="flex-1" />
+      <div className="min-w-0 flex-1 basis-0 overflow-hidden">
+        <span className="text-text-tertiary block truncate font-mono text-[11px] font-medium">
+          {!denseToolbar && dirPath}
+          <span className="text-text-secondary">{fileName}</span>
+        </span>
+      </div>
 
       {/* "Since review" callout — hidden in commit view */}
       {!hideReviewControls && hasLastReview && diffMode === "since-review" && (
-        <span className="bg-purple-muted text-purple flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium">
+        <span className="bg-purple-muted text-purple flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium whitespace-nowrap">
           {compactToolbar ? "Review delta" : "Since last review"}
           <button
             type="button"
@@ -135,7 +135,7 @@ export function DiffToolbar({
         <button
           type="button"
           onClick={() => onDiffModeChange("since-review")}
-          className="text-purple hover:bg-purple-muted cursor-pointer rounded-md px-2 py-0.5 text-[10px] transition-colors"
+          className="text-purple hover:bg-purple-muted shrink-0 cursor-pointer rounded-md px-2 py-0.5 text-[10px] whitespace-nowrap transition-colors"
         >
           Since review
         </button>
@@ -151,10 +151,10 @@ export function DiffToolbar({
                 onClick={onAiSuggest}
                 disabled={isAiSuggesting}
                 aria-label="AI review"
-                className="text-primary hover:bg-primary/10 flex cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium transition-colors disabled:opacity-50"
+                className="text-primary hover:bg-primary/10 flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium whitespace-nowrap transition-colors disabled:opacity-50"
               >
                 {isAiSuggesting ? <Spinner className="h-3 w-3" /> : <Sparkles size={11} />}
-                {!denseToolbar && "AI Review"}
+                {!showIconOnlyControls && "AI Review"}
               </button>
             }
           />
@@ -165,13 +165,13 @@ export function DiffToolbar({
       )}
 
       {/* View mode toggle: Unified / Split / Full file */}
-      <div className="border-border bg-bg-raised flex items-center rounded-md border p-[2px]">
+      <div className="border-border bg-bg-raised flex shrink-0 items-center rounded-md border p-[2px]">
         <button
           type="button"
           onClick={() => onViewModeChange("unified")}
           title={showIconOnlyControls ? "Unified diff" : undefined}
           aria-label="Unified diff"
-          className={`flex cursor-pointer items-center rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
+          className={`flex cursor-pointer items-center rounded-sm px-2 py-0.5 text-[10px] whitespace-nowrap transition-colors ${
             showIconOnlyControls ? "gap-0" : "gap-1"
           } ${
             viewMode === "unified"
@@ -187,7 +187,7 @@ export function DiffToolbar({
           onClick={() => onViewModeChange("split")}
           title={showIconOnlyControls ? "Split diff" : undefined}
           aria-label="Split diff"
-          className={`flex cursor-pointer items-center rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
+          className={`flex cursor-pointer items-center rounded-sm px-2 py-0.5 text-[10px] whitespace-nowrap transition-colors ${
             showIconOnlyControls ? "gap-0" : "gap-1"
           } ${
             viewMode === "split"
@@ -203,7 +203,7 @@ export function DiffToolbar({
           onClick={() => onViewModeChange("full-file")}
           title={showIconOnlyControls ? "Full file" : undefined}
           aria-label="Full file"
-          className={`flex cursor-pointer items-center rounded-sm px-2 py-0.5 text-[10px] transition-colors ${
+          className={`flex cursor-pointer items-center rounded-sm px-2 py-0.5 text-[10px] whitespace-nowrap transition-colors ${
             showIconOnlyControls ? "gap-0" : "gap-1"
           } ${
             viewMode === "full-file"
@@ -219,7 +219,7 @@ export function DiffToolbar({
       {/* Viewed toggle — hidden in commit view */}
       {!hideReviewControls && (
         <>
-          <div className="bg-border h-4 w-px" />
+          <div className="bg-border h-4 w-px shrink-0" />
 
           {denseToolbar ? (
             <Tooltip>
@@ -232,10 +232,10 @@ export function DiffToolbar({
         </>
       )}
 
-      <div className="bg-border h-4 w-px" />
+      <div className="bg-border h-4 w-px shrink-0" />
 
       {/* File nav */}
-      <div className="flex items-center gap-1">
+      <div className="flex shrink-0 items-center gap-1 whitespace-nowrap">
         <Tooltip>
           <TooltipTrigger
             render={

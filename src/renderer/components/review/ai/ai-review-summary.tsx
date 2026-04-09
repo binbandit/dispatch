@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
 import { MarkdownBody } from "@/renderer/components/shared/markdown-body";
 import { useAiTaskConfig } from "@/renderer/hooks/ai/use-ai-task-config";
 import { ipc } from "@/renderer/lib/app/ipc";
@@ -385,15 +386,28 @@ function AiConfidenceBadge({ score, compact = false }: { score: number; compact?
         : "bg-danger-muted text-destructive";
 
   return (
-    <span
-      className={`inline-flex items-center rounded-sm font-mono font-medium ${className}`}
-      style={{
-        padding: compact ? "1px 5px" : "1px 6px",
-        fontSize: compact ? "9px" : "10px",
-      }}
-    >
-      AI {score}/100
-    </span>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            aria-label={`AI confidence score ${score} out of 100`}
+            className={`inline-flex cursor-help items-center rounded-sm font-mono font-medium ${className}`}
+            style={{
+              padding: compact ? "1px 5px" : "1px 6px",
+              fontSize: compact ? "9px" : "10px",
+            }}
+          >
+            AI {score}/100
+          </button>
+        }
+      />
+      <TooltipPopup className="max-w-64 text-[11px] leading-4">
+        Confidence score for how much of the review surface is visible from the supplied PR
+        description, changed files, and diff context. Higher scores mean the summary likely has
+        enough context; lower scores mean the PR is broader, riskier, or more partial.
+      </TooltipPopup>
+    </Tooltip>
   );
 }
 

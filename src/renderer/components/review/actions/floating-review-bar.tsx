@@ -82,7 +82,7 @@ export function FloatingReviewBar({
         display: "flex",
         alignItems: "center",
         gap: compactBar ? "6px" : "8px",
-        overflow: "hidden",
+        overflow: "visible",
         boxShadow: "var(--shadow-lg), var(--shadow-glow)",
         transition: "left 0.3s ease",
       }}

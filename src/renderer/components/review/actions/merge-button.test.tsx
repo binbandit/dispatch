@@ -291,6 +291,29 @@ describe("MergeButton - Admin behavior with auto-merge already enabled", () => {
     const adminButton = screen.getByText(/merge now \(admin\)/i);
     expect(adminButton).toBeInTheDocument();
   });
+
+  it("shows the admin dropdown entry after opening the merge-queue menu", async () => {
+    renderMergeButton({
+      hasMergeQueue: true,
+      canAdmin: true,
+      pr: createMockPr({
+        reviewDecision: "REVIEW_REQUIRED",
+        mergeable: "MERGEABLE",
+        statusCheckRollup: [],
+        autoMergeRequest: null,
+      }),
+    });
+
+    const buttons = screen.getAllByRole("button");
+    const chevronButton = buttons[1];
+    if (!chevronButton) {
+      throw new Error("Chevron button not found");
+    }
+
+    await userEvent.click(chevronButton);
+
+    expect(screen.getByText(/merge now \(admin\)/i)).toBeInTheDocument();
+  });
 });
 
 describe("MergeButton - Standard mode (no merge queue)", () => {
