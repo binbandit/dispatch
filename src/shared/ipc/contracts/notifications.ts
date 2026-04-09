@@ -15,6 +15,9 @@ export interface NotificationIpcApi {
   };
   "notifications.markRead": { args: { id: number }; result: void };
   "notifications.markAllRead": { args: void; result: void };
+  "notifications.clearRead": { args: void; result: void };
+  "notifications.clearAll": { args: void; result: void };
+  "notifications.dismiss": { args: { id: number }; result: void };
   "notifications.insert": {
     args: {
       type: "review" | "ci-fail" | "approve" | "merge";

@@ -519,3 +519,18 @@ export function markAllNotificationsRead(): void {
   const db = getDatabase();
   db.prepare("UPDATE notifications SET read = 1 WHERE read = 0").run();
 }
+
+export function clearReadNotifications(): void {
+  const db = getDatabase();
+  db.prepare("DELETE FROM notifications WHERE read = 1").run();
+}
+
+export function clearAllNotifications(): void {
+  const db = getDatabase();
+  db.prepare("DELETE FROM notifications").run();
+}
+
+export function dismissNotification(id: number): void {
+  const db = getDatabase();
+  db.prepare("DELETE FROM notifications WHERE id = ?").run(id);
+}

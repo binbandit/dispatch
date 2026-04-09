@@ -8,6 +8,9 @@ export const notificationHandlers: Pick<
   | "notifications.list"
   | "notifications.markRead"
   | "notifications.markAllRead"
+  | "notifications.clearRead"
+  | "notifications.clearAll"
+  | "notifications.dismiss"
   | "notifications.insert"
   | "notifications.show"
 > = {
@@ -17,6 +20,15 @@ export const notificationHandlers: Pick<
   },
   "notifications.markAllRead": () => {
     repo.markAllNotificationsRead();
+  },
+  "notifications.clearRead": () => {
+    repo.clearReadNotifications();
+  },
+  "notifications.clearAll": () => {
+    repo.clearAllNotifications();
+  },
+  "notifications.dismiss": (args) => {
+    repo.dismissNotification(args.id);
   },
   "notifications.insert": (args) => {
     repo.insertNotification(args);
