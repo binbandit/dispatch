@@ -338,13 +338,13 @@ export function SettingsView() {
               onClick={() => setActiveSection(id)}
               className={`flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs transition-all duration-[--duration-fast] ${
                 activeSection === id
-                  ? "text-text-primary border-l-2 border-[--accent] bg-[--accent-muted]"
-                  : "text-text-secondary hover:text-text-primary border-l-2 border-transparent hover:bg-[--bg-raised]"
+                  ? "border border-[--border-strong] bg-[--bg-elevated] font-medium text-[--text-primary] shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
+                  : "border border-transparent text-[--text-secondary] hover:bg-[--bg-raised] hover:text-[--text-primary]"
               }`}
             >
               <Icon
                 size={14}
-                className={activeSection === id ? "text-[--accent-text]" : ""}
+                className={activeSection === id ? "text-[--accent-text]" : "text-[--text-tertiary]"}
               />
               {label}
             </button>
