@@ -297,7 +297,7 @@ export function RepoSelector({
               const isActive = workspace.path === cwd;
               const workspaceCount = isActive
                 ? activeWorkspaceCount
-                : (workspaceCounts.get(workspace.path) ?? 0);
+                : (workspaceCounts.get(workspace.path ?? "") ?? 0);
               return (
                 <button
                   key={workspace.id}
@@ -340,9 +340,6 @@ export function RepoSelector({
                   <div className="min-w-0 flex-1">
                     <div className={`truncate font-medium ${isActive ? "text-text-primary" : ""}`}>
                       {workspace.name}
-                    </div>
-                    <div className="text-text-tertiary truncate font-mono text-[10px]">
-                      {workspace.path}
                     </div>
                   </div>
                   {workspaceCount > 0 && (
@@ -491,6 +488,8 @@ function PrRow({
     mutationFn: () =>
       ipc("pr.merge", {
         cwd: pr.workspacePath,
+        owner: pr.pullRequestRepository.split("/")[0] ?? "",
+        repo: pr.pullRequestRepository.split("/")[1] ?? "",
         prNumber: pr.number,
         strategy: "squash",
       }),
