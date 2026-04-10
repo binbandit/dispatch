@@ -1,3 +1,6 @@
+/* eslint-disable import/max-dependencies -- Approval dialogs intentionally compose dialog primitives, network helpers, and the shared composer in one focused review surface. */
+import type { RepoTarget } from "@/shared/ipc";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
-import { MentionTextarea } from "@/renderer/components/shared/mention-textarea";
+import { ReviewMarkdownComposer } from "@/renderer/components/review/comments/review-markdown-composer";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -30,15 +33,16 @@ interface LgtmGif {
 }
 
 export function ApproveButton({
-  cwd,
+  repoTarget,
   prNumber,
   currentUserReview,
 }: {
-  cwd: string;
+  repoTarget: RepoTarget;
   prNumber: number;
   /** The current user's most recent review state, or null if they haven't reviewed */
   currentUserReview: string | null;
 }) {
+  const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
   const alreadyApproved = currentUserReview === "APPROVED";
 
@@ -55,16 +59,13 @@ export function ApproveButton({
   });
 
   const reviewMutation = useMutation({
-    mutationFn: (args: {
-      cwd: string;
-      prNumber: number;
-      event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
-      body?: string;
-    }) => ipc("pr.submitReview", args),
+    mutationFn: (args: { event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT"; body?: string }) =>
+      ipc("pr.submitReview", { ...repoTarget, prNumber, ...args }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       toastManager.add({ title: "PR approved", type: "success" });
       setBody("");
+      setOpen(false);
     },
     onError: (err) => {
       toastManager.add({
@@ -76,7 +77,7 @@ export function ApproveButton({
   });
 
   function handleQuickApprove() {
-    reviewMutation.mutate({ cwd, prNumber, event: "APPROVE" });
+    reviewMutation.mutate({ event: "APPROVE" });
   }
 
   function insertLgtmGif() {
@@ -129,8 +130,10 @@ export function ApproveButton({
       </Button>
       {/* Expand for message — opens Dialog */}
       <Dialog
-        onOpenChange={(open) => {
-          if (!open) {
+        open={open}
+        onOpenChange={(nextOpen) => {
+          setOpen(nextOpen);
+          if (!nextOpen) {
             setBody("");
           }
         }}
@@ -153,13 +156,22 @@ export function ApproveButton({
             <DialogDescription>Optionally leave a message with your approval.</DialogDescription>
           </DialogHeader>
           <div className="px-6 pb-2">
-            <MentionTextarea
-              value={body}
+            <ReviewMarkdownComposer
+              autoFocus
               onChange={setBody}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                  event.preventDefault();
+                  reviewMutation.mutate({
+                    event: "APPROVE",
+                    body: body.trim() || undefined,
+                  });
+                }
+              }}
               placeholder="LGTM! Ship it."
-              rows={4}
               prNumber={prNumber}
-              textareaClassName="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-success w-full resize-none rounded-md border px-3 py-2.5 text-xs leading-relaxed focus:outline-none"
+              rows={5}
+              value={body}
             />
             <button
               type="button"
@@ -173,24 +185,18 @@ export function ApproveButton({
           </div>
           <DialogFooter variant="bare">
             <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
-            <DialogClose
-              render={
-                <Button
-                  className="bg-success hover:bg-success/90 text-bg-root"
-                  disabled={reviewMutation.isPending}
-                  onClick={() => {
-                    reviewMutation.mutate({
-                      cwd,
-                      prNumber,
-                      event: "APPROVE",
-                      body: body.trim() || undefined,
-                    });
-                  }}
-                />
-              }
+            <Button
+              className="bg-success hover:bg-success/90 text-bg-root"
+              disabled={reviewMutation.isPending}
+              onClick={() => {
+                reviewMutation.mutate({
+                  event: "APPROVE",
+                  body: body.trim() || undefined,
+                });
+              }}
             >
               {reviewMutation.isPending ? <Spinner className="h-3 w-3" /> : "✓ Approve"}
-            </DialogClose>
+            </Button>
           </DialogFooter>
         </DialogPopup>
       </Dialog>

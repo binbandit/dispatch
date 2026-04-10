@@ -6,9 +6,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
 import { ReactionBar } from "@/renderer/components/review/comments/reaction-bar";
+import { ReviewMarkdownComposer } from "@/renderer/components/review/comments/review-markdown-composer";
 import { GitHubAvatar } from "@/renderer/components/shared/github-avatar";
 import { MarkdownBody } from "@/renderer/components/shared/markdown-body";
-import { MentionTextarea } from "@/renderer/components/shared/mention-textarea";
 import { useBotSettings } from "@/renderer/hooks/preferences/use-bot-settings";
 import { useMinimizedComments } from "@/renderer/hooks/review/use-minimized-comments";
 import { useSyntaxHighlighter } from "@/renderer/hooks/review/use-syntax-highlight";
@@ -73,9 +73,9 @@ export function InlineComment({
   resolvedThreadIds,
   reviewCommentReactions,
 }: InlineCommentProps) {
-  const { cwd } = useWorkspace();
+  const { nwo } = useWorkspace();
   const { isBot, shouldAutoCollapseBot } = useBotSettings();
-  const repoKey = repo || cwd;
+  const repoKey = repo || nwo;
   const { isCommentMinimized, toggleMinimized } = useMinimizedComments(repoKey, prNumber ?? 0);
 
   const roots = comments.filter((c) => !c.in_reply_to_id);
@@ -252,12 +252,12 @@ function ReplyComposer({
   commentId: number;
   onClose: () => void;
 }) {
-  const { cwd } = useWorkspace();
+  const { repoTarget } = useWorkspace();
   const [body, setBody] = useState("");
 
   const replyMutation = useMutation({
-    mutationFn: (args: { cwd: string; prNumber: number; commentId: number; body: string }) =>
-      ipc("pr.replyToComment", args),
+    mutationFn: (args: { body: string }) =>
+      ipc("pr.replyToComment", { ...repoTarget, prNumber, commentId, ...args }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr", "comments"] });
       toastManager.add({ title: "Reply added", type: "success" });
@@ -271,22 +271,23 @@ function ReplyComposer({
 
   return (
     <div className="px-3 py-2">
-      <MentionTextarea
-        value={body}
-        onChange={setBody}
-        placeholder="Write a reply..."
-        rows={2}
-        prNumber={prNumber}
+      <ReviewMarkdownComposer
         autoFocus
+        compact
+        onChange={setBody}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && body.trim()) {
             e.preventDefault();
-            replyMutation.mutate({ cwd, prNumber, commentId, body: body.trim() });
+            replyMutation.mutate({ body: body.trim() });
           }
           if (e.key === "Escape") {
             onClose();
           }
         }}
+        placeholder="Write a reply..."
+        prNumber={prNumber}
+        rows={3}
+        value={body}
       />
       <div className="mt-1.5 flex items-center justify-end gap-1.5">
         <Button
@@ -300,7 +301,7 @@ function ReplyComposer({
           size="sm"
           className="bg-primary text-primary-foreground hover:bg-accent-hover"
           disabled={!body.trim() || replyMutation.isPending}
-          onClick={() => replyMutation.mutate({ cwd, prNumber, commentId, body: body.trim() })}
+          onClick={() => replyMutation.mutate({ body: body.trim() })}
         >
           {replyMutation.isPending ? <Spinner className="h-3 w-3" /> : "Reply"}
         </Button>
@@ -423,7 +424,7 @@ function ThreadResolveButton({
   comment: ReviewComment;
   initialResolved?: boolean;
 }) {
-  const { cwd } = useWorkspace();
+  const { repoTarget } = useWorkspace();
   const [resolved, setResolved] = useState(initialResolved);
 
   const resolveMutation = useMutation({
@@ -432,8 +433,8 @@ function ThreadResolveButton({
         return Promise.reject(new Error("No thread ID"));
       }
       return resolved
-        ? ipc("pr.unresolveThread", { cwd, threadId: comment.node_id })
-        : ipc("pr.resolveThread", { cwd, threadId: comment.node_id });
+        ? ipc("pr.unresolveThread", { ...repoTarget, threadId: comment.node_id })
+        : ipc("pr.resolveThread", { ...repoTarget, threadId: comment.node_id });
     },
     onSuccess: () => {
       setResolved(!resolved);
@@ -488,7 +489,7 @@ function CommentContextMenu({
   onReply?: () => void;
   prNumber?: number;
 }) {
-  const { cwd } = useWorkspace();
+  const { nwo } = useWorkspace();
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close on click outside
@@ -549,7 +550,7 @@ function CommentContextMenu({
         icon={<Copy size={12} />}
         label="Copy link"
         onClick={() => {
-          const repoSlug = cwd.split("/").slice(-2).join("/");
+          const repoSlug = nwo;
           const url = prNumber
             ? `https://github.com/${repoSlug}/pull/${prNumber}#discussion_r${comment.id}`
             : `https://github.com/${repoSlug}#discussion_r${comment.id}`;
@@ -562,7 +563,7 @@ function CommentContextMenu({
         icon={<ExternalLink size={12} />}
         label="Open in browser"
         onClick={() => {
-          const repoSlug = cwd.split("/").slice(-2).join("/");
+          const repoSlug = nwo;
           const url = prNumber
             ? `https://github.com/${repoSlug}/pull/${prNumber}#discussion_r${comment.id}`
             : `https://github.com/${repoSlug}#discussion_r${comment.id}`;

@@ -26,7 +26,12 @@ interface MentionTextareaProps {
   textareaClassName?: string;
   prNumber?: number;
   autoFocus?: boolean;
+  textareaRef?: React.Ref<HTMLTextAreaElement>;
   onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLTextAreaElement>) => void;
+  onFocus?: (e: React.FocusEvent<HTMLTextAreaElement>) => void;
+  onClick?: (e: React.MouseEvent<HTMLTextAreaElement>) => void;
+  onSelect?: (e: React.SyntheticEvent<HTMLTextAreaElement>) => void;
 }
 
 type SuggestionKind = "user" | "issue";
@@ -53,9 +58,14 @@ export function MentionTextarea({
   textareaClassName,
   prNumber,
   autoFocus,
+  textareaRef: forwardedTextareaRef,
   onKeyDown: externalOnKeyDown,
+  onBlur: externalOnBlur,
+  onFocus: externalOnFocus,
+  onClick: externalOnClick,
+  onSelect: externalOnSelect,
 }: MentionTextareaProps) {
-  const { cwd } = useWorkspace();
+  const { repoTarget, nwo } = useWorkspace();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [trigger, setTrigger] = useState<{
     kind: SuggestionKind;
@@ -67,16 +77,16 @@ export function MentionTextarea({
 
   // Fetch contributors for @ mentions
   const contributorsQuery = useQuery({
-    queryKey: ["pr", "contributors", cwd, prNumber],
-    queryFn: () => ipc("pr.contributors", { cwd, prNumber: prNumber ?? 0 }),
+    queryKey: ["pr", "contributors", nwo, prNumber],
+    queryFn: () => ipc("pr.contributors", { ...repoTarget, prNumber: prNumber ?? 0 }),
     enabled: Boolean(prNumber),
     staleTime: 120_000,
   });
 
   // Fetch issues/PRs for # autocomplete
   const issuesQuery = useQuery({
-    queryKey: ["pr", "issuesList", cwd],
-    queryFn: () => ipc("pr.issuesList", { cwd }),
+    queryKey: ["pr", "issuesList", nwo],
+    queryFn: () => ipc("pr.issuesList", { ...repoTarget }),
     staleTime: 120_000,
   });
 
@@ -98,8 +108,8 @@ export function MentionTextarea({
 
   // GitHub user search (fires when local results are sparse)
   const userSearchQuery = useQuery({
-    queryKey: ["pr", "searchUsers", cwd, debouncedUserQuery],
-    queryFn: () => ipc("pr.searchUsers", { cwd, query: debouncedUserQuery }),
+    queryKey: ["pr", "searchUsers", nwo, debouncedUserQuery],
+    queryFn: () => ipc("pr.searchUsers", { ...repoTarget, query: debouncedUserQuery }),
     enabled: debouncedUserQuery.length >= 2,
     staleTime: 60_000,
   });
@@ -255,14 +265,21 @@ export function MentionTextarea({
   return (
     <div className={`relative ${className}`}>
       <textarea
-        ref={textareaRef}
+        ref={(node) => {
+          textareaRef.current = node;
+          assignTextareaRef(forwardedTextareaRef, node);
+        }}
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        onBlur={() => {
+        onBlur={(event) => {
           // Delay to allow click on dropdown
           setTimeout(() => setTrigger(null), 200);
+          externalOnBlur?.(event);
         }}
+        onFocus={externalOnFocus}
+        onClick={externalOnClick}
+        onSelect={externalOnSelect}
         placeholder={placeholder}
         rows={rows}
         autoFocus={autoFocus}
@@ -357,4 +374,20 @@ export function MentionTextarea({
       )}
     </div>
   );
+}
+
+function assignTextareaRef(
+  ref: React.Ref<HTMLTextAreaElement> | undefined,
+  node: HTMLTextAreaElement | null,
+): void {
+  if (!ref) {
+    return;
+  }
+
+  if (typeof ref === "function") {
+    ref(node);
+    return;
+  }
+
+  (ref as React.MutableRefObject<HTMLTextAreaElement | null>).current = node;
 }

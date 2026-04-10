@@ -1,9 +1,10 @@
 /* eslint-disable import/max-dependencies -- Floating review bar intentionally composes review and merge controls. */
-import type { GhPrDetail } from "@/shared/ipc";
+import type { GhPrDetail, RepoTarget } from "@/shared/ipc";
 
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { ReviewMarkdownComposer } from "@/renderer/components/review/comments/review-markdown-composer";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { resolveMergeStrategy } from "@/renderer/lib/review/merge-strategy";
@@ -34,7 +35,7 @@ interface FloatingReviewBarProps {
   isAuthor: boolean;
   isDraft: boolean;
   pr: GhPrDetail;
-  cwd: string;
+  repoTarget: RepoTarget;
   prNumber: number;
   canAdmin: boolean;
   hasMergeQueue: boolean;
@@ -51,7 +52,7 @@ export function FloatingReviewBar({
   isAuthor,
   isDraft,
   pr,
-  cwd,
+  repoTarget,
   prNumber,
   canAdmin,
   hasMergeQueue,
@@ -181,7 +182,7 @@ export function FloatingReviewBar({
       {/* Update branch button when behind */}
       {pr.mergeStateStatus === "BEHIND" && (
         <UpdateBranchPill
-          cwd={cwd}
+          repoTarget={repoTarget}
           prNumber={prNumber}
           compact={compactBar}
           dense={denseBar}
@@ -203,13 +204,13 @@ export function FloatingReviewBar({
         {!isAuthor && (
           <>
             <RequestChangesBarButton
-              cwd={cwd}
+              repoTarget={repoTarget}
               prNumber={prNumber}
               compact={compactBar}
               dense={denseBar}
             />
             <ApproveBarButton
-              cwd={cwd}
+              repoTarget={repoTarget}
               prNumber={prNumber}
               currentUserReview={currentUserReview}
               isReRequested={isReRequested}
@@ -219,7 +220,7 @@ export function FloatingReviewBar({
           </>
         )}
         <MergeBarButton
-          cwd={cwd}
+          repoTarget={repoTarget}
           prNumber={prNumber}
           pr={pr}
           canAdmin={canAdmin}
@@ -253,12 +254,12 @@ const btnBase: React.CSSProperties = {
 };
 
 function RequestChangesBarButton({
-  cwd,
+  repoTarget,
   prNumber,
   compact,
   dense,
 }: {
-  cwd: string;
+  repoTarget: RepoTarget;
   prNumber: number;
   compact: boolean;
   dense: boolean;
@@ -270,7 +271,7 @@ function RequestChangesBarButton({
   const reviewMutation = useMutation({
     mutationFn: (reviewBody: string) =>
       ipc("pr.submitReview", {
-        cwd,
+        ...repoTarget,
         prNumber,
         event: "REQUEST_CHANGES" as const,
         body: reviewBody,
@@ -314,7 +315,7 @@ function RequestChangesBarButton({
             bottom: "100%",
             left: 0,
             marginBottom: "6px",
-            width: "280px",
+            width: "340px",
             maxWidth: "calc(100vw - 32px)",
             background: "var(--bg-elevated)",
             border: "1px solid var(--border)",
@@ -334,30 +335,24 @@ function RequestChangesBarButton({
           >
             What needs to change?
           </div>
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            placeholder="Describe what needs to change…"
-            rows={3}
+          <ReviewMarkdownComposer
             autoFocus
-            style={{
-              width: "100%",
-              resize: "none",
-              border: "1px solid var(--border)",
-              borderRadius: "var(--radius-sm)",
-              background: "var(--bg-root)",
-              color: "var(--text-primary)",
-              fontSize: "11px",
-              padding: "6px 8px",
-              lineHeight: 1.5,
-              outline: "none",
-            }}
+            compact
+            onChange={setBody}
             onKeyDown={(e) => {
               if (e.key === "Escape") {
                 setOpen(false);
                 setBody("");
               }
+              if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && hasReviewBody) {
+                e.preventDefault();
+                reviewMutation.mutate(body.trim());
+              }
             }}
+            placeholder="Describe what needs to change..."
+            prNumber={prNumber}
+            rows={4}
+            value={body}
           />
           <div
             style={{ display: "flex", justifyContent: "flex-end", gap: "4px", marginTop: "6px" }}
@@ -400,14 +395,14 @@ function RequestChangesBarButton({
 }
 
 function ApproveBarButton({
-  cwd,
+  repoTarget,
   prNumber,
   currentUserReview,
   isReRequested,
   compact,
   dense,
 }: {
-  cwd: string;
+  repoTarget: RepoTarget;
   prNumber: number;
   currentUserReview: string | null;
   isReRequested: boolean;
@@ -417,7 +412,8 @@ function ApproveBarButton({
   const alreadyApproved = currentUserReview === "APPROVED" && !isReRequested;
 
   const reviewMutation = useMutation({
-    mutationFn: () => ipc("pr.submitReview", { cwd, prNumber, event: "APPROVE" as const }),
+    mutationFn: () =>
+      ipc("pr.submitReview", { ...repoTarget, prNumber, event: "APPROVE" as const }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       toastManager.add({ title: "PR approved", type: "success" });
@@ -475,7 +471,7 @@ function ApproveBarButton({
 }
 
 function MergeBarButton({
-  cwd,
+  repoTarget,
   prNumber,
   pr,
   canAdmin,
@@ -484,7 +480,7 @@ function MergeBarButton({
   compact,
   dense,
 }: {
-  cwd: string;
+  repoTarget: RepoTarget;
   prNumber: number;
   pr: {
     reviewDecision: string;
@@ -523,7 +519,7 @@ function MergeBarButton({
       });
 
       return ipc("pr.merge", {
-        cwd,
+        ...repoTarget,
         prNumber,
         strategy: resolved.strategy,
         admin: resolved.admin,
@@ -775,18 +771,18 @@ function MergeBarButton({
 }
 
 function UpdateBranchPill({
-  cwd,
+  repoTarget,
   prNumber,
   compact,
   dense,
 }: {
-  cwd: string;
+  repoTarget: RepoTarget;
   prNumber: number;
   compact: boolean;
   dense: boolean;
 }) {
   const updateMutation = useMutation({
-    mutationFn: () => ipc("pr.updateBranch", { cwd, prNumber }),
+    mutationFn: () => ipc("pr.updateBranch", { ...repoTarget, prNumber }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       toastManager.add({ title: "Branch updated", type: "success" });

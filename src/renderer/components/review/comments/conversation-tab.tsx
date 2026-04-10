@@ -3,9 +3,9 @@ import type { GhReactionGroup, GhReviewThread } from "@/shared/ipc";
 
 import { toastManager } from "@/components/ui/toast";
 import { ReactionBar } from "@/renderer/components/review/comments/reaction-bar";
+import { ReviewMarkdownComposer } from "@/renderer/components/review/comments/review-markdown-composer";
 import { GitHubAvatar } from "@/renderer/components/shared/github-avatar";
 import { MarkdownBody } from "@/renderer/components/shared/markdown-body";
-import { MentionTextarea } from "@/renderer/components/shared/mention-textarea";
 import { useBotSettings } from "@/renderer/hooks/preferences/use-bot-settings";
 import { useMinimizedComments } from "@/renderer/hooks/review/use-minimized-comments";
 import { ipc } from "@/renderer/lib/app/ipc";
@@ -359,7 +359,7 @@ export function ContentEvent({
   onToggleMinimized: () => void;
   reactions?: GhReactionGroup[];
 }) {
-  const { cwd } = useWorkspace();
+  const { nwo } = useWorkspace();
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const severity = isBotUser ? parseBotSeverity(body) : null;
@@ -487,7 +487,7 @@ export function ContentEvent({
           commentId={commentId}
           body={body}
           prNumber={prNumber}
-          cwd={cwd}
+          nwo={nwo}
           position={contextMenu}
           onClose={() => setContextMenu(null)}
         />
@@ -504,14 +504,14 @@ function ConvoContextMenu({
   commentId,
   body,
   prNumber,
-  cwd,
+  nwo,
   position,
   onClose,
 }: {
   commentId: string;
   body: string;
   prNumber: number;
-  cwd: string;
+  nwo: string;
   position: { x: number; y: number };
   onClose: () => void;
 }) {
@@ -545,8 +545,7 @@ function ConvoContextMenu({
     };
   }, [handleClick, handleEscape]);
 
-  const repoSlug = cwd.split("/").slice(-2).join("/");
-  const commentUrl = `https://github.com/${repoSlug}/pull/${prNumber}#issuecomment-${commentId}`;
+  const commentUrl = `https://github.com/${nwo}/pull/${prNumber}#issuecomment-${commentId}`;
 
   return (
     <div
@@ -679,11 +678,11 @@ function parseBotSeverity(body: string): { label: string; bg: string; color: str
 }
 
 function PanelComposer({ prNumber }: { prNumber: number }) {
-  const { cwd } = useWorkspace();
+  const { repoTarget } = useWorkspace();
   const [body, setBody] = useState("");
 
   const commentMutation = useMutation({
-    mutationFn: (args: { cwd: string; prNumber: number; body: string }) => ipc("pr.comment", args),
+    mutationFn: (args: { body: string }) => ipc("pr.comment", { ...repoTarget, prNumber, ...args }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr", "issueComments"] });
       toastManager.add({ title: "Comment added", type: "success" });
@@ -701,19 +700,20 @@ function PanelComposer({ prNumber }: { prNumber: number }) {
       className="shrink-0"
       style={{ borderTop: "1px solid var(--border)", padding: "8px 12px" }}
     >
-      <MentionTextarea
-        value={body}
+      <ReviewMarkdownComposer
+        collapseWhenIdle
+        compact
         onChange={setBody}
-        placeholder="Leave a comment..."
-        rows={1}
-        prNumber={prNumber}
         onKeyDown={(e) => {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && body.trim()) {
             e.preventDefault();
-            commentMutation.mutate({ cwd, prNumber, body: body.trim() });
+            commentMutation.mutate({ body: body.trim() });
           }
         }}
-        textareaClassName="bg-bg-raised border-border text-text-primary placeholder:text-text-ghost focus:border-border-strong w-full resize-none rounded-lg border px-2.5 py-1.5 text-xs outline-none min-h-[32px]"
+        placeholder="Leave a comment..."
+        prNumber={prNumber}
+        rows={3}
+        value={body}
       />
       <div
         className="text-text-ghost font-mono"

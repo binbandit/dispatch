@@ -1,3 +1,6 @@
+/* eslint-disable import/max-dependencies -- Review request dialogs intentionally compose dialog primitives, mutations, and the shared composer in one focused surface. */
+import type { RepoTarget } from "@/shared/ipc";
+
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -11,7 +14,7 @@ import {
 } from "@/components/ui/dialog";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
-import { MentionTextarea } from "@/renderer/components/shared/mention-textarea";
+import { ReviewMarkdownComposer } from "@/renderer/components/review/comments/review-markdown-composer";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useMutation } from "@tanstack/react-query";
@@ -22,20 +25,24 @@ import { useState } from "react";
  * Request Changes button — opens a dialog to describe what needs to change.
  */
 
-export function RequestChangesButton({ cwd, prNumber }: { cwd: string; prNumber: number }) {
+export function RequestChangesButton({
+  repoTarget,
+  prNumber,
+}: {
+  repoTarget: RepoTarget;
+  prNumber: number;
+}) {
+  const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
 
   const reviewMutation = useMutation({
-    mutationFn: (args: {
-      cwd: string;
-      prNumber: number;
-      event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
-      body?: string;
-    }) => ipc("pr.submitReview", args),
+    mutationFn: (args: { event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT"; body?: string }) =>
+      ipc("pr.submitReview", { ...repoTarget, prNumber, ...args }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       toastManager.add({ title: "Changes requested", type: "success" });
       setBody("");
+      setOpen(false);
     },
     onError: (err) => {
       toastManager.add({
@@ -48,8 +55,10 @@ export function RequestChangesButton({ cwd, prNumber }: { cwd: string; prNumber:
 
   return (
     <Dialog
-      onOpenChange={(open) => {
-        if (!open) {
+      open={open}
+      onOpenChange={(nextOpen) => {
+        setOpen(nextOpen);
+        if (!nextOpen) {
           setBody("");
         }
       }}
@@ -74,35 +83,38 @@ export function RequestChangesButton({ cwd, prNumber }: { cwd: string; prNumber:
           </DialogDescription>
         </DialogHeader>
         <div className="px-6 pb-2">
-          <MentionTextarea
-            value={body}
+          <ReviewMarkdownComposer
+            autoFocus
             onChange={setBody}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && (event.metaKey || event.ctrlKey) && body.trim()) {
+                event.preventDefault();
+                reviewMutation.mutate({
+                  event: "REQUEST_CHANGES",
+                  body: body.trim(),
+                });
+              }
+            }}
             placeholder="What needs to change?"
-            rows={4}
             prNumber={prNumber}
-            textareaClassName="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-destructive w-full resize-none rounded-md border px-3 py-2.5 text-xs leading-relaxed focus:outline-none"
+            rows={5}
+            value={body}
           />
         </div>
         <DialogFooter variant="bare">
           <DialogClose render={<Button variant="ghost" />}>Cancel</DialogClose>
-          <DialogClose
-            render={
-              <Button
-                className="bg-destructive hover:bg-destructive/90 text-white"
-                disabled={!body.trim() || reviewMutation.isPending}
-                onClick={() => {
-                  reviewMutation.mutate({
-                    cwd,
-                    prNumber,
-                    event: "REQUEST_CHANGES",
-                    body: body.trim(),
-                  });
-                }}
-              />
-            }
+          <Button
+            className="bg-destructive hover:bg-destructive/90 text-white"
+            disabled={!body.trim() || reviewMutation.isPending}
+            onClick={() => {
+              reviewMutation.mutate({
+                event: "REQUEST_CHANGES",
+                body: body.trim(),
+              });
+            }}
           >
             {reviewMutation.isPending ? <Spinner className="h-3 w-3" /> : "Submit"}
-          </DialogClose>
+          </Button>
         </DialogFooter>
       </DialogPopup>
     </Dialog>

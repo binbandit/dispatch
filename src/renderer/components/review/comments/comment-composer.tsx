@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
-import { MentionTextarea } from "@/renderer/components/shared/mention-textarea";
+import { ReviewMarkdownComposer } from "@/renderer/components/review/comments/review-markdown-composer";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
@@ -33,20 +33,18 @@ export function CommentComposer({
   startLine,
   onClose,
 }: CommentComposerProps) {
-  const { cwd } = useWorkspace();
+  const { repoTarget } = useWorkspace();
   const [body, setBody] = useState("");
 
   const createMutation = useMutation({
     mutationFn: (args: {
-      cwd: string;
-      prNumber: number;
       body: string;
       path: string;
       line: number;
       side: "LEFT" | "RIGHT";
       startLine?: number;
       startSide?: "LEFT" | "RIGHT";
-    }) => ipc("pr.createComment", args),
+    }) => ipc("pr.createComment", { ...repoTarget, prNumber, ...args }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr", "comments"] });
       toastManager.add({ title: "Comment added", type: "success" });
@@ -66,8 +64,6 @@ export function CommentComposer({
       return;
     }
     createMutation.mutate({
-      cwd,
-      prNumber,
       body: body.trim(),
       path: filePath,
       line,
@@ -97,15 +93,15 @@ export function CommentComposer({
           Lines {startLine}–{line}
         </div>
       )}
-      <MentionTextarea
-        value={body}
+      <ReviewMarkdownComposer
+        autoFocus
+        className="rounded-none border-0 shadow-none"
         onChange={setBody}
         onKeyDown={handleKeyDown}
         placeholder="Leave a comment..."
-        rows={4}
         prNumber={prNumber}
-        autoFocus
-        textareaClassName="text-text-primary placeholder:text-text-tertiary bg-bg-root w-full resize-none border-none px-3 py-2.5 font-sans text-xs leading-relaxed focus:outline-none"
+        rows={4}
+        value={body}
       />
       <div className="border-border flex items-center justify-between border-t px-3 py-2">
         <span className="text-text-ghost text-[10px]">
