@@ -32,6 +32,7 @@ import {
 import { getDiffFilePath, parseDiff, type DiffFile } from "@/renderer/lib/review/diff-parser";
 import { useFileNav } from "@/renderer/lib/review/file-nav-context";
 import { ensureLanguage, ensureTheme, inferLanguage } from "@/renderer/lib/review/highlighter";
+import { getReviewPositionKey } from "@/renderer/lib/review/review-position";
 import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, GitCommitHorizontal, GitMerge, XCircle } from "lucide-react";
@@ -223,7 +224,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       if (!c.line) {
         continue;
       }
-      const key = `${c.path}:${c.line}`;
+      const key = getReviewPositionKey(c.path, c.line, c.side);
       const existing = map.get(key) ?? [];
       existing.push(c);
       map.set(key, existing);

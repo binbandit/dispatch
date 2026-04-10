@@ -20,6 +20,7 @@ import {
   type DiffLine,
   type Segment,
 } from "@/renderer/lib/review/diff-parser";
+import { getReviewPositionKey } from "@/renderer/lib/review/review-position";
 import { ChevronDown, ChevronUp, Plus, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -82,6 +83,11 @@ type FlatRow =
   | { kind: "composer"; key: string; startLine: number; endLine: number; side: CommentSide }
   | { kind: "ai-suggestion"; key: string; suggestions: AiSuggestion[] };
 
+interface FlatLineEntry {
+  key: string;
+  line: FlatLine;
+}
+
 function getCommentTarget(line: DiffLine): CommentTarget | null {
   if (line.type === "del" && line.oldLineNumber !== null) {
     return { line: line.oldLineNumber, side: "LEFT" };
@@ -92,6 +98,62 @@ function getCommentTarget(line: DiffLine): CommentTarget | null {
   }
 
   return null;
+}
+
+function appendLineRows(
+  rows: FlatRow[],
+  filePath: string,
+  lineEntry: FlatLineEntry,
+  comments: Map<string, ReviewComment[]>,
+  annotations: Map<string, Annotation[]>,
+  composerRange: CommentRange | null,
+  aiSuggestions?: Map<string, AiSuggestion[]>,
+) {
+  rows.push({ kind: "line", key: lineEntry.key, line: lineEntry.line });
+
+  const commentTarget = getCommentTarget(lineEntry.line);
+  if (!commentTarget) {
+    return;
+  }
+
+  const lineNum = commentTarget.line;
+  const commentKey = getReviewPositionKey(filePath, lineNum, commentTarget.side);
+  const lineComments = comments.get(commentKey);
+  if (lineComments && lineComments.length > 0) {
+    rows.push({ kind: "comment", key: `cmt-${commentKey}`, comments: lineComments });
+  }
+
+  if (commentTarget.side === "RIGHT") {
+    const positionKey = `${filePath}:${lineNum}`;
+
+    const lineAnnotations = annotations.get(positionKey);
+    if (lineAnnotations && lineAnnotations.length > 0) {
+      rows.push({ kind: "annotation", key: `ann-${positionKey}`, annotations: lineAnnotations });
+    }
+
+    const lineSuggestions = aiSuggestions?.get(positionKey);
+    if (lineSuggestions && lineSuggestions.length > 0) {
+      rows.push({
+        kind: "ai-suggestion",
+        key: `ai-${positionKey}`,
+        suggestions: lineSuggestions,
+      });
+    }
+  }
+
+  if (
+    composerRange &&
+    commentTarget.side === composerRange.side &&
+    commentTarget.line === composerRange.endLine
+  ) {
+    rows.push({
+      kind: "composer",
+      key: `composer-${composerRange.side}-${composerRange.startLine}-${composerRange.endLine}`,
+      startLine: composerRange.startLine,
+      endLine: composerRange.endLine,
+      side: composerRange.side,
+    });
+  }
 }
 
 function buildRows(
@@ -136,50 +198,146 @@ function buildRows(
           pairKey = `line-${hunkIndex}-${i - 1}-${prev.type}-${prev.oldLineNumber ?? "x"}-${prev.newLineNumber ?? "x"}`;
         }
 
-        const commentTarget = getCommentTarget(line);
-        const lineNum = commentTarget?.line;
-        rows.push({ kind: "line", key: lineKey, line: { ...line, pairKey } });
-
-        if (lineNum) {
-          const posKey = `${filePath}:${lineNum}`;
-
-          const lineAnnotations = annotations.get(posKey);
-          if (lineAnnotations && lineAnnotations.length > 0) {
-            rows.push({ kind: "annotation", key: `ann-${posKey}`, annotations: lineAnnotations });
-          }
-
-          const lineComments = comments.get(posKey);
-          if (lineComments && lineComments.length > 0) {
-            rows.push({ kind: "comment", key: `cmt-${posKey}`, comments: lineComments });
-          }
-
-          const lineSuggestions = aiSuggestions?.get(posKey);
-          if (lineSuggestions && lineSuggestions.length > 0) {
-            rows.push({
-              kind: "ai-suggestion",
-              key: `ai-${posKey}`,
-              suggestions: lineSuggestions,
-            });
-          }
-        }
-
-        if (
-          composerRange &&
-          commentTarget &&
-          commentTarget.side === composerRange.side &&
-          commentTarget.line === composerRange.endLine
-        ) {
-          rows.push({
-            kind: "composer",
-            key: `composer-${composerRange.startLine}-${composerRange.endLine}`,
-            startLine: composerRange.startLine,
-            endLine: composerRange.endLine,
-            side: composerRange.side,
-          });
-        }
+        appendLineRows(
+          rows,
+          filePath,
+          { key: lineKey, line: { ...line, pairKey } },
+          comments,
+          annotations,
+          composerRange,
+          aiSuggestions,
+        );
       }
     }
     hunkIndex++;
+  }
+
+  return rows;
+}
+
+function splitFileContentLines(content: string): string[] {
+  if (content.length === 0) {
+    return [""];
+  }
+
+  const lines = content.split("\n");
+  if (content.endsWith("\n")) {
+    lines.pop();
+  }
+  return lines;
+}
+
+function buildFullFileRows(
+  file: DiffFile,
+  fullFileContent: string | null | undefined,
+  comments: Map<string, ReviewComment[]>,
+  annotations: Map<string, Annotation[]>,
+  composerRange: CommentRange | null,
+  aiSuggestions?: Map<string, AiSuggestion[]>,
+): FlatRow[] | null {
+  if (fullFileContent === null || fullFileContent === undefined) {
+    return null;
+  }
+
+  const rows: FlatRow[] = [];
+  const filePath = getDiffFilePath(file);
+  const fileLines = splitFileContentLines(fullFileContent);
+  const renderedNewLines = new Map<number, FlatLineEntry>();
+  const removedBeforeNewLine = new Map<number, FlatLineEntry[]>();
+
+  const appendRemovedLines = (anchorLine: number, removedLines: FlatLineEntry[]) => {
+    if (removedLines.length === 0) {
+      return;
+    }
+    const existing = removedBeforeNewLine.get(anchorLine) ?? [];
+    existing.push(...removedLines);
+    removedBeforeNewLine.set(anchorLine, existing);
+  };
+
+  for (let hunkIndex = 0; hunkIndex < file.hunks.length; hunkIndex++) {
+    const hunk = file.hunks[hunkIndex];
+    if (hunk) {
+      let newLineTracker = hunk.newStart;
+      let pendingRemoved: FlatLineEntry[] = [];
+
+      for (let lineIndex = 0; lineIndex < hunk.lines.length; lineIndex++) {
+        const line = hunk.lines[lineIndex];
+        if (line && line.type !== "hunk-header") {
+          const next = hunk.lines[lineIndex + 1];
+          const prev = lineIndex > 0 ? hunk.lines[lineIndex - 1] : undefined;
+          const lineKey = `full-${hunkIndex}-${lineIndex}-${line.type}-${line.oldLineNumber ?? "x"}-${line.newLineNumber ?? "x"}`;
+
+          let pairKey: string | null = null;
+          if (line.type === "del" && next?.type === "add") {
+            pairKey = `full-${hunkIndex}-${lineIndex + 1}-${next.type}-${next.oldLineNumber ?? "x"}-${next.newLineNumber ?? "x"}`;
+          } else if (line.type === "add" && prev?.type === "del") {
+            pairKey = `full-${hunkIndex}-${lineIndex - 1}-${prev.type}-${prev.oldLineNumber ?? "x"}-${prev.newLineNumber ?? "x"}`;
+          }
+
+          const lineEntry: FlatLineEntry = { key: lineKey, line: { ...line, pairKey } };
+
+          if (line.type === "del") {
+            pendingRemoved.push(lineEntry);
+          } else {
+            appendRemovedLines(newLineTracker, pendingRemoved);
+            pendingRemoved = [];
+            renderedNewLines.set(newLineTracker, lineEntry);
+            newLineTracker++;
+          }
+        }
+      }
+
+      appendRemovedLines(newLineTracker, pendingRemoved);
+    }
+  }
+
+  for (let lineIndex = 0; lineIndex < fileLines.length; lineIndex++) {
+    const lineNumber = lineIndex + 1;
+    const removedLines = removedBeforeNewLine.get(lineNumber);
+    if (removedLines) {
+      for (const removedLine of removedLines) {
+        appendLineRows(
+          rows,
+          filePath,
+          removedLine,
+          comments,
+          annotations,
+          composerRange,
+          aiSuggestions,
+        );
+      }
+    }
+
+    const existingLine = renderedNewLines.get(lineNumber);
+    const lineEntry =
+      existingLine ??
+      ({
+        key: `full-context-${lineNumber}`,
+        line: {
+          type: "context",
+          content: fileLines[lineIndex] ?? "",
+          oldLineNumber: lineNumber,
+          newLineNumber: lineNumber,
+          pairKey: null,
+        },
+      } satisfies FlatLineEntry);
+
+    appendLineRows(rows, filePath, lineEntry, comments, annotations, composerRange, aiSuggestions);
+  }
+
+  const trailingRemoved = removedBeforeNewLine.get(fileLines.length + 1);
+  if (trailingRemoved) {
+    for (const removedLine of trailingRemoved) {
+      appendLineRows(
+        rows,
+        filePath,
+        removedLine,
+        comments,
+        annotations,
+        composerRange,
+        aiSuggestions,
+      );
+    }
   }
 
   return rows;
@@ -321,19 +479,35 @@ export function DiffViewer({
     [file, comments, annotations, activeComposer, aiSuggestions],
   );
 
+  const fullFileModeRows = useMemo(
+    () =>
+      buildFullFileRows(
+        file,
+        fullFileContent,
+        comments,
+        annotations,
+        activeComposer ?? null,
+        aiSuggestions,
+      ),
+    [file, fullFileContent, comments, annotations, activeComposer, aiSuggestions],
+  );
+
+  const activeRows =
+    diffMode === "full-file" && fullFileModeRows !== null ? fullFileModeRows : rows;
+
   // --- Search match counting (must be after rows) ---
   const totalSearchMatches = useMemo(() => {
     if (!searchQuery) {
       return 0;
     }
     let count = 0;
-    for (const row of rows) {
+    for (const row of activeRows) {
       if (row.kind === "line" && row.line.type !== "hunk-header") {
         count += countMatchesInText(row.line.content, searchQuery);
       }
     }
     return count;
-  }, [searchQuery, rows]);
+  }, [searchQuery, activeRows]);
 
   // Clamp match index inline (derived state, no effect needed)
   const clampedMatchIndex = totalSearchMatches > 0 ? searchMatchIndex % totalSearchMatches : 0;
@@ -360,31 +534,7 @@ export function DiffViewer({
     };
   }, []);
 
-  // --- Full file mode: build context lines from file content ---
-  const fullFileRows = useMemo(() => {
-    if (!fullFileContent) {
-      return null;
-    }
-    const fileLines = fullFileContent.split("\n");
-    // Build a set of changed line numbers (new side)
-    const changedNewLines = new Set<number>();
-    const addedLines = new Set<number>();
-    const deletedOldLines = new Set<number>();
-    for (const hunk of file.hunks) {
-      for (const line of hunk.lines) {
-        if (line.type === "add" && line.newLineNumber) {
-          changedNewLines.add(line.newLineNumber);
-          addedLines.add(line.newLineNumber);
-        }
-        if (line.type === "del" && line.oldLineNumber) {
-          deletedOldLines.add(line.oldLineNumber);
-        }
-      }
-    }
-    return { fileLines, changedNewLines, addedLines, deletedOldLines };
-  }, [fullFileContent, file.hunks]);
-
-  if (rows.length === 0 && !fullFileRows) {
+  if (activeRows.length === 0) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <p className="text-text-tertiary text-xs">No changes in this file</p>
@@ -469,49 +619,7 @@ export function DiffViewer({
         </div>
       )}
 
-      {/* Full file mode */}
-      {fullFileRows ? (
-        <table className="w-full border-collapse font-mono text-[12.5px] leading-5">
-          <colgroup>
-            <col className="w-[3px]" />
-            <col className="w-10" />
-            <col />
-          </colgroup>
-          <tbody>
-            {fullFileRows.fileLines.map((lineContent, i) => {
-              const lineNum = i + 1;
-              const isChanged = fullFileRows.addedLines.has(lineNum);
-              const barColor = isChanged ? "bg-success" : "";
-              const rowBg = isChanged ? "bg-diff-add-bg" : "";
-
-              return (
-                <tr
-                  key={lineNum}
-                  className={`group/line ${rowBg} transition-[filter] duration-75 hover:brightness-110`}
-                >
-                  <td className={`sticky left-0 z-[1] w-[3px] p-0 ${barColor}`} />
-                  <td className="text-text-ghost border-r-border/40 bg-bg-root sticky left-[3px] z-[1] w-10 border-r p-0 pr-2 text-right text-[11px] select-none">
-                    <div className="flex h-5 items-center justify-end">
-                      <span className="leading-5">{lineNum}</span>
-                    </div>
-                  </td>
-                  <td className="p-0">
-                    <div className="flex h-5 items-center">
-                      <span className="inline-flex w-5 shrink-0 select-none" />
-                      <span
-                        className="text-text-primary flex-1 overflow-x-auto pr-3 pl-1 whitespace-pre"
-                        style={{ tabSize: 4 }}
-                      >
-                        {lineContent}
-                      </span>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      ) : diffMode === "split" ? (
+      {diffMode === "split" ? (
         /* Split diff mode */
         <SplitDiffView
           rows={rows}
@@ -522,7 +630,7 @@ export function DiffViewer({
       ) : (
         /* Unified diff mode — plain DOM (like Better Hub, one file at a time) */
         <UnifiedDiffView
-          rows={rows}
+          rows={activeRows}
           highlighter={highlighter ?? null}
           language={language ?? "text"}
           shikiTheme={shikiTheme}

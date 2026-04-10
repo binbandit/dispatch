@@ -34,6 +34,22 @@ index abc1234..0000000
 -export const removed = true;
 -console.log("gone");`;
 
+const FULL_FILE_DIFF = `diff --git a/src/context.ts b/src/context.ts
+index abc1234..def5678 100644
+--- a/src/context.ts
++++ b/src/context.ts
+@@ -2,3 +2,3 @@
+ export function alpha() {
+-  return "old alpha";
++  return "new alpha";
+ }`;
+
+const FULL_FILE_CONTENT = `const before = true;
+export function alpha() {
+  return "new alpha";
+}
+const after = true;`;
+
 describe("DiffViewer", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -89,6 +105,28 @@ describe("DiffViewer", () => {
       startLine: 1,
       endLine: 1,
       side: "LEFT",
+    });
+  });
+
+  it("allows commenting on unchanged surrounding lines in full-file mode", () => {
+    const file = parseDiff(FULL_FILE_DIFF)[0]!;
+    const onCommentRange = vi.fn();
+
+    render(
+      <DiffViewer
+        file={file}
+        diffMode="full-file"
+        fullFileContent={FULL_FILE_CONTENT}
+        onCommentRange={onCommentRange}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("Comment on line 5"));
+
+    expect(onCommentRange).toHaveBeenCalledWith({
+      startLine: 5,
+      endLine: 5,
+      side: "RIGHT",
     });
   });
 });
