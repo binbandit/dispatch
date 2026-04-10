@@ -66,6 +66,7 @@ interface DiffViewerProps {
   /** AI-generated suggestions, keyed by "path:line" */
   aiSuggestions?: Map<string, AiSuggestion[]>;
   reviewActionsEnabled?: boolean;
+  bottomOverlayInset?: number;
   onPostSuggestion?: (suggestion: AiSuggestion, body?: string) => Promise<void>;
   onDismissSuggestion?: (id: string) => void;
 }
@@ -382,6 +383,7 @@ export function DiffViewer({
   reviewCommentReactions,
   aiSuggestions,
   reviewActionsEnabled = true,
+  bottomOverlayInset = 0,
   onPostSuggestion,
   onDismissSuggestion,
 }: DiffViewerProps) {
@@ -551,6 +553,10 @@ export function DiffViewer({
     <div
       ref={scrollRef}
       className={`bg-bg-root relative flex-1 overflow-auto ${isDragging ? "select-none" : ""}`}
+      style={{
+        paddingBottom: bottomOverlayInset,
+        scrollPaddingBottom: bottomOverlayInset,
+      }}
       tabIndex={-1}
     >
       {/* Search bar — floating overlay top-right */}

@@ -53,6 +53,8 @@ interface PrDetailViewProps {
   prNumber: number | null;
 }
 
+const FLOATING_REVIEW_BAR_CLEARANCE = 96;
+
 export function PrDetailView({ prNumber }: PrDetailViewProps) {
   if (!prNumber) {
     return <EmptyState />;
@@ -686,6 +688,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               }
               aiSuggestions={reviewControlsEnabled ? aiSuggestionsMap : undefined}
               reviewActionsEnabled={reviewControlsEnabled}
+              bottomOverlayInset={reviewControlsEnabled ? FLOATING_REVIEW_BAR_CLEARANCE : 0}
               onPostSuggestion={reviewControlsEnabled ? postSuggestion : undefined}
               onDismissSuggestion={dismissSuggestion}
             />

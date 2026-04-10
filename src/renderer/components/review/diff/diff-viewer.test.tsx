@@ -143,4 +143,19 @@ describe("DiffViewer", () => {
     expect(screen.queryByLabelText("Comment on line 1")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Comment on line 2")).not.toBeInTheDocument();
   });
+
+  it("reserves bottom scroll clearance for overlay controls", () => {
+    const file = parseDiff(MULTI_HUNK_DIFF)[0]!;
+    const { container } = render(
+      <DiffViewer
+        file={file}
+        bottomOverlayInset={96}
+      />,
+    );
+
+    const scrollContainer = container.querySelector('[tabindex="-1"]');
+
+    expect(scrollContainer).not.toBeNull();
+    expect(scrollContainer).toHaveStyle("padding-bottom: 96px; scroll-padding-bottom: 96px;");
+  });
 });
