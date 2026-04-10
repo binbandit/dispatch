@@ -30,18 +30,18 @@ import { useState } from "react";
  */
 
 export function ReleasesView() {
-  const { cwd } = useWorkspace();
+  const { repoTarget, nwo } = useWorkspace();
 
   const releasesQuery = useQuery({
-    queryKey: ["releases", "list", cwd],
-    queryFn: () => ipc("releases.list", { cwd }),
+    queryKey: ["releases", "list", nwo],
+    queryFn: () => ipc("releases.list", { ...repoTarget }),
     staleTime: 60_000,
   });
 
   // Check if user has push permission (needed to create releases)
   const repoInfoQuery = useQuery({
-    queryKey: ["repo", "info", cwd],
-    queryFn: () => ipc("repo.info", { cwd }),
+    queryKey: ["repo", "info", nwo],
+    queryFn: () => ipc("repo.info", { ...repoTarget }),
     staleTime: 300_000,
   });
 
@@ -142,7 +142,7 @@ export function ReleasesView() {
 // ---------------------------------------------------------------------------
 
 function CreateReleaseDialog({ latestTag }: { latestTag?: string }) {
-  const { cwd } = useWorkspace();
+  const { repoTarget } = useWorkspace();
   const [tagName, setTagName] = useState("");
   const [name, setName] = useState("");
   const [body, setBody] = useState("");
@@ -151,7 +151,8 @@ function CreateReleaseDialog({ latestTag }: { latestTag?: string }) {
   const [isPrerelease, setIsPrerelease] = useState(false);
 
   const changelogMutation = useMutation({
-    mutationFn: (sinceTag: string) => ipc("releases.generateChangelog", { cwd, sinceTag }),
+    mutationFn: (sinceTag: string) =>
+      ipc("releases.generateChangelog", { ...repoTarget, sinceTag }),
     onSuccess: (changelog) => {
       setBody(changelog);
     },
@@ -163,7 +164,7 @@ function CreateReleaseDialog({ latestTag }: { latestTag?: string }) {
   const createMutation = useMutation({
     mutationFn: () =>
       ipc("releases.create", {
-        cwd,
+        ...repoTarget,
         tagName,
         name: name || tagName,
         body,

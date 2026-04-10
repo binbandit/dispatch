@@ -29,7 +29,7 @@ export function AiExplanation({ filePath, codeSnippet, language, onDismiss }: Ai
   const explainMutation = useMutation({
     mutationFn: () =>
       ipc("ai.complete", {
-        cwd,
+        cwd: cwd ?? undefined,
         task: "codeExplanation",
         messages: [
           {

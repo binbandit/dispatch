@@ -19,8 +19,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles } from "lucide-react";
 import { startTransition, useEffect, useMemo, useState } from "react";
 
-interface UseAiTriageSectionsArgs {
-  cwd: string;
+export interface UseAiTriageSectionsArgs {
+  nwo: string;
   prNumber: number;
   pr: GhPrDetail | undefined;
   files: DiffFile[];
@@ -38,7 +38,7 @@ interface UseAiTriageSectionsResult {
 }
 
 export function useAiTriageSections({
-  cwd,
+  nwo,
   prNumber,
   pr,
   files,
@@ -107,10 +107,10 @@ export function useAiTriageSections({
   const hasAiCandidateFiles = Boolean(
     aiTriageInput?.files.some((file) => file.fallbackBucket === "changed"),
   );
-  const aiTriageQueryKey = ["ai", "triage", cwd, prNumber] as const;
+  const aiTriageQueryKey = ["ai", "triage", nwo, prNumber] as const;
   const aiTriageQuery = useQuery({
     queryKey: aiTriageQueryKey,
-    queryFn: () => ipc("ai.triage.get", { cwd, prNumber }),
+    queryFn: () => ipc("ai.triage.get", { nwo, prNumber }),
     enabled:
       viewMode === "triage" &&
       !isCommitView &&
@@ -134,7 +134,6 @@ export function useAiTriageSections({
 
       const { systemPrompt, userPrompt } = buildAiTriagePrompt(aiTriageInput);
       const response = await ipc("ai.complete", {
-        cwd,
         task: "triage",
         messages: [
           {
@@ -154,7 +153,7 @@ export function useAiTriageSections({
       }
 
       return ipc("ai.triage.set", {
-        cwd,
+        nwo,
         prNumber,
         snapshotKey: aiTriageSnapshotKey,
         payload: JSON.stringify(parsed),

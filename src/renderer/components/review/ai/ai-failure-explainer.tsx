@@ -8,18 +8,18 @@ import { useState } from "react";
 
 interface AiFailureExplainerProps {
   checkName: string;
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
   runId: number;
 }
 
-export function AiFailureExplainer({ checkName, cwd, runId }: AiFailureExplainerProps) {
+export function AiFailureExplainer({ checkName, repoTarget, runId }: AiFailureExplainerProps) {
   const config = useAiTaskConfig("failureExplanation");
   const [explanation, setExplanation] = useState<string | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
   const logQuery = useQuery({
-    queryKey: ["checks", "logs", cwd, runId],
-    queryFn: () => ipc("checks.logs", { cwd, runId }),
+    queryKey: ["checks", "logs", repoTarget.owner, repoTarget.repo, runId],
+    queryFn: () => ipc("checks.logs", { ...repoTarget, runId }),
     staleTime: 60_000,
     enabled: false,
   });
@@ -31,7 +31,7 @@ export function AiFailureExplainer({ checkName, cwd, runId }: AiFailureExplainer
       const logTail = logText.split("\n").slice(-200).join("\n");
 
       return ipc("ai.complete", {
-        cwd,
+        cwd: repoTarget.cwd ?? undefined,
         task: "failureExplanation",
         messages: [
           {

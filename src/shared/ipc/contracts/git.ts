@@ -1,4 +1,4 @@
-import type { BlameLine, LogEntry } from "../../ipc";
+import type { BlameLine, LogEntry, RepoTarget } from "../../ipc";
 
 export interface GitIpcApi {
   "git.blame": {
@@ -13,5 +13,8 @@ export interface GitIpcApi {
   "git.commitDiff": { args: { cwd: string; sha: string }; result: string };
   "git.showFile": { args: { cwd: string; ref: string; filePath: string }; result: string | null };
   "git.repoRoot": { args: { cwd: string }; result: string | null };
-  "gh.fileAtRef": { args: { cwd: string; ref: string; filePath: string }; result: string | null };
+  "gh.fileAtRef": {
+    args: RepoTarget & { ref: string; filePath: string };
+    result: string | null;
+  };
 }

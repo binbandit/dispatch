@@ -47,7 +47,7 @@ export function useAiSuggestions({
   existingComments,
   enabled,
 }: UseAiSuggestionsOpts) {
-  const { cwd } = useWorkspace();
+  const { cwd, repoTarget } = useWorkspace();
   const config = useAiTaskConfig("commentSuggestions");
   const snapshotKey = useMemo(
     () => buildAiSuggestionsSnapshotKey(prNumber, rawDiff),
@@ -148,7 +148,7 @@ export function useAiSuggestions({
         );
 
         const responseText = await ipc("ai.complete", {
-          cwd,
+          cwd: cwd ?? undefined,
           task: "commentSuggestions",
           messages,
           maxTokens: 2048,
@@ -208,7 +208,7 @@ export function useAiSuggestions({
     async (suggestion: AiSuggestion, body?: string) => {
       try {
         await ipc("pr.createComment", {
-          cwd,
+          ...repoTarget,
           prNumber,
           body: appendAiReviewMarker(suggestion.path, body ?? suggestion.body),
           path: suggestion.path,

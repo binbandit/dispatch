@@ -9,7 +9,7 @@ export interface AppIpcApi {
   };
   "preferences.deleteMany": { args: { keys: string[] }; result: void };
   "app.openExternal": { args: { url: string }; result: void };
-  "app.devRepoStatus": { args: void; result: DevRepoStatus };
+  "app.devRepoStatus": { args: { cwd: string | null }; result: DevRepoStatus };
   "app.setTrafficLightPosition": { args: { x: number; y: number }; result: void };
   "app.nuke": { args: void; result: void };
 }

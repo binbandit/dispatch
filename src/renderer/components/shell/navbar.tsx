@@ -25,17 +25,19 @@ import {
   Check,
   ChevronDown,
   ExternalLink,
-  FolderOpen,
   GitBranch,
   GitPullRequest,
   LogOut,
+  Plus,
   Tag,
   RefreshCw,
   Settings,
   Users,
   Zap,
 } from "lucide-react";
+import { useState } from "react";
 
+import { AddRepoDialog } from "@/renderer/components/shared/add-repo-dialog";
 import { NotificationCenter } from "./notification-center";
 
 /**
@@ -164,7 +166,7 @@ function UserMenu({
 }: {
   user: { login: string; avatarUrl: string; name: string | null } | null;
 }) {
-  const { cwd } = useWorkspace();
+  const { nwo } = useWorkspace();
 
   const accountsQuery = useQuery({
     queryKey: ["env", "accounts"],
@@ -268,7 +270,7 @@ function UserMenu({
           </MenuItem>
           <MenuItem
             onClick={() => {
-              const repoUrl = `https://github.com/${cwd.split("/").slice(-2).join("/")}`;
+              const repoUrl = `https://github.com/${nwo}`;
               void openExternal(repoUrl);
             }}
           >
@@ -338,9 +340,10 @@ function AccountMenuItem({
 // ---------------------------------------------------------------------------
 
 function WorkspaceSwitcher({ compact = false }: { compact?: boolean }) {
-  const { cwd, switchWorkspace } = useWorkspace();
+  const { nwo, repo, switchWorkspace } = useWorkspace();
   const { navigate } = useRouter();
-  const repoName = cwd.split("/").pop() ?? "—";
+  const [addRepoOpen, setAddRepoOpen] = useState(false);
+  const repoName = repo;
 
   const workspacesQuery = useQuery({
     queryKey: ["workspace", "list"],
@@ -382,15 +385,9 @@ function WorkspaceSwitcher({ compact = false }: { compact?: boolean }) {
             <MenuItem
               key={ws.id}
               onClick={() => {
-                ipc("workspace.setActive", { path: ws.path })
-                  .then(() => {
-                    switchWorkspace(ws.path);
-                    queryClient.invalidateQueries();
-                    navigate({ view: "review", prNumber: null });
-                  })
-                  .catch(() => {
-                    // Workspace switch failed
-                  });
+                switchWorkspace({ id: ws.id, owner: ws.owner, repo: ws.repo, path: ws.path });
+                queryClient.invalidateQueries();
+                navigate({ view: "review", prNumber: null });
               }}
             >
               <GitBranch
@@ -401,7 +398,7 @@ function WorkspaceSwitcher({ compact = false }: { compact?: boolean }) {
                 <p className="text-text-primary truncate text-xs font-medium">{ws.name}</p>
                 <p className="text-text-tertiary truncate font-mono text-[10px]">{ws.path}</p>
               </div>
-              {ws.path === cwd && (
+              {`${ws.owner}/${ws.repo}` === nwo && (
                 <Check
                   size={13}
                   className="text-success shrink-0"
@@ -413,29 +410,21 @@ function WorkspaceSwitcher({ compact = false }: { compact?: boolean }) {
 
         <MenuSeparator />
 
-        <MenuItem
-          onClick={() => {
-            ipc("workspace.pickFolder")
-              .then((result) => {
-                if (result) {
-                  return ipc("workspace.add", { path: result }).then(() =>
-                    ipc("workspace.setActive", { path: result }).then(() => {
-                      switchWorkspace(result);
-                      queryClient.invalidateQueries();
-                      navigate({ view: "review", prNumber: null });
-                    }),
-                  );
-                }
-              })
-              .catch(() => {
-                // Folder picker or workspace add failed
-              });
-          }}
-        >
-          <FolderOpen size={12} />
+        <MenuItem onClick={() => setAddRepoOpen(true)}>
+          <Plus size={12} />
           Add repository...
         </MenuItem>
       </MenuPopup>
+
+      <AddRepoDialog
+        open={addRepoOpen}
+        onOpenChange={setAddRepoOpen}
+        onAdded={(ws) => {
+          switchWorkspace({ id: ws.id, owner: ws.owner, repo: ws.repo, path: ws.path });
+          queryClient.invalidateQueries();
+          navigate({ view: "review", prNumber: null });
+        }}
+      />
     </Menu>
   );
 }

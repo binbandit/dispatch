@@ -39,7 +39,7 @@ describe("FileTree", () => {
         onSelectFile={() => {}}
         viewedFiles={new Set(["src/nested/a.ts"])}
         onSetFilesViewed={onSetFilesViewed}
-        cwd="/Users/brayden/Developer/frontend/dispatch"
+        nwo="acme/dispatch"
         prNumber={42}
       />,
     );
@@ -66,7 +66,7 @@ describe("FileTree", () => {
         onSelectFile={() => {}}
         viewedFiles={new Set(["src/nested/a.ts", "src/nested/b.ts"])}
         onSetFilesViewed={onSetFilesViewed}
-        cwd="/Users/brayden/Developer/frontend/dispatch"
+        nwo="acme/dispatch"
         prNumber={42}
       />,
     );
@@ -80,5 +80,27 @@ describe("FileTree", () => {
     fireEvent.click(nestedFolderCheckbox);
 
     expect(onSetFilesViewed).toHaveBeenCalledWith(["src/nested/a.ts", "src/nested/b.ts"], false);
+  });
+
+  it("hides reviewed toggles when viewed state is read-only", () => {
+    const files = parseDiff(MULTI_FILE_DIFF);
+
+    render(
+      <FileTree
+        files={files}
+        currentFileIndex={0}
+        onSelectFile={() => {}}
+        viewedFiles={new Set(["src/nested/a.ts"])}
+        nwo="acme/dispatch"
+        prNumber={42}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("checkbox", { name: "Mark folder src/nested as viewed" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("checkbox", { name: "Mark file src/nested/a.ts as unviewed" }),
+    ).not.toBeInTheDocument();
   });
 });

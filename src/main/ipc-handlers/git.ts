@@ -19,5 +19,5 @@ export const gitHandlers: Pick<
   "git.commitDiff": (args) => gitCli.commitDiff(args.cwd, args.sha),
   "git.showFile": (args) => gitCli.showFile(args.cwd, args.ref, args.filePath),
   "git.repoRoot": (args) => gitCli.getRepoRoot(args.cwd),
-  "gh.fileAtRef": (args) => ghCli.getFileAtRef(args.cwd, args.ref, args.filePath),
+  "gh.fileAtRef": (args) => ghCli.getFileAtRef(args, args.ref, args.filePath),
 };

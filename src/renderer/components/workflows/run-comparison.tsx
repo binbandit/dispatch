@@ -16,20 +16,20 @@ import { useMemo } from "react";
  */
 
 interface RunComparisonProps {
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
   baseRunId: number;
   compareRunId: number;
 }
 
-export function RunComparison({ cwd, baseRunId, compareRunId }: RunComparisonProps) {
+export function RunComparison({ repoTarget, baseRunId, compareRunId }: RunComparisonProps) {
   const baseQuery = useQuery({
-    queryKey: ["workflows", "runDetail", cwd, baseRunId],
-    queryFn: () => ipc("workflows.runDetail", { cwd, runId: baseRunId }),
+    queryKey: ["workflows", "runDetail", repoTarget.owner, repoTarget.repo, baseRunId],
+    queryFn: () => ipc("workflows.runDetail", { ...repoTarget, runId: baseRunId }),
   });
 
   const compareQuery = useQuery({
-    queryKey: ["workflows", "runDetail", cwd, compareRunId],
-    queryFn: () => ipc("workflows.runDetail", { cwd, runId: compareRunId }),
+    queryKey: ["workflows", "runDetail", repoTarget.owner, repoTarget.repo, compareRunId],
+    queryFn: () => ipc("workflows.runDetail", { ...repoTarget, runId: compareRunId }),
   });
 
   if (baseQuery.isLoading || compareQuery.isLoading) {

@@ -55,10 +55,10 @@ type PrSize = "xs" | "s" | "m" | "l" | "xl";
 
 /** Resolve the real GitHub `owner/repo` slug from the git remote. */
 function useRepoSlug(): string {
-  const { cwd } = useWorkspace();
+  const { nwo, repoTarget } = useWorkspace();
   const repoInfo = useQuery({
-    queryKey: ["repo", "info", cwd],
-    queryFn: () => ipc("repo.info", { cwd }),
+    queryKey: ["repo", "info", nwo],
+    queryFn: () => ipc("repo.info", { ...repoTarget }),
     staleTime: 300_000,
   });
   return repoInfo.data?.nameWithOwner ?? "";
@@ -84,23 +84,23 @@ function classifyPrSize(additions: number, deletions: number): PrSize {
 export function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
   const rawQuery = useCommandQuery();
   const filters = useCommandFilters();
-  const { cwd } = useWorkspace();
+  const { nwo, repoTarget } = useWorkspace();
   const { navigate } = useRouter();
   const nameFormat = useDisplayNameFormat();
 
   const reviewQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "reviewRequested"],
-    queryFn: () => ipc("pr.list", { cwd, filter: "reviewRequested" }),
+    queryKey: ["pr", "list", nwo, "reviewRequested"],
+    queryFn: () => ipc("pr.list", { ...repoTarget, filter: "reviewRequested" }),
     staleTime: 30_000,
   });
   const authorQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "authored"],
-    queryFn: () => ipc("pr.list", { cwd, filter: "authored" }),
+    queryKey: ["pr", "list", nwo, "authored"],
+    queryFn: () => ipc("pr.list", { ...repoTarget, filter: "authored" }),
     staleTime: 30_000,
   });
   const allQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "all", "all"],
-    queryFn: () => ipc("pr.list", { cwd, filter: "all", state: "all" }),
+    queryKey: ["pr", "list", nwo, "all", "all"],
+    queryFn: () => ipc("pr.list", { ...repoTarget, filter: "all", state: "all" }),
     staleTime: 30_000,
   });
 
@@ -187,25 +187,25 @@ export function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
     const baseRequests: PrSearchRefreshRequest[] = [
       {
         method: "pr.list",
-        args: { cwd, filter: "reviewRequested", state: "open" },
-        queryKey: ["pr", "list", cwd, "reviewRequested"],
+        args: { ...repoTarget, filter: "reviewRequested", state: "open" },
+        queryKey: ["pr", "list", nwo, "reviewRequested"],
       },
       {
         method: "pr.list",
-        args: { cwd, filter: "authored", state: "open" },
-        queryKey: ["pr", "list", cwd, "authored"],
+        args: { ...repoTarget, filter: "authored", state: "open" },
+        queryKey: ["pr", "list", nwo, "authored"],
       },
       {
         method: "pr.list",
-        args: { cwd, filter: "all", state: "all" },
-        queryKey: ["pr", "list", cwd, "all", "all"],
+        args: { ...repoTarget, filter: "all", state: "all" },
+        queryKey: ["pr", "list", nwo, "all", "all"],
       },
     ];
     return baseRequests;
-  }, [cwd]);
+  }, [nwo, repoTarget]);
 
   usePrSearchRefreshOnMiss({
-    scope: `command-palette:${cwd}`,
+    scope: `command-palette:${nwo}`,
     searchQuery: rawQuery,
     resultCount: visible.length,
     requests: searchRefreshRequests,
@@ -273,15 +273,16 @@ function PrStatusIcon({ pr }: { pr: GhPrListItemCore }) {
 
 export function FileGroup({ onSelect }: { onSelect: () => void }) {
   const filters = useCommandFilters();
-  const { cwd } = useWorkspace();
+  const { nwo, repoTarget } = useWorkspace();
   const { route } = useRouter();
   const fileNav = useFileNavSafe();
 
   const prNumber = route.view === "review" ? route.prNumber : null;
 
   const diffQuery = useQuery({
-    queryKey: ["pr", "diff", cwd, prNumber],
-    queryFn: () => (prNumber === null ? Promise.resolve("") : ipc("pr.diff", { cwd, prNumber })),
+    queryKey: ["pr", "diff", nwo, prNumber],
+    queryFn: () =>
+      prNumber === null ? Promise.resolve("") : ipc("pr.diff", { ...repoTarget, prNumber }),
     staleTime: 60_000,
     enabled: Boolean(prNumber),
   });
@@ -361,7 +362,7 @@ function useFileNavSafe() {
 
 export function ReviewActionsGroup({ onSelect }: { onSelect: () => void }) {
   const filters = useCommandFilters();
-  const { cwd } = useWorkspace();
+  const { repoTarget } = useWorkspace();
   const { route } = useRouter();
   const repoSlug = useRepoSlug();
 
@@ -384,7 +385,7 @@ export function ReviewActionsGroup({ onSelect }: { onSelect: () => void }) {
         />
       ),
       action: () => {
-        ipc("pr.submitReview", { cwd, prNumber, event: "APPROVE" }).then(() => {
+        ipc("pr.submitReview", { ...repoTarget, prNumber, event: "APPROVE" }).then(() => {
           queryClient.invalidateQueries({ queryKey: ["pr"] });
           toastManager.add({ title: "PR approved", type: "success" });
         });
@@ -548,7 +549,7 @@ export function NavigationGroup({ onSelect }: { onSelect: () => void }) {
 
 export function WorkspaceGroup({ onSelect }: { onSelect: () => void }) {
   const { text: query } = useCommandFilters();
-  const { cwd, switchWorkspace } = useWorkspace();
+  const { nwo, switchWorkspace } = useWorkspace();
   const { navigate } = useRouter();
 
   const workspacesQuery = useQuery({
@@ -575,20 +576,27 @@ export function WorkspaceGroup({ onSelect }: { onSelect: () => void }) {
         <CommandItem
           key={workspace.id}
           onSelect={() => {
-            ipc("workspace.setActive", { path: workspace.path }).then(() => {
-              switchWorkspace(workspace.path);
-              queryClient.invalidateQueries();
-              navigate({ view: "review", prNumber: null });
+            switchWorkspace({
+              id: workspace.id,
+              owner: workspace.owner,
+              repo: workspace.repo,
+              path: workspace.path,
             });
+            queryClient.invalidateQueries();
+            navigate({ view: "review", prNumber: null });
             onSelect();
           }}
         >
           <GitBranch
             size={14}
-            className={workspace.path === cwd ? "text-primary" : ""}
+            className={`${workspace.owner}/${workspace.repo}` === nwo ? "text-primary" : ""}
           />
-          <span className={workspace.path === cwd ? "font-medium" : ""}>{workspace.name}</span>
-          {workspace.path === cwd && <span className="text-text-ghost text-[10px]">current</span>}
+          <span className={`${workspace.owner}/${workspace.repo}` === nwo ? "font-medium" : ""}>
+            {workspace.name}
+          </span>
+          {`${workspace.owner}/${workspace.repo}` === nwo && (
+            <span className="text-text-ghost text-[10px]">current</span>
+          )}
           <span className="text-text-ghost ml-auto truncate font-mono text-[10px]">
             {workspace.path}
           </span>
@@ -599,12 +607,20 @@ export function WorkspaceGroup({ onSelect }: { onSelect: () => void }) {
           onSelect={() => {
             ipc("workspace.pickFolder").then((result) => {
               if (result) {
-                ipc("workspace.add", { path: result }).then(() => {
-                  ipc("workspace.setActive", { path: result }).then(() => {
-                    switchWorkspace(result);
-                    queryClient.invalidateQueries();
-                    navigate({ view: "review", prNumber: null });
+                ipc("workspace.addFromFolder", { path: result }).then((ws) => {
+                  ipc("workspace.list").then((list) => {
+                    const added = list.find((w) => w.owner === ws.owner && w.repo === ws.repo);
+                    if (added) {
+                      switchWorkspace({
+                        id: added.id,
+                        owner: added.owner,
+                        repo: added.repo,
+                        path: added.path,
+                      });
+                    }
                   });
+                  queryClient.invalidateQueries();
+                  navigate({ view: "review", prNumber: null });
                 });
               }
             });
@@ -621,12 +637,12 @@ export function WorkspaceGroup({ onSelect }: { onSelect: () => void }) {
 
 export function WorkflowGroup({ onSelect }: { onSelect: () => void }) {
   const { text: query } = useCommandFilters();
-  const { cwd } = useWorkspace();
+  const { nwo, repoTarget } = useWorkspace();
   const { navigate } = useRouter();
 
   const workflowsQuery = useQuery({
-    queryKey: ["workflows", "list", cwd],
-    queryFn: () => ipc("workflows.list", { cwd }),
+    queryKey: ["workflows", "list", nwo],
+    queryFn: () => ipc("workflows.list", { ...repoTarget }),
     staleTime: 60_000,
   });
   const workflows = (workflowsQuery.data ?? []).filter((workflow) => workflow.state === "active");

@@ -262,7 +262,7 @@ export function parseOpencodeJsonOutput(output: string): string {
 }
 
 function resolveWorkingDirectory(cwd?: string): string {
-  return cwd ?? repo.getActiveWorkspace() ?? process.cwd();
+  return cwd ?? repo.getActiveWorkspace()?.path ?? process.cwd();
 }
 
 function getCommandBasename(command: string): string {

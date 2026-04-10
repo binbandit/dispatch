@@ -1,4 +1,6 @@
 /* eslint-disable import/max-dependencies -- App bootstrap intentionally composes the top-level providers and boot flow in one entrypoint. */
+import type { Workspace } from "@/shared/ipc";
+
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
@@ -112,8 +114,8 @@ function resolvePhase({
   onboardingComplete,
 }: {
   envData: { ghVersion: string | null; gitVersion: string | null; ghAuth: boolean } | null;
-  activeWorkspace: string | null;
-  workspaces: Array<{ path: string }>;
+  activeWorkspace: { id: number } | null;
+  workspaces: Workspace[];
   onboardingComplete: boolean;
 }): AppPhase {
   if (envData && (!envData.ghVersion || !envData.gitVersion || !envData.ghAuth)) {
@@ -141,8 +143,14 @@ function AppScreen({
 }: {
   phase: AppPhase;
   envData: { ghVersion: string | null; gitVersion: string | null; ghAuth: boolean } | null;
-  activeWorkspace: string | null;
-  workspaces: Array<{ path: string }>;
+  activeWorkspace: {
+    id: number;
+    owner: string;
+    repo: string;
+    path: string | null;
+    name: string;
+  } | null;
+  workspaces: Workspace[];
   onOnboardingComplete: () => void;
   onRetryEnvCheck: () => void;
 }) {
@@ -161,11 +169,14 @@ function AppScreen({
       return <Onboarding onComplete={onOnboardingComplete} />;
     }
     case "ready": {
-      const cwd = activeWorkspace ?? workspaces[0]?.path ?? "";
+      const ws = activeWorkspace ?? workspaces[0];
+      if (!ws) {
+        return <Onboarding onComplete={onOnboardingComplete} />;
+      }
       // Initialize PostHog analytics (opt-in only)
       initPostHog().catch(() => {});
       return (
-        <WorkspaceProvider cwd={cwd}>
+        <WorkspaceProvider workspace={ws}>
           <AppLayout />
         </WorkspaceProvider>
       );

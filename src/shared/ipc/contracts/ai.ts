@@ -44,12 +44,12 @@ export interface AiIpcApi {
     result: string;
   };
   "ai.reviewSummary.get": {
-    args: { cwd: string; prNumber: number };
+    args: { nwo: string; prNumber: number };
     result: AiReviewSummaryCacheEntry | null;
   };
   "ai.reviewSummary.set": {
     args: {
-      cwd: string;
+      nwo: string;
       prNumber: number;
       snapshotKey: string;
       summary: string;
@@ -58,11 +58,11 @@ export interface AiIpcApi {
     result: AiReviewSummaryCacheEntry;
   };
   "ai.triage.get": {
-    args: { cwd: string; prNumber: number };
+    args: { nwo: string; prNumber: number };
     result: AiTriageCacheEntry | null;
   };
   "ai.triage.set": {
-    args: { cwd: string; prNumber: number; snapshotKey: string; payload: string };
+    args: { nwo: string; prNumber: number; snapshotKey: string; payload: string };
     result: AiTriageCacheEntry;
   };
 }

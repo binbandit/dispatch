@@ -79,7 +79,8 @@ function BlamePopoverContent({ file, line, gitRef }: Omit<BlameButtonProps, "cla
 
   const blameQuery = useQuery({
     queryKey: ["git", "blame", cwd, file, line, gitRef],
-    queryFn: () => ipc("git.blame", { cwd, file, line, ref: gitRef }),
+    queryFn: () => ipc("git.blame", { cwd: cwd!, file, line, ref: gitRef }),
+    enabled: cwd !== null,
     staleTime: 300_000,
     retry: 0,
   });

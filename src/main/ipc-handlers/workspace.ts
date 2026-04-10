@@ -10,28 +10,56 @@ export const workspaceHandlers: Pick<
   HandlerMap,
   | "workspace.list"
   | "workspace.add"
+  | "workspace.addFromFolder"
   | "workspace.remove"
   | "workspace.active"
   | "workspace.setActive"
   | "workspace.pickFolder"
+  | "workspace.searchGitHub"
 > = {
-  "workspace.list": () => repo.getWorkspaces(),
+  "workspace.list": async () => {
+    const workspaces = repo.getWorkspaces();
+    // Lazy-resolve owner/repo from git remote for migrated workspaces with heuristic values
+    for (const ws of workspaces) {
+      if (ws.path && ws.owner === "unknown") {
+        try {
+          const { owner, repo: repoName } = await ghCli.getOwnerRepo(ws.path);
+          repo.addWorkspace({ owner, repo: repoName, path: ws.path, name: ws.name });
+          ws.owner = owner;
+          ws.repo = repoName;
+        } catch {
+          // Git remote not available, keep heuristic values
+        }
+      }
+    }
+    return workspaces;
+  },
   "workspace.add": async (args) => {
+    const name = args.name ?? args.repo;
+    repo.addWorkspace({ owner: args.owner, repo: args.repo, path: args.path, name });
+    return { owner: args.owner, repo: args.repo, path: args.path ?? null, name };
+  },
+  "workspace.addFromFolder": async (args) => {
     const root = await gitCli.getRepoRoot(args.path);
     if (!root) {
       throw new Error(`"${args.path}" is not inside a git repository.`);
     }
-    const name = root.split("/").pop() ?? root;
-    repo.addWorkspace(root, name);
-    return { path: root, name };
+    const { owner, repo: repoName } = await ghCli.getOwnerRepo(root);
+    const name = repoName;
+    repo.addWorkspace({ owner, repo: repoName, path: root, name });
+    return { owner, repo: repoName, path: root, name };
   },
   "workspace.remove": (args) => {
     repo.removeWorkspace(args.id);
   },
   "workspace.active": () => repo.getActiveWorkspace(),
   "workspace.setActive": async (args) => {
-    repo.setActiveWorkspace(args.path);
-    const saved = repo.getRepoAccount(args.path);
+    repo.setActiveWorkspace(args.id);
+    const ws = repo.getActiveWorkspace();
+    if (!ws?.path) {
+      return;
+    }
+    const saved = repo.getRepoAccount(ws.path);
     if (!saved) {
       return;
     }
@@ -59,4 +87,5 @@ export const workspaceHandlers: Pick<
     }
     return result.filePaths[0] ?? null;
   },
+  "workspace.searchGitHub": (args) => ghCli.searchRepos(args.query, args.limit),
 };

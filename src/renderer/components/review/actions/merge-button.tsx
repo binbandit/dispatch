@@ -25,13 +25,13 @@ const STRATEGY_LABELS: Record<string, string> = {
 };
 
 export function MergeButton({
-  cwd,
+  repoTarget,
   prNumber,
   pr,
   canAdmin,
   hasMergeQueue,
 }: {
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
   prNumber: number;
   pr: {
     reviewDecision: string;
@@ -52,8 +52,8 @@ export function MergeButton({
 
   // Merge queue status
   const queueQuery = useQuery({
-    queryKey: ["pr", "mergeQueueStatus", cwd, prNumber],
-    queryFn: () => ipc("pr.mergeQueueStatus", { cwd, prNumber }),
+    queryKey: ["pr", "mergeQueueStatus", repoTarget.owner, repoTarget.repo, prNumber],
+    queryFn: () => ipc("pr.mergeQueueStatus", { ...repoTarget, prNumber }),
     staleTime: 15_000,
     refetchInterval: 15_000,
   });
@@ -61,13 +61,11 @@ export function MergeButton({
 
   const mergeMutation = useMutation({
     mutationFn: (args: {
-      cwd: string;
-      prNumber: number;
       strategy: "merge" | "squash" | "rebase";
       admin?: boolean;
       auto?: boolean;
       hasMergeQueue?: boolean;
-    }) => ipc("pr.merge", args),
+    }) => ipc("pr.merge", { ...repoTarget, prNumber, ...args }),
     onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
 
@@ -115,7 +113,7 @@ export function MergeButton({
   });
 
   const closeMutation = useMutation({
-    mutationFn: () => ipc("pr.close", { cwd, prNumber }),
+    mutationFn: () => ipc("pr.close", { ...repoTarget, prNumber }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       toastManager.add({
@@ -133,7 +131,7 @@ export function MergeButton({
   });
 
   const updateBranchMutation = useMutation({
-    mutationFn: () => ipc("pr.updateBranch", { cwd, prNumber }),
+    mutationFn: () => ipc("pr.updateBranch", { ...repoTarget, prNumber }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       toastManager.add({ title: "Branch updated", type: "success" });
@@ -214,8 +212,6 @@ export function MergeButton({
                 strategy,
               });
               mergeMutation.mutate({
-                cwd,
-                prNumber,
                 strategy: resolved.strategy,
                 admin: resolved.admin,
                 auto: resolved.auto,
@@ -257,8 +253,6 @@ export function MergeButton({
                 strategy: "squash",
               });
               mergeMutation.mutate({
-                cwd,
-                prNumber,
                 strategy: resolved.strategy,
                 admin: resolved.admin,
                 auto: resolved.auto,
@@ -298,8 +292,6 @@ export function MergeButton({
                   strategy: "squash",
                 });
                 mergeMutation.mutate({
-                  cwd,
-                  prNumber,
                   strategy: resolved.strategy,
                   admin: resolved.admin,
                   auto: resolved.auto,
@@ -386,8 +378,6 @@ export function MergeButton({
               strategy,
             });
             mergeMutation.mutate({
-              cwd,
-              prNumber,
               strategy: resolved.strategy,
               admin: resolved.admin,
               auto: resolved.auto,

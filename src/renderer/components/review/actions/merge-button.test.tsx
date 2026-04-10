@@ -63,7 +63,7 @@ const renderMergeButton = (props: Partial<Parameters<typeof MergeButton>[0]> = {
   });
 
   const defaultProps = {
-    cwd: "/test",
+    repoTarget: { cwd: "/test", owner: "test-owner", repo: "test-repo" },
     prNumber: 123,
     pr: createMockPr(),
     canAdmin: false,

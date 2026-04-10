@@ -2,6 +2,7 @@
 import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
+import { AddRepoDialog } from "@/renderer/components/shared/add-repo-dialog";
 import { useKeyboardShortcuts } from "@/renderer/hooks/app/use-keyboard-shortcuts";
 import { usePrSearchRefreshOnMiss } from "@/renderer/hooks/app/use-pr-search-refresh";
 import { useDisplayNameFormat } from "@/renderer/hooks/preferences/use-display-name";
@@ -103,7 +104,7 @@ export function HomeView() {
   const repoIdentity = repoInfoQuery.data?.nameWithOwner ?? repoName;
   const pullRequestRepository = repoInfoQuery.data?.parent ?? repoIdentity;
   const isForkWorkspace = repoInfoQuery.data?.isFork ?? false;
-  const [targetRepoOwner, targetRepoName] = pullRequestRepository.split("/");
+  const [targetRepoOwner = "", targetRepoName = ""] = pullRequestRepository.split("/");
 
   const targetRepoQuery = useQuery({
     queryKey: ["repo", "info", "target", pullRequestRepository],
@@ -376,6 +377,16 @@ export function HomeView() {
     workspacesQuery.isFetching;
 
   return (
+    <>
+    <AddRepoDialog
+      open={addRepoOpen}
+      onOpenChange={setAddRepoOpen}
+      onAdded={(ws) => {
+        switchWorkspace({ id: ws.id, owner: ws.owner, repo: ws.repo, path: ws.path });
+        queryClient.invalidateQueries();
+        navigate({ view: "review", prNumber: null });
+      }}
+    />
     <main
       aria-label="Pull request dashboard"
       className="relative flex h-full flex-1 flex-col overflow-hidden"
@@ -605,5 +616,6 @@ export function HomeView() {
         </div>
       </div>
     </main>
+    </>
   );
 }

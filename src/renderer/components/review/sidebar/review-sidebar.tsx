@@ -31,28 +31,31 @@ interface ReviewSidebarProps {
 }
 
 export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarProps) {
-  const { cwd } = useWorkspace();
+  const { repoTarget, nwo, cwd } = useWorkspace();
   const { currentFileIndex, setCurrentFileIndex, selectedCommit, setSelectedCommit } = useFileNav();
-  const repoName = cwd.split("/").pop() ?? "";
 
   // Diff data (shared query key with PrDetailView — React Query dedupes)
   const diffQuery = useQuery({
-    queryKey: ["pr", "diff", cwd, prNumber],
-    queryFn: () => ipc("pr.diff", { cwd, prNumber }),
+    queryKey: ["pr", "diff", nwo, prNumber],
+    queryFn: () => ipc("pr.diff", { ...repoTarget, prNumber }),
     staleTime: 60_000,
   });
 
   // Commit-specific diff (only fetched when a commit is selected)
   const commitDiffQuery = useQuery({
-    queryKey: ["git", "commitDiff", cwd, selectedCommit?.oid],
+    queryKey: ["git", "commitDiff", nwo, selectedCommit?.oid],
     queryFn: () => {
       if (!selectedCommit) {
         throw new Error("Commit diff requested without a selected commit.");
       }
 
+      if (!cwd) {
+        throw new Error("Commit diff requested without a workspace path.");
+      }
+
       return ipc("git.commitDiff", { cwd, sha: selectedCommit.oid });
     },
-    enabled: Boolean(selectedCommit),
+    enabled: Boolean(selectedCommit) && cwd !== null,
     staleTime: 60_000,
   });
 
@@ -81,16 +84,16 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
 
   // Viewed files
   const viewedQuery = useQuery({
-    queryKey: ["review", "viewedFiles", repoName, prNumber],
-    queryFn: () => ipc("review.viewedFiles", { repo: repoName, prNumber }),
+    queryKey: ["review", "viewedFiles", nwo, prNumber],
+    queryFn: () => ipc("review.viewedFiles", { repo: nwo, prNumber }),
   });
   const viewedFiles = useMemo(() => new Set(viewedQuery.data), [viewedQuery.data]);
   const refetchViewedFiles = viewedQuery.refetch;
 
   // Comments for file badges
   const commentsQuery = useQuery({
-    queryKey: ["pr", "comments", cwd, prNumber],
-    queryFn: () => ipc("pr.comments", { cwd, prNumber }),
+    queryKey: ["pr", "comments", nwo, prNumber],
+    queryFn: () => ipc("pr.comments", { ...repoTarget, prNumber }),
     staleTime: 30_000,
   });
 
@@ -106,8 +109,8 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
 
   // CI annotations for triage classification
   const annotationsQuery = useQuery({
-    queryKey: ["checks", "annotations", cwd, prNumber],
-    queryFn: () => ipc("checks.annotations", { cwd, prNumber }),
+    queryKey: ["checks", "annotations", nwo, prNumber],
+    queryFn: () => ipc("checks.annotations", { ...repoTarget, prNumber }),
     staleTime: 30_000,
   });
 
@@ -127,22 +130,22 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
 
   // Queue (review-requested PRs — same query as inbox "Review" tab)
   const queueQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "reviewRequested"],
-    queryFn: () => ipc("pr.list", { cwd, filter: "reviewRequested" }),
+    queryKey: ["pr", "list", nwo, "reviewRequested"],
+    queryFn: () => ipc("pr.list", { ...repoTarget, filter: "reviewRequested" }),
     refetchInterval: 30_000,
   });
   const queuePrs = queueQuery.data ?? [];
 
   // PR detail for merge readiness
   const detailQuery = useQuery({
-    queryKey: ["pr", "detail", cwd, prNumber],
-    queryFn: () => ipc("pr.detail", { cwd, prNumber }),
+    queryKey: ["pr", "detail", nwo, prNumber],
+    queryFn: () => ipc("pr.detail", { ...repoTarget, prNumber }),
     refetchInterval: 60_000,
   });
   const pr = detailQuery.data;
   const isCompletedPr = pr ? isCompletedPullRequest(pr) : false;
   const { sections: triageSections, meta: triageMeta } = useAiTriageSections({
-    cwd,
+    nwo,
     prNumber,
     pr,
     files,
@@ -157,8 +160,8 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
   // Checks list — same query key as ChecksPanel so React Query dedupes.
   // Used for merge readiness so it stays in sync with the checks panel.
   const checksQuery = useQuery({
-    queryKey: ["checks", "list", cwd, prNumber],
-    queryFn: () => ipc("checks.list", { cwd, prNumber }),
+    queryKey: ["checks", "list", nwo, prNumber],
+    queryFn: () => ipc("checks.list", { ...repoTarget, prNumber }),
     refetchInterval: 10_000,
   });
   const checksList = checksQuery.data ?? [];
@@ -170,7 +173,7 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
   const handleSetFilesViewed = useCallback(
     (filePaths: string[], viewed: boolean) => {
       void ipc("review.setFilesViewed", {
-        repo: repoName,
+        repo: nwo,
         prNumber,
         filePaths,
         viewed,
@@ -178,7 +181,7 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
         void refetchViewedFiles();
       });
     },
-    [repoName, prNumber, refetchViewedFiles],
+    [nwo, prNumber, refetchViewedFiles],
   );
 
   const handleToggleViewed = useCallback(
@@ -298,10 +301,12 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
                 onSelectFile={setCurrentFileIndex}
                 viewedFiles={selectedCommit ? new Set() : viewedFiles}
                 commentCounts={selectedCommit ? new Map() : fileCommentCounts}
-                cwd={cwd}
+                nwo={nwo}
                 prNumber={prNumber}
-                onToggleViewed={selectedCommit ? undefined : handleToggleViewed}
-                onSetFilesViewed={selectedCommit ? undefined : handleSetFilesViewed}
+                onToggleViewed={selectedCommit || isCompletedPr ? undefined : handleToggleViewed}
+                onSetFilesViewed={
+                  selectedCommit || isCompletedPr ? undefined : handleSetFilesViewed
+                }
               />
             </div>
           )}
@@ -337,7 +342,7 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
               noConflicts={pr.mergeable === "MERGEABLE"}
               hasChecks={checkSummary.total > 0}
               isBehind={pr.mergeStateStatus === "BEHIND"}
-              cwd={cwd}
+              repoTarget={repoTarget}
               prNumber={prNumber}
             />
           );

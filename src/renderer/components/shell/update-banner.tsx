@@ -25,7 +25,7 @@ export function UpdateBanner({
 
   const statusQuery = useQuery({
     queryKey: ["app", "dev-repo-status"],
-    queryFn: () => ipc("app.devRepoStatus"),
+    queryFn: () => ipc("app.devRepoStatus", { cwd: null }),
     staleTime: 60_000,
     refetchInterval: 120_000,
     refetchOnWindowFocus: false,

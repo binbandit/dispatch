@@ -129,4 +129,18 @@ describe("DiffViewer", () => {
       side: "RIGHT",
     });
   });
+
+  it("hides inline comment affordances when review actions are disabled", () => {
+    const file = parseDiff(DELETED_FILE_DIFF)[0]!;
+
+    render(
+      <DiffViewer
+        file={file}
+        reviewActionsEnabled={false}
+      />,
+    );
+
+    expect(screen.queryByLabelText("Comment on line 1")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Comment on line 2")).not.toBeInTheDocument();
+  });
 });

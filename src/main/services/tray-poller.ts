@@ -1,5 +1,5 @@
 /* eslint-disable no-console -- Background tray polling failures should remain visible during local debugging. */
-import type { GhPrListItemCore } from "../../shared/ipc";
+import type { GhPrListItemCore, RepoTarget } from "../../shared/ipc";
 
 import { getActiveWorkspace, getWorkspaces } from "../db/repository";
 import { listPrsCore } from "./gh-cli";
@@ -30,23 +30,27 @@ export function getTrayState(): TrayState {
 }
 
 export function pollOnce(): Promise<TrayState> {
-  const activePath = getActiveWorkspace();
-  if (!activePath) {
-    const workspaces = getWorkspaces();
-    const [firstWorkspace] = workspaces;
-    if (!firstWorkspace) {
-      return Promise.resolve(state);
-    }
-    return pollForCwd(firstWorkspace.path);
+  const activeWs = getActiveWorkspace();
+  if (activeWs) {
+    return pollForTarget({ cwd: activeWs.path, owner: activeWs.owner, repo: activeWs.repo });
   }
-  return pollForCwd(activePath);
+  const workspaces = getWorkspaces();
+  const [firstWorkspace] = workspaces;
+  if (!firstWorkspace) {
+    return Promise.resolve(state);
+  }
+  return pollForTarget({
+    cwd: firstWorkspace.path,
+    owner: firstWorkspace.owner,
+    repo: firstWorkspace.repo,
+  });
 }
 
-async function pollForCwd(cwd: string): Promise<TrayState> {
+async function pollForTarget(target: RepoTarget): Promise<TrayState> {
   try {
     const [reviewPrs, authorPrs] = await Promise.all([
-      listPrsCore(cwd, "reviewRequested"),
-      listPrsCore(cwd, "authored"),
+      listPrsCore(target, "reviewRequested"),
+      listPrsCore(target, "authored"),
     ]);
     state = { reviewPrs, authorPrs, lastUpdated: new Date() };
   } catch (error) {

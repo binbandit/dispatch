@@ -24,12 +24,12 @@ export function GitHubAvatar({
   avatarUrl,
   cwd,
 }: GitHubAvatarProps): React.ReactElement {
-  const { cwd: workspaceCwd } = useWorkspace();
+  const workspace = useWorkspace();
   const iconSize = Math.max(Math.round(size * 0.48), 10);
-  const resolvedCwd = cwd ?? workspaceCwd;
+  const resolvedCwd = cwd ?? workspace.cwd;
   const repoAccountQuery = useQuery({
-    queryKey: ["env", "repoAccount", resolvedCwd],
-    queryFn: () => ipc("env.repoAccount", { cwd: resolvedCwd }),
+    queryKey: ["env", "repoAccount", workspace.nwo],
+    queryFn: () => ipc("env.repoAccount", { ...workspace.repoTarget }),
     staleTime: 300_000,
     retry: 1,
     enabled: Boolean(resolvedCwd),

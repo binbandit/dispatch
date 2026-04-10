@@ -3,7 +3,6 @@ import { GitHubAvatar } from "@/renderer/components/shared/github-avatar";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useRouter } from "@/renderer/lib/app/router";
-import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertCircle, Bell, CheckCircle2, GitMerge, GitPullRequest, Inbox, X } from "lucide-react";
@@ -38,7 +37,6 @@ function resolveType(type: string) {
 
 export function NotificationCenter() {
   const { navigate } = useRouter();
-  const { switchWorkspace } = useWorkspace();
   const [tab, setTab] = useState<"unread" | "all">("unread");
 
   const notificationsQuery = useQuery({
@@ -175,9 +173,7 @@ export function NotificationCenter() {
                       if (!notification.read) {
                         markReadMutation.mutate(notification.id);
                       }
-                      if (notification.workspace) {
-                        switchWorkspace(notification.workspace);
-                      }
+                      // Notification workspace is display name — no workspace switching needed
                       if (notification.prNumber) {
                         navigate({ view: "review", prNumber: notification.prNumber });
                       }

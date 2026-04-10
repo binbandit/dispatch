@@ -1,4 +1,4 @@
-import type { GhPrEnrichment, GhPrListItemCore } from "../../ipc";
+import type { GhPrEnrichment, GhPrListItemCore, RepoTarget } from "../../ipc";
 
 export interface InsightsIpcApi {
   "pr.listAll": {
@@ -9,7 +9,7 @@ export interface InsightsIpcApi {
     result: Array<
       GhPrListItemCore & {
         workspace: string;
-        workspacePath: string;
+        workspacePath: string | null;
         repository: string;
         pullRequestRepository: string;
         isForkWorkspace: boolean;
@@ -23,7 +23,7 @@ export interface InsightsIpcApi {
     };
     result: Array<
       GhPrEnrichment & {
-        workspacePath: string;
+        workspacePath: string | null;
         repository: string;
         pullRequestRepository: string;
         isForkWorkspace: boolean;
@@ -31,7 +31,7 @@ export interface InsightsIpcApi {
     >;
   };
   "metrics.prCycleTime": {
-    args: { cwd: string; since: string };
+    args: RepoTarget & { since: string };
     result: Array<{
       prNumber: number;
       title: string;
@@ -46,7 +46,7 @@ export interface InsightsIpcApi {
     }>;
   };
   "metrics.reviewLoad": {
-    args: { cwd: string; since: string };
+    args: RepoTarget & { since: string };
     result: Array<{
       reviewer: string;
       reviewCount: number;
@@ -54,7 +54,7 @@ export interface InsightsIpcApi {
     }>;
   };
   "releases.list": {
-    args: { cwd: string; limit?: number };
+    args: RepoTarget & { limit?: number };
     result: Array<{
       tagName: string;
       name: string;
@@ -66,8 +66,7 @@ export interface InsightsIpcApi {
     }>;
   };
   "releases.create": {
-    args: {
-      cwd: string;
+    args: RepoTarget & {
       tagName: string;
       name: string;
       body: string;
@@ -78,7 +77,7 @@ export interface InsightsIpcApi {
     result: { url: string };
   };
   "releases.generateChangelog": {
-    args: { cwd: string; sinceTag: string };
+    args: RepoTarget & { sinceTag: string };
     result: string;
   };
 }

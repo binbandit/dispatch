@@ -41,19 +41,19 @@ const PADDING_Y = 28;
 // ---------------------------------------------------------------------------
 
 interface WorkflowFlowchartProps {
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
   workflowId: string | null;
   jobs: GhWorkflowRunJob[];
 }
 
-export function WorkflowFlowchart({ cwd, workflowId, jobs }: WorkflowFlowchartProps) {
+export function WorkflowFlowchart({ repoTarget, workflowId, jobs }: WorkflowFlowchartProps) {
   const graphQuery = useQuery({
-    queryKey: ["workflows", "jobGraph", cwd, workflowId],
+    queryKey: ["workflows", "jobGraph", repoTarget.owner, repoTarget.repo, workflowId],
     queryFn: () => {
       if (!workflowId) {
         return Promise.resolve({ jobs: [] });
       }
-      return ipc("workflows.jobGraph", { cwd, workflowId });
+      return ipc("workflows.jobGraph", { ...repoTarget, workflowId });
     },
     enabled: Boolean(workflowId),
     staleTime: 60_000,

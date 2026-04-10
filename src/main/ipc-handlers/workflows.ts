@@ -13,18 +13,18 @@ export const workflowHandlers: Pick<
   | "workflows.yaml"
   | "workflows.jobGraph"
 > = {
-  "workflows.list": (args) => ghCli.listWorkflows(args.cwd),
-  "workflows.runs": (args) => ghCli.listWorkflowRuns(args.cwd, args.workflowId, args.limit),
-  "workflows.runDetail": (args) => ghCli.getWorkflowRunDetail(args.cwd, args.runId),
+  "workflows.list": (args) => ghCli.listWorkflows(args),
+  "workflows.runs": (args) => ghCli.listWorkflowRuns(args, args.workflowId, args.limit),
+  "workflows.runDetail": (args) => ghCli.getWorkflowRunDetail(args, args.runId),
   "workflows.trigger": async (args) => {
     await ghCli.triggerWorkflow(args);
   },
   "workflows.cancel": async (args) => {
-    await ghCli.cancelWorkflowRun(args.cwd, args.runId);
+    await ghCli.cancelWorkflowRun(args, args.runId);
   },
   "workflows.rerunAll": async (args) => {
-    await ghCli.rerunWorkflowRun(args.cwd, args.runId);
+    await ghCli.rerunWorkflowRun(args, args.runId);
   },
-  "workflows.yaml": (args) => ghCli.getWorkflowYaml(args.cwd, args.workflowId),
-  "workflows.jobGraph": (args) => ghCli.getWorkflowJobGraph(args.cwd, args.workflowId),
+  "workflows.yaml": (args) => ghCli.getWorkflowYaml(args, args.workflowId),
+  "workflows.jobGraph": (args) => ghCli.getWorkflowJobGraph(args, args.workflowId),
 };

@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 
 interface WorkspacePathLike {
-  path: string;
+  path: string | null;
 }
 
 export function splitWorkspaceRows<TRow extends WorkspacePathLike>(
@@ -12,7 +12,8 @@ export function splitWorkspaceRows<TRow extends WorkspacePathLike>(
   const staleRows: TRow[] = [];
 
   for (const row of rows) {
-    if (pathExists(row.path)) {
+    // Remote-only workspaces (no path) are always valid
+    if (!row.path || pathExists(row.path)) {
       validRows.push(row);
     } else {
       staleRows.push(row);
@@ -20,16 +21,4 @@ export function splitWorkspaceRows<TRow extends WorkspacePathLike>(
   }
 
   return { staleRows, validRows };
-}
-
-export function resolveActiveWorkspacePath<TRow extends WorkspacePathLike>(
-  activeWorkspace: string | null,
-  workspaces: TRow[],
-  pathExists: (path: string) => boolean = existsSync,
-): string | null {
-  if (activeWorkspace && pathExists(activeWorkspace)) {
-    return activeWorkspace;
-  }
-
-  return workspaces.find((workspace) => pathExists(workspace.path))?.path ?? null;
 }

@@ -46,12 +46,12 @@ export function OverviewTab({
   onReviewClick: (login: string) => void;
   diffSnippet: string;
 }) {
-  const { cwd } = useWorkspace();
+  const { repoTarget, nwo } = useWorkspace();
   const nameFormat = useDisplayNameFormat();
 
   const reviewRequestsQuery = useQuery({
-    queryKey: ["pr", "reviewRequests", cwd, prNumber],
-    queryFn: () => ipc("pr.reviewRequests", { cwd, prNumber }),
+    queryKey: ["pr", "reviewRequests", nwo, prNumber],
+    queryFn: () => ipc("pr.reviewRequests", { ...repoTarget, prNumber }),
   });
 
   const reviewRequests = reviewRequestsQuery.data ?? [];
@@ -61,7 +61,7 @@ export function OverviewTab({
   const hasReviewers = submittedReviews.length > 0 || pendingRequests.length > 0;
 
   const closeMutation = useMutation({
-    mutationFn: () => ipc("pr.close", { cwd, prNumber }),
+    mutationFn: () => ipc("pr.close", { ...repoTarget, prNumber }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       toastManager.add({ title: `PR #${prNumber} closed`, type: "success" });

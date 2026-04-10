@@ -9,12 +9,12 @@ import type {
   GhReviewComment,
   GhReviewRequest,
   GhReviewThread,
+  RepoTarget,
 } from "../../ipc";
 
 export interface PullRequestIpcApi {
   "pr.list": {
-    args: {
-      cwd: string;
+    args: RepoTarget & {
       filter: "reviewRequested" | "authored" | "all";
       state?: "open" | "closed" | "merged" | "all";
       forceRefresh?: boolean;
@@ -22,43 +22,41 @@ export interface PullRequestIpcApi {
     result: GhPrListItemCore[];
   };
   "pr.listEnrichment": {
-    args: {
-      cwd: string;
+    args: RepoTarget & {
       filter: "reviewRequested" | "authored" | "all";
       state?: "open" | "closed" | "merged" | "all";
       forceRefresh?: boolean;
     };
     result: GhPrEnrichment[];
   };
-  "pr.detail": { args: { cwd: string; prNumber: number }; result: GhPrDetail };
+  "pr.detail": { args: RepoTarget & { prNumber: number }; result: GhPrDetail };
   "pr.commits": {
-    args: { cwd: string; prNumber: number };
+    args: RepoTarget & { prNumber: number };
     result: Array<{ oid: string; message: string; author: string; committedDate: string }>;
   };
-  "pr.diff": { args: { cwd: string; prNumber: number }; result: string };
+  "pr.diff": { args: RepoTarget & { prNumber: number }; result: string };
   "pr.updateTitle": {
-    args: { cwd: string; prNumber: number; title: string };
+    args: RepoTarget & { prNumber: number; title: string };
     result: void;
   };
   "pr.updateBody": {
-    args: { cwd: string; prNumber: number; body: string };
+    args: RepoTarget & { prNumber: number; body: string };
     result: void;
   };
   "pr.repoLabels": {
-    args: { cwd: string };
+    args: RepoTarget;
     result: Array<{ name: string; color: string; description: string }>;
   };
   "pr.addLabel": {
-    args: { cwd: string; prNumber: number; label: string };
+    args: RepoTarget & { prNumber: number; label: string };
     result: void;
   };
   "pr.removeLabel": {
-    args: { cwd: string; prNumber: number; label: string };
+    args: RepoTarget & { prNumber: number; label: string };
     result: void;
   };
   "pr.merge": {
-    args: {
-      cwd: string;
+    args: RepoTarget & {
       prNumber: number;
       strategy: "merge" | "squash" | "rebase";
       admin?: boolean;
@@ -68,15 +66,15 @@ export interface PullRequestIpcApi {
     result: { queued: boolean };
   };
   "pr.updateBranch": {
-    args: { cwd: string; prNumber: number };
+    args: RepoTarget & { prNumber: number };
     result: void;
   };
   "pr.close": {
-    args: { cwd: string; prNumber: number };
+    args: RepoTarget & { prNumber: number };
     result: void;
   };
   "pr.mergeQueueStatus": {
-    args: { cwd: string; prNumber: number };
+    args: RepoTarget & { prNumber: number };
     result: {
       inQueue: boolean;
       position: number | null;
@@ -84,10 +82,9 @@ export interface PullRequestIpcApi {
       estimatedTimeToMerge: number | null;
     } | null;
   };
-  "pr.comments": { args: { cwd: string; prNumber: number }; result: GhReviewComment[] };
+  "pr.comments": { args: RepoTarget & { prNumber: number }; result: GhReviewComment[] };
   "pr.createComment": {
-    args: {
-      cwd: string;
+    args: RepoTarget & {
       prNumber: number;
       body: string;
       path: string;
@@ -98,9 +95,9 @@ export interface PullRequestIpcApi {
     };
     result: void;
   };
-  "pr.comment": { args: { cwd: string; prNumber: number; body: string }; result: void };
+  "pr.comment": { args: RepoTarget & { prNumber: number; body: string }; result: void };
   "pr.issueComments": {
-    args: { cwd: string; prNumber: number };
+    args: RepoTarget & { prNumber: number };
     result: Array<{
       id: string;
       body: string;
@@ -109,15 +106,15 @@ export interface PullRequestIpcApi {
     }>;
   };
   "pr.contributors": {
-    args: { cwd: string; prNumber: number };
+    args: RepoTarget & { prNumber: number };
     result: string[];
   };
   "pr.searchUsers": {
-    args: { cwd: string; query: string };
+    args: RepoTarget & { query: string };
     result: Array<{ login: string; name: string | null }>;
   };
   "pr.issuesList": {
-    args: { cwd: string; limit?: number };
+    args: RepoTarget & { limit?: number };
     result: Array<{
       number: number;
       title: string;
@@ -126,40 +123,39 @@ export interface PullRequestIpcApi {
     }>;
   };
   "pr.replyToComment": {
-    args: { cwd: string; prNumber: number; commentId: number; body: string };
+    args: RepoTarget & { prNumber: number; commentId: number; body: string };
     result: void;
   };
   "pr.reviewRequests": {
-    args: { cwd: string; prNumber: number };
+    args: RepoTarget & { prNumber: number };
     result: GhReviewRequest[];
   };
   "pr.reviewThreads": {
-    args: { cwd: string; prNumber: number };
+    args: RepoTarget & { prNumber: number };
     result: GhReviewThread[];
   };
-  "pr.resolveThread": { args: { cwd: string; threadId: string }; result: void };
-  "pr.unresolveThread": { args: { cwd: string; threadId: string }; result: void };
+  "pr.resolveThread": { args: RepoTarget & { threadId: string }; result: void };
+  "pr.unresolveThread": { args: RepoTarget & { threadId: string }; result: void };
   "pr.submitReview": {
-    args: {
-      cwd: string;
+    args: RepoTarget & {
       prNumber: number;
       event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
       body?: string;
     };
     result: void;
   };
-  "pr.reactions": { args: { cwd: string; prNumber: number }; result: GhPrReactions };
+  "pr.reactions": { args: RepoTarget & { prNumber: number }; result: GhPrReactions };
   "pr.addReaction": {
-    args: { cwd: string; subjectId: string; content: GhReactionContent };
+    args: RepoTarget & { subjectId: string; content: GhReactionContent };
     result: void;
   };
   "pr.removeReaction": {
-    args: { cwd: string; subjectId: string; content: GhReactionContent };
+    args: RepoTarget & { subjectId: string; content: GhReactionContent };
     result: void;
   };
 
-  "checks.list": { args: { cwd: string; prNumber: number }; result: GhCheckRun[] };
-  "checks.logs": { args: { cwd: string; runId: number }; result: string };
-  "checks.rerunFailed": { args: { cwd: string; runId: number }; result: void };
-  "checks.annotations": { args: { cwd: string; prNumber: number }; result: GhAnnotation[] };
+  "checks.list": { args: RepoTarget & { prNumber: number }; result: GhCheckRun[] };
+  "checks.logs": { args: RepoTarget & { runId: number }; result: string };
+  "checks.rerunFailed": { args: RepoTarget & { runId: number }; result: void };
+  "checks.annotations": { args: RepoTarget & { prNumber: number }; result: GhAnnotation[] };
 }

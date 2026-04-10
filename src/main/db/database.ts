@@ -102,9 +102,12 @@ export function initDatabase(): Database.Database {
 
     CREATE TABLE IF NOT EXISTS workspaces (
       id            INTEGER PRIMARY KEY,
-      path          TEXT    NOT NULL UNIQUE,
+      owner         TEXT,
+      repo          TEXT,
+      path          TEXT    UNIQUE,
       name          TEXT    NOT NULL,
-      added_at      TEXT    NOT NULL DEFAULT (datetime('now'))
+      added_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(owner, repo)
     );
 
     CREATE TABLE IF NOT EXISTS repo_accounts (
@@ -143,6 +146,35 @@ export function initDatabase(): Database.Database {
   if (!aiReviewSummaryColumns.some((column) => column.name === "confidence_score")) {
     db.exec("ALTER TABLE ai_review_summaries ADD COLUMN confidence_score INTEGER");
   }
+
+  // Migration: add owner/repo columns to workspaces (remote-only workspace support)
+  const workspaceCols = db.prepare("PRAGMA table_info(workspaces)").all() as Array<{
+    name: string;
+  }>;
+  if (!workspaceCols.some((c) => c.name === "owner")) {
+    db.exec("ALTER TABLE workspaces ADD COLUMN owner TEXT");
+    db.exec("ALTER TABLE workspaces ADD COLUMN repo TEXT");
+
+    // Populate owner/repo for existing workspaces from path (best-effort).
+    // Path is like "/Users/x/code/owner/repo" — use last two segments as owner/repo.
+    // This is a heuristic; actual owner/repo will be resolved via git remote on first use.
+    const existingRows = db
+      .prepare("SELECT id, path, name FROM workspaces WHERE owner IS NULL AND path IS NOT NULL")
+      .all() as Array<{ id: number; path: string; name: string }>;
+    const updateStmt = db.prepare("UPDATE workspaces SET owner = ?, repo = ? WHERE id = ?");
+    for (const row of existingRows) {
+      const segments = row.path.split("/").filter(Boolean);
+      const repoName = segments.pop() ?? row.name;
+      const ownerName = segments.pop() ?? "unknown";
+      updateStmt.run(ownerName, repoName, row.id);
+    }
+  }
+
+  // Ensure unique index exists for (owner, repo) — ALTER TABLE can't add constraints.
+  // Use WHERE to exclude NULL rows (shouldn't exist after migration, but safety).
+  db.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_owner_repo ON workspaces(owner, repo) WHERE owner IS NOT NULL AND repo IS NOT NULL",
+  );
 
   return db;
 }

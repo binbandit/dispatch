@@ -2,6 +2,7 @@ import { FileTree } from "@/renderer/components/review/diff/file-tree";
 import { FileTreeSkeleton } from "@/renderer/components/shared/loading-skeletons";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
+import { isCompletedPullRequest } from "@/renderer/lib/review/completed-pr-state";
 import { parseDiff, type DiffFile } from "@/renderer/lib/review/diff-parser";
 import { useFileNav } from "@/renderer/lib/review/file-nav-context";
 import { useQuery } from "@tanstack/react-query";
@@ -21,15 +22,20 @@ interface PrFileSidebarProps {
 }
 
 export function PrFileSidebar({ prNumber, onBack }: PrFileSidebarProps) {
-  const { cwd } = useWorkspace();
+  const { repoTarget, nwo } = useWorkspace();
   const { currentFileIndex, setCurrentFileIndex } = useFileNav();
 
-  const repoName = cwd.split("/").pop() ?? "";
+  const detailQuery = useQuery({
+    queryKey: ["pr", "detail", nwo, prNumber],
+    queryFn: () => ipc("pr.detail", { ...repoTarget, prNumber }),
+    refetchInterval: 60_000,
+  });
+  const isCompletedPr = detailQuery.data ? isCompletedPullRequest(detailQuery.data) : false;
 
   // Fetch diff (shared query key with PrDetail — React Query dedupes)
   const diffQuery = useQuery({
-    queryKey: ["pr", "diff", cwd, prNumber],
-    queryFn: () => ipc("pr.diff", { cwd, prNumber }),
+    queryKey: ["pr", "diff", nwo, prNumber],
+    queryFn: () => ipc("pr.diff", { ...repoTarget, prNumber }),
     staleTime: 60_000,
   });
 
@@ -42,16 +48,16 @@ export function PrFileSidebar({ prNumber, onBack }: PrFileSidebarProps) {
 
   // Viewed files
   const viewedQuery = useQuery({
-    queryKey: ["review", "viewedFiles", repoName, prNumber],
-    queryFn: () => ipc("review.viewedFiles", { repo: repoName, prNumber }),
+    queryKey: ["review", "viewedFiles", nwo, prNumber],
+    queryFn: () => ipc("review.viewedFiles", { repo: nwo, prNumber }),
   });
   const viewedFiles = useMemo(() => new Set(viewedQuery.data), [viewedQuery.data]);
   const refetchViewedFiles = viewedQuery.refetch;
 
   // Comments for file badges
   const commentsQuery = useQuery({
-    queryKey: ["pr", "comments", cwd, prNumber],
-    queryFn: () => ipc("pr.comments", { cwd, prNumber }),
+    queryKey: ["pr", "comments", nwo, prNumber],
+    queryFn: () => ipc("pr.comments", { ...repoTarget, prNumber }),
     staleTime: 30_000,
   });
 
@@ -68,7 +74,7 @@ export function PrFileSidebar({ prNumber, onBack }: PrFileSidebarProps) {
   const handleSetFilesViewed = useCallback(
     (filePaths: string[], viewed: boolean) => {
       void ipc("review.setFilesViewed", {
-        repo: repoName,
+        repo: nwo,
         prNumber,
         filePaths,
         viewed,
@@ -76,7 +82,7 @@ export function PrFileSidebar({ prNumber, onBack }: PrFileSidebarProps) {
         void refetchViewedFiles();
       });
     },
-    [repoName, prNumber, refetchViewedFiles],
+    [nwo, prNumber, refetchViewedFiles],
   );
 
   const handleToggleViewed = useCallback(
@@ -111,10 +117,10 @@ export function PrFileSidebar({ prNumber, onBack }: PrFileSidebarProps) {
             onSelectFile={setCurrentFileIndex}
             viewedFiles={viewedFiles}
             commentCounts={fileCommentCounts}
-            cwd={cwd}
+            nwo={nwo}
             prNumber={prNumber}
-            onToggleViewed={handleToggleViewed}
-            onSetFilesViewed={handleSetFilesViewed}
+            onToggleViewed={isCompletedPr ? undefined : handleToggleViewed}
+            onSetFilesViewed={isCompletedPr ? undefined : handleSetFilesViewed}
           />
         </div>
       )}

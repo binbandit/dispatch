@@ -23,19 +23,19 @@ function getSinceDate(range: TimeRange): string {
 }
 
 export function MetricsView() {
-  const { cwd } = useWorkspace();
+  const { nwo, repoTarget } = useWorkspace();
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
   const since = getSinceDate(timeRange);
 
   const cycleTimeQuery = useQuery({
-    queryKey: ["metrics", "prCycleTime", cwd, since],
-    queryFn: () => ipc("metrics.prCycleTime", { cwd, since }),
+    queryKey: ["metrics", "prCycleTime", nwo, since],
+    queryFn: () => ipc("metrics.prCycleTime", { ...repoTarget, since }),
     staleTime: 300_000,
   });
 
   const reviewLoadQuery = useQuery({
-    queryKey: ["metrics", "reviewLoad", cwd, since],
-    queryFn: () => ipc("metrics.reviewLoad", { cwd, since }),
+    queryKey: ["metrics", "reviewLoad", nwo, since],
+    queryFn: () => ipc("metrics.reviewLoad", { ...repoTarget, since }),
     staleTime: 300_000,
   });
 

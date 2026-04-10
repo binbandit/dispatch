@@ -35,12 +35,12 @@ export function getDedupedReviews(
 }
 
 export function PanelCommitsContent({ prNumber }: { prNumber: number }) {
-  const { cwd } = useWorkspace();
+  const { repoTarget, nwo } = useWorkspace();
   const { selectedCommit, setSelectedCommit } = useFileNav();
 
   const commitsQuery = useQuery({
-    queryKey: ["pr", "commits", cwd, prNumber],
-    queryFn: () => ipc("pr.commits", { cwd, prNumber }),
+    queryKey: ["pr", "commits", nwo, prNumber],
+    queryFn: () => ipc("pr.commits", { ...repoTarget, prNumber }),
     staleTime: 60_000,
   });
 
@@ -142,12 +142,12 @@ function parseRunIdFromUrl(detailsUrl: string): number | null {
 }
 
 export function PanelChecksContent({ prNumber }: { prNumber: number }) {
-  const { cwd } = useWorkspace();
+  const { repoTarget, nwo } = useWorkspace();
   const { navigate } = useRouter();
 
   const checksQuery = useQuery({
-    queryKey: ["checks", "list", cwd, prNumber],
-    queryFn: () => ipc("checks.list", { cwd, prNumber }),
+    queryKey: ["checks", "list", nwo, prNumber],
+    queryFn: () => ipc("checks.list", { ...repoTarget, prNumber }),
     staleTime: 10_000,
     refetchInterval: 10_000,
   });
@@ -253,7 +253,7 @@ export function PanelChecksContent({ prNumber }: { prNumber: number }) {
               <div style={{ padding: "0 4px 0 22px" }}>
                 <AiFailureExplainer
                   checkName={check.name}
-                  cwd={cwd}
+                  repoTarget={repoTarget}
                   runId={runId}
                 />
               </div>

@@ -343,9 +343,17 @@ export interface LogEntry {
   message: string;
 }
 
+export interface RepoTarget {
+  cwd: string | null;
+  owner: string;
+  repo: string;
+}
+
 export interface Workspace {
   id: number;
-  path: string;
+  owner: string;
+  repo: string;
+  path: string | null;
   name: string;
   addedAt: string;
 }

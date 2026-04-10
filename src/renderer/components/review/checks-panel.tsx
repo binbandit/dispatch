@@ -52,12 +52,12 @@ const STATUS_ICON: Record<
 };
 
 export function ChecksPanel({ prNumber }: ChecksPanelProps) {
-  const { cwd } = useWorkspace();
+  const { repoTarget, nwo } = useWorkspace();
   const [expandedCheck, setExpandedCheck] = useState<string | null>(null);
 
   const checksQuery = useQuery({
-    queryKey: ["checks", "list", cwd, prNumber],
-    queryFn: () => ipc("checks.list", { cwd, prNumber }),
+    queryKey: ["checks", "list", nwo, prNumber],
+    queryFn: () => ipc("checks.list", { ...repoTarget, prNumber }),
     refetchInterval: 10_000,
   });
 
@@ -131,7 +131,7 @@ export function ChecksPanel({ prNumber }: ChecksPanelProps) {
               </div>
               {checkStatus === "failure" && runId && (
                 <RerunButton
-                  cwd={cwd}
+                  repoTarget={repoTarget}
                   runId={runId}
                 />
               )}
@@ -141,14 +141,14 @@ export function ChecksPanel({ prNumber }: ChecksPanelProps) {
             {isExpanded && runId && (
               <div className="mt-1 mb-1 ml-6">
                 <LogViewer
-                  cwd={cwd}
+                  repoTarget={repoTarget}
                   runId={runId}
                 />
                 {/* AI explain failure button for failed checks */}
                 {checkStatus === "failure" && (
                   <AiFailureExplainer
                     checkName={check.name}
-                    cwd={cwd}
+                    repoTarget={repoTarget}
                     runId={runId}
                   />
                 )}
@@ -161,9 +161,15 @@ export function ChecksPanel({ prNumber }: ChecksPanelProps) {
   );
 }
 
-function RerunButton({ cwd, runId }: { cwd: string; runId: number }) {
+function RerunButton({
+  repoTarget,
+  runId,
+}: {
+  repoTarget: import("@/shared/ipc").RepoTarget;
+  runId: number;
+}) {
   const rerunMutation = useMutation({
-    mutationFn: (args: { cwd: string; runId: number }) => ipc("checks.rerunFailed", args),
+    mutationFn: () => ipc("checks.rerunFailed", { ...repoTarget, runId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["checks"] });
       toastManager.add({
@@ -183,7 +189,7 @@ function RerunButton({ cwd, runId }: { cwd: string; runId: number }) {
       className="text-destructive hover:text-destructive inline-flex h-6 cursor-pointer items-center gap-1 px-1.5"
       onClick={(e) => {
         e.stopPropagation();
-        rerunMutation.mutate({ cwd, runId });
+        rerunMutation.mutate();
       }}
       disabled={rerunMutation.isPending}
     >

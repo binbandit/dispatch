@@ -17,21 +17,21 @@ import { useEffect, useRef } from "react";
  * the network calls.
  */
 export function useNotificationPolling(): void {
-  const { cwd } = useWorkspace();
+  const { repoTarget, nwo } = useWorkspace();
   const previousReviewPrs = useRef<Map<number, GhPrListItemCore>>(new Map());
   const previousAuthorPrs = useRef<Map<number, GhPrListItemCore>>(new Map());
   const initialized = useRef(false);
 
   // Core queries — shared with PR inbox via query keys
   const reviewQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "reviewRequested", "open"],
-    queryFn: () => ipc("pr.list", { cwd, filter: "reviewRequested" }),
+    queryKey: ["pr", "list", nwo, "reviewRequested", "open"],
+    queryFn: () => ipc("pr.list", { ...repoTarget, filter: "reviewRequested" }),
     refetchInterval: 30_000,
   });
 
   const authorQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "authored", "open"],
-    queryFn: () => ipc("pr.list", { cwd, filter: "authored" }),
+    queryKey: ["pr", "list", nwo, "authored", "open"],
+    queryFn: () => ipc("pr.list", { ...repoTarget, filter: "authored" }),
     refetchInterval: 30_000,
   });
 
@@ -61,7 +61,7 @@ export function useNotificationPolling(): void {
           title: "Review requested",
           body: `#${pr.number} ${pr.title} by ${pr.author.login}`,
           prNumber: pr.number,
-          workspace: cwd,
+          workspace: nwo,
           authorLogin: pr.author.login,
         }).then(() => {
           queryClient.invalidateQueries({ queryKey: ["notifications"] });
@@ -78,7 +78,7 @@ export function useNotificationPolling(): void {
           title: "PR approved",
           body: `#${pr.number} ${pr.title}`,
           prNumber: pr.number,
-          workspace: cwd,
+          workspace: nwo,
           authorLogin: pr.author.login,
         }).then(() => {
           queryClient.invalidateQueries({ queryKey: ["notifications"] });
@@ -92,5 +92,5 @@ export function useNotificationPolling(): void {
 
     // Update dock badge with pending review count
     globalThis.api.setBadgeCount(reviewQuery.data.length);
-  }, [reviewQuery.data, authorQuery.data, cwd]);
+  }, [reviewQuery.data, authorQuery.data, nwo]);
 }

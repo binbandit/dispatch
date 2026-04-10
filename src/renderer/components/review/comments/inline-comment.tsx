@@ -60,6 +60,7 @@ interface InlineCommentProps {
   comments: ReviewComment[];
   prNumber?: number;
   repo?: string;
+  reviewActionsEnabled?: boolean;
   /** Set of thread node IDs that are resolved (from reviewThreads) */
   resolvedThreadIds?: Set<string>;
   /** Reaction data for review comments, keyed by databaseId (as string) */
@@ -70,6 +71,7 @@ export function InlineComment({
   comments,
   prNumber,
   repo,
+  reviewActionsEnabled = true,
   resolvedThreadIds,
   reviewCommentReactions,
 }: InlineCommentProps) {
@@ -94,6 +96,7 @@ export function InlineComment({
             root={root}
             replies={threadReplies}
             prNumber={prNumber}
+            reviewActionsEnabled={reviewActionsEnabled}
             showBorder={i > 0}
             toggleMinimized={toggleMinimized}
             resolvedThreadIds={resolvedThreadIds}
@@ -135,6 +138,7 @@ function CommentThread({
   root,
   replies,
   prNumber,
+  reviewActionsEnabled,
   showBorder,
   toggleMinimized,
   resolvedThreadIds,
@@ -146,6 +150,7 @@ function CommentThread({
   root: ReviewComment;
   replies: ReviewComment[];
   prNumber?: number;
+  reviewActionsEnabled: boolean;
   showBorder: boolean;
   toggleMinimized: (commentId: string, autoMinimized?: boolean) => void;
   resolvedThreadIds?: Set<string>;
@@ -157,6 +162,7 @@ function CommentThread({
   const [collapsed, setCollapsed] = useState(false);
   const [showReply, setShowReply] = useState(false);
   const totalCount = 1 + replies.length;
+  const canMutateThread = reviewActionsEnabled && Boolean(prNumber);
 
   return (
     <div>
@@ -179,13 +185,14 @@ function CommentThread({
           <CommentBody
             comment={root}
             isRoot
-            onReply={() => setShowReply(true)}
+            onReply={canMutateThread ? () => setShowReply(true) : undefined}
             prNumber={prNumber}
             minimized={isCommentMinimized(String(root.id), shouldAutoCollapseBot(root.user.login))}
             onToggleMinimized={() =>
               toggleMinimized(String(root.id), shouldAutoCollapseBot(root.user.login))
             }
             resolvedThreadIds={resolvedThreadIds}
+            reviewActionsEnabled={reviewActionsEnabled}
             isBot={isBot}
             reactions={reviewCommentReactions?.[String(root.id)]}
           />
@@ -196,7 +203,7 @@ function CommentThread({
             >
               <CommentBody
                 comment={reply}
-                onReply={() => setShowReply(true)}
+                onReply={canMutateThread ? () => setShowReply(true) : undefined}
                 prNumber={prNumber}
                 minimized={isCommentMinimized(
                   String(reply.id),
@@ -205,6 +212,7 @@ function CommentThread({
                 onToggleMinimized={() =>
                   toggleMinimized(String(reply.id), shouldAutoCollapseBot(reply.user.login))
                 }
+                reviewActionsEnabled={reviewActionsEnabled}
                 isBot={isBot}
                 reactions={reviewCommentReactions?.[String(reply.id)]}
               />
@@ -214,7 +222,7 @@ function CommentThread({
       )}
 
       {/* Reply input */}
-      {showReply && prNumber && (
+      {showReply && canMutateThread && prNumber && (
         <div className="border-border border-t">
           <ReplyComposer
             prNumber={prNumber}
@@ -225,7 +233,7 @@ function CommentThread({
       )}
 
       {/* Quick reply button (when not already replying) */}
-      {!showReply && !collapsed && prNumber && (
+      {!showReply && !collapsed && canMutateThread && (
         <button
           type="button"
           onClick={() => setShowReply(true)}
@@ -622,6 +630,7 @@ function CommentBody({
   minimized,
   onToggleMinimized,
   resolvedThreadIds,
+  reviewActionsEnabled = true,
   isBot,
   reactions,
 }: {
@@ -632,6 +641,7 @@ function CommentBody({
   minimized: boolean;
   onToggleMinimized: () => void;
   resolvedThreadIds?: Set<string>;
+  reviewActionsEnabled?: boolean;
   isBot: (login: string) => boolean;
   reactions?: GhReactionGroup[];
 }) {
@@ -757,7 +767,7 @@ function CommentBody({
               <TooltipPopup>Reply</TooltipPopup>
             </Tooltip>
           )}
-          {isRoot && (
+          {isRoot && reviewActionsEnabled && (
             <ThreadResolveButton
               comment={comment}
               initialResolved={

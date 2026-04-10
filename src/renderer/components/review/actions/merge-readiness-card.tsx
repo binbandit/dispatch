@@ -18,7 +18,7 @@ interface MergeReadinessCardProps {
   noConflicts: boolean;
   hasChecks: boolean;
   isBehind: boolean;
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
   prNumber: number;
 }
 
@@ -28,7 +28,7 @@ export function MergeReadinessCard({
   noConflicts,
   hasChecks,
   isBehind,
-  cwd,
+  repoTarget,
   prNumber,
 }: MergeReadinessCardProps) {
   const items = [
@@ -39,7 +39,7 @@ export function MergeReadinessCard({
   ];
 
   const updateBranchMutation = useMutation({
-    mutationFn: () => ipc("pr.updateBranch", { cwd, prNumber }),
+    mutationFn: () => ipc("pr.updateBranch", { ...repoTarget, prNumber }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       toastManager.add({ title: "Branch updated", type: "success" });

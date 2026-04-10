@@ -174,14 +174,14 @@ function PanelOverviewContent({
   reactions?: GhPrReactions;
   canEdit?: boolean;
 }) {
-  const { cwd } = useWorkspace();
+  const { repoTarget, nwo } = useWorkspace();
   const nameFormat = useDisplayNameFormat();
   const [editingBody, setEditingBody] = useState(false);
   const [bodyValue, setBodyValue] = useState(pr.body);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const closeMutation = useMutation({
-    mutationFn: () => ipc("pr.close", { cwd, prNumber }),
+    mutationFn: () => ipc("pr.close", { ...repoTarget, prNumber }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       toastManager.add({ title: `PR #${prNumber} closed`, type: "success" });
@@ -192,7 +192,7 @@ function PanelOverviewContent({
   });
 
   const bodyMutation = useMutation({
-    mutationFn: (body: string) => ipc("pr.updateBody", { cwd, prNumber, body }),
+    mutationFn: (body: string) => ipc("pr.updateBody", { ...repoTarget, prNumber, body }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       setEditingBody(false);
@@ -221,8 +221,8 @@ function PanelOverviewContent({
   };
 
   const reviewRequestsQuery = useQuery({
-    queryKey: ["pr", "reviewRequests", cwd, prNumber],
-    queryFn: () => ipc("pr.reviewRequests", { cwd, prNumber }),
+    queryKey: ["pr", "reviewRequests", nwo, prNumber],
+    queryFn: () => ipc("pr.reviewRequests", { ...repoTarget, prNumber }),
   });
 
   const reviewRequests = reviewRequestsQuery.data ?? [];
@@ -373,7 +373,7 @@ function PanelOverviewContent({
 
       {/* Labels */}
       <LabelSection
-        cwd={cwd}
+        repoTarget={repoTarget}
         prNumber={prNumber}
         labels={pr.labels}
       />
@@ -559,11 +559,11 @@ function PanelOverviewContent({
 // ---------------------------------------------------------------------------
 
 function LabelSection({
-  cwd,
+  repoTarget,
   prNumber,
   labels,
 }: {
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
   prNumber: number;
   labels: Array<{ name: string; color: string }>;
 }) {
@@ -571,7 +571,7 @@ function LabelSection({
   const containerRef = useRef<HTMLDivElement>(null);
 
   const removeLabelMutation = useMutation({
-    mutationFn: (label: string) => ipc("pr.removeLabel", { cwd, prNumber, label }),
+    mutationFn: (label: string) => ipc("pr.removeLabel", { ...repoTarget, prNumber, label }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr", "detail"] });
     },
@@ -644,7 +644,7 @@ function LabelSection({
       </div>
       {pickerOpen && (
         <LabelPicker
-          cwd={cwd}
+          repoTarget={repoTarget}
           prNumber={prNumber}
           currentLabels={labels.map((l) => l.name)}
           onClose={() => setPickerOpen(false)}
@@ -659,12 +659,12 @@ function LabelSection({
 // ---------------------------------------------------------------------------
 
 function LabelPicker({
-  cwd,
+  repoTarget,
   prNumber,
   currentLabels,
   onClose,
 }: {
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
   prNumber: number;
   currentLabels: string[];
   onClose: () => void;
@@ -674,20 +674,20 @@ function LabelPicker({
   const inputRef = useRef<HTMLInputElement>(null);
 
   const labelsQuery = useQuery({
-    queryKey: ["repo", "labels", cwd],
-    queryFn: () => ipc("pr.repoLabels", { cwd }),
+    queryKey: ["repo", "labels", repoTarget.owner, repoTarget.repo],
+    queryFn: () => ipc("pr.repoLabels", { ...repoTarget }),
     staleTime: 60_000,
   });
 
   const addLabelMutation = useMutation({
-    mutationFn: (label: string) => ipc("pr.addLabel", { cwd, prNumber, label }),
+    mutationFn: (label: string) => ipc("pr.addLabel", { ...repoTarget, prNumber, label }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr", "detail"] });
     },
   });
 
   const removeLabelMutation = useMutation({
-    mutationFn: (label: string) => ipc("pr.removeLabel", { cwd, prNumber, label }),
+    mutationFn: (label: string) => ipc("pr.removeLabel", { ...repoTarget, prNumber, label }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr", "detail"] });
     },

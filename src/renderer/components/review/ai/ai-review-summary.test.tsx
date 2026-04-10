@@ -308,7 +308,9 @@ function renderSummary(props: Partial<ComponentProps<typeof AiReviewSummary>> = 
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <WorkspaceProvider cwd="/tmp/dispatch">
+      <WorkspaceProvider
+        workspace={{ id: 1, owner: "test", repo: "dispatch", path: "/tmp/dispatch" }}
+      >
         <AiReviewSummary
           {...BASE_PROPS}
           {...props}
@@ -475,7 +477,7 @@ describe("AiReviewSummary", () => {
     });
 
     expect(ipc).toHaveBeenCalledWith("ai.reviewSummary.set", {
-      cwd: "/tmp/dispatch",
+      nwo: "test/dispatch",
       prNumber: BASE_PROPS.prNumber,
       snapshotKey: expectedSnapshotKey,
       summary: expectedPayload?.summary,

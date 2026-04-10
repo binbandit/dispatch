@@ -1,5 +1,5 @@
 /* eslint-disable import/max-dependencies -- The inbox owns search, filtering, actions, and activity state for the PR list sidebar. */
-import type { GhPrListItemCore, IpcApi } from "@/shared/ipc";
+import type { GhPrListItemCore, IpcApi, RepoTarget } from "@/shared/ipc";
 
 import { Kbd } from "@/components/ui/kbd";
 import { MenuItem, MenuPopup, MenuSeparator } from "@/components/ui/menu";
@@ -85,29 +85,29 @@ function resolveStatusIndicator(pr: GhPrListItemCore): StatusIndicator {
 // ---------------------------------------------------------------------------
 
 export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
-  const { cwd } = useWorkspace();
+  const { nwo, repoTarget } = useWorkspace();
   const [searchQuery, setSearchQuery] = useState("");
   const [focusIndex, setFocusIndex] = useState(0);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("review");
   const searchRef = useRef<HTMLInputElement>(null);
 
   const reviewQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "reviewRequested", "open"],
-    queryFn: () => ipc("pr.list", { cwd, filter: "reviewRequested" }),
+    queryKey: ["pr", "list", nwo, "reviewRequested", "open"],
+    queryFn: () => ipc("pr.list", { ...repoTarget, filter: "reviewRequested" }),
     refetchInterval: 30_000,
     enabled: activeFilter === "review",
   });
 
   const authorQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "authored", "open"],
-    queryFn: () => ipc("pr.list", { cwd, filter: "authored" }),
+    queryKey: ["pr", "list", nwo, "authored", "open"],
+    queryFn: () => ipc("pr.list", { ...repoTarget, filter: "authored" }),
     refetchInterval: 30_000,
     enabled: activeFilter === "mine",
   });
 
   const allQuery = useQuery({
-    queryKey: ["pr", "list", cwd, "all", "all"],
-    queryFn: () => ipc("pr.list", { cwd, filter: "all", state: "all" }),
+    queryKey: ["pr", "list", nwo, "all", "all"],
+    queryFn: () => ipc("pr.list", { ...repoTarget, filter: "all", state: "all" }),
     refetchInterval: 30_000,
     enabled: activeFilter === "all",
   });
@@ -146,11 +146,11 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
       visiblePrs.map((pr) => ({
         hasNewActivity: hasNewPrActivity(
           pr.updatedAt,
-          prActivityIndex.get(getPrActivityKey(cwd, pr.number)),
+          prActivityIndex.get(getPrActivityKey(nwo, pr.number)),
         ),
         pr,
       })),
-    [cwd, prActivityIndex, visiblePrs],
+    [nwo, prActivityIndex, visiblePrs],
   );
 
   const filteredResults = useMemo(
@@ -161,15 +161,15 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
     () => [
       {
         method: "pr.list",
-        args: { cwd, filter: activeFilterIpc, state: activeState },
-        queryKey: ["pr", "list", cwd, activeFilterIpc, activeState],
+        args: { ...repoTarget, filter: activeFilterIpc, state: activeState },
+        queryKey: ["pr", "list", nwo, activeFilterIpc, activeState],
       },
     ],
-    [activeFilterIpc, activeState, cwd],
+    [activeFilterIpc, activeState, nwo, repoTarget],
   );
 
   usePrSearchRefreshOnMiss({
-    scope: `pr-inbox:${cwd}:${activeFilterIpc}`,
+    scope: `pr-inbox:${nwo}:${activeFilterIpc}`,
     searchQuery,
     resultCount: filteredResults.length,
     requests: searchRefreshRequests,
@@ -201,7 +201,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
   const handleSelectPr = useCallback(
     (pr: GhPrListItemCore) => {
       void ipc("prActivity.markSeen", {
-        repo: cwd,
+        repo: nwo,
         prNumber: pr.number,
         updatedAt: pr.updatedAt,
       })
@@ -212,7 +212,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
 
       onSelectPr(pr.number, pr.title);
     },
-    [cwd, onSelectPr],
+    [nwo, onSelectPr],
   );
 
   // Derive a safe focus index — stays valid when the list shrinks without
@@ -392,7 +392,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
               <PrItem
                 key={pr.number}
                 pr={pr}
-                cwd={cwd}
+                repoTarget={repoTarget}
                 statusIndicator={resolveStatusIndicator(pr)}
                 isActive={selectedPr === pr.number}
                 isFocused={safeFocusIndex === index}
@@ -469,7 +469,7 @@ function PrItem({
   isFocused,
   hasNewActivity,
   onClick,
-  cwd,
+  repoTarget,
 }: {
   pr: GhPrListItemCore;
   statusIndicator: StatusIndicator;
@@ -477,13 +477,14 @@ function PrItem({
   isFocused: boolean;
   hasNewActivity: boolean;
   onClick: () => void;
-  cwd: string;
+  repoTarget: RepoTarget;
 }) {
   const nameFormat = useDisplayNameFormat();
   const size = prSizeLabel(pr.additions, pr.deletions);
 
   const approveMutation = useMutation({
-    mutationFn: () => ipc("pr.submitReview", { cwd, prNumber: pr.number, event: "APPROVE" }),
+    mutationFn: () =>
+      ipc("pr.submitReview", { ...repoTarget, prNumber: pr.number, event: "APPROVE" }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       toastManager.add({ title: `PR #${pr.number} approved`, type: "success" });
@@ -498,7 +499,7 @@ function PrItem({
   });
 
   const mergeMutation = useMutation({
-    mutationFn: () => ipc("pr.merge", { cwd, prNumber: pr.number, strategy: "squash" }),
+    mutationFn: () => ipc("pr.merge", { ...repoTarget, prNumber: pr.number, strategy: "squash" }),
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       if (result.queued) {
@@ -520,7 +521,7 @@ function PrItem({
   });
 
   const closeMutation = useMutation({
-    mutationFn: () => ipc("pr.close", { cwd, prNumber: pr.number }),
+    mutationFn: () => ipc("pr.close", { ...repoTarget, prNumber: pr.number }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       toastManager.add({ title: `PR #${pr.number} closed`, type: "success" });

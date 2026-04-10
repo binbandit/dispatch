@@ -232,7 +232,7 @@ interface FileTreeProps {
   onToggleViewed?: (filePath: string, viewed: boolean) => void;
   onSetFilesViewed?: (filePaths: string[], viewed: boolean) => void;
   commentCounts?: Map<string, number>;
-  cwd: string;
+  nwo: string;
   prNumber: number;
 }
 
@@ -244,7 +244,7 @@ export function FileTree({
   onToggleViewed,
   onSetFilesViewed,
   commentCounts = new Map(),
-  cwd,
+  nwo,
   prNumber,
 }: FileTreeProps) {
   const tree = useMemo(() => buildTree(files), [files]);
@@ -327,7 +327,9 @@ export function FileTree({
     [onToggleViewed, setFilesViewed],
   );
 
-  const repoSlug = cwd.split("/").slice(-2).join("/");
+  const repoSlug = nwo;
+  const toggleViewedHandler = canToggleViewed ? setFileViewed : undefined;
+  const setFilesViewedHandler = canToggleViewed ? setFilesViewed : undefined;
 
   return (
     <div className="flex flex-col">
@@ -358,8 +360,8 @@ export function FileTree({
             onSelectFile={selectFile}
             currentFileIndex={currentFileIndex}
             viewedFiles={viewedFiles}
-            onToggleViewed={setFileViewed}
-            onSetFilesViewed={setFilesViewed}
+            onToggleViewed={toggleViewedHandler}
+            onSetFilesViewed={setFilesViewedHandler}
             commentCounts={commentCounts}
             onContextMenu={handleContextMenu}
           />
@@ -372,8 +374,8 @@ export function FileTree({
           position={{ x: contextMenu.x, y: contextMenu.y }}
           onClose={() => setContextMenu(null)}
           viewedFiles={viewedFiles}
-          onToggleViewed={setFileViewed}
-          onSetFilesViewed={setFilesViewed}
+          onToggleViewed={toggleViewedHandler}
+          onSetFilesViewed={setFilesViewedHandler}
           repoSlug={repoSlug}
           prNumber={prNumber}
         />

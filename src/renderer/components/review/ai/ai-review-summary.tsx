@@ -45,11 +45,11 @@ export function AiReviewSummary({
 }: AiReviewSummaryProps) {
   const summaryConfig = useAiTaskConfig("reviewSummary");
   const confidenceConfig = useAiTaskConfig("reviewConfidence");
-  const { cwd } = useWorkspace();
+  const { nwo, cwd } = useWorkspace();
   const queryClient = useQueryClient();
   const [dismissed, setDismissed] = useState(false);
   const isCard = variant === "card";
-  const summaryCacheQueryKey = ["ai", "reviewSummary", cwd, prNumber] as const;
+  const summaryCacheQueryKey = ["ai", "reviewSummary", nwo, prNumber] as const;
   const reviewContext = useMemo(
     () =>
       buildAiReviewContext({
@@ -77,7 +77,7 @@ export function AiReviewSummary({
 
   const summaryQuery = useQuery({
     queryKey: summaryCacheQueryKey,
-    queryFn: () => ipc("ai.reviewSummary.get", { cwd, prNumber }),
+    queryFn: () => ipc("ai.reviewSummary.get", { nwo, prNumber }),
     enabled: summaryConfig.isConfigured,
     staleTime: 30_000,
   });
@@ -93,7 +93,7 @@ export function AiReviewSummary({
         diffSnippet,
       });
       const summaryRequest = ipc("ai.complete", {
-        cwd,
+        cwd: cwd ?? undefined,
         task: "reviewSummary",
         messages: [
           {
@@ -119,7 +119,7 @@ export function AiReviewSummary({
             });
 
             return ipc("ai.complete", {
-              cwd,
+              cwd: cwd ?? undefined,
               task: "reviewConfidence",
               messages: [
                 {
@@ -153,7 +153,7 @@ export function AiReviewSummary({
       }
 
       return ipc("ai.reviewSummary.set", {
-        cwd,
+        nwo,
         prNumber,
         snapshotKey: summarySnapshotKey,
         summary: summaryPayload.summary,

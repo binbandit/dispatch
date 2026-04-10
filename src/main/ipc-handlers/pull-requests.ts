@@ -39,59 +39,52 @@ export const pullRequestHandlers: Pick<
   | "checks.rerunFailed"
   | "checks.annotations"
 > = {
-  "pr.list": (args) => ghCli.listPrsCore(args.cwd, args.filter, args.state, args.forceRefresh),
+  "pr.list": (args) => ghCli.listPrsCore(args, args.filter, args.state, args.forceRefresh),
   "pr.listEnrichment": (args) =>
-    ghCli.listPrsEnrichment(args.cwd, args.filter, args.state, args.forceRefresh),
-  "pr.detail": (args) => ghCli.getPrDetail(args.cwd, args.prNumber),
-  "pr.commits": (args) => ghCli.getPrCommits(args.cwd, args.prNumber),
-  "pr.diff": (args) => ghCli.getPrDiff(args.cwd, args.prNumber),
+    ghCli.listPrsEnrichment(args, args.filter, args.state, args.forceRefresh),
+  "pr.detail": (args) => ghCli.getPrDetail(args, args.prNumber),
+  "pr.commits": (args) => ghCli.getPrCommits(args, args.prNumber),
+  "pr.diff": (args) => ghCli.getPrDiff(args, args.prNumber),
   "pr.updateTitle": async (args) => {
-    await ghCli.updatePrTitle(args.cwd, args.prNumber, args.title);
+    await ghCli.updatePrTitle(args, args.prNumber, args.title);
   },
   "pr.updateBody": async (args) => {
-    await ghCli.updatePrBody(args.cwd, args.prNumber, args.body);
+    await ghCli.updatePrBody(args, args.prNumber, args.body);
   },
-  "pr.repoLabels": (args) => ghCli.listRepoLabels(args.cwd),
+  "pr.repoLabels": (args) => ghCli.listRepoLabels(args),
   "pr.addLabel": async (args) => {
-    await ghCli.addPrLabel(args.cwd, args.prNumber, args.label);
+    await ghCli.addPrLabel(args, args.prNumber, args.label);
   },
   "pr.removeLabel": async (args) => {
-    await ghCli.removePrLabel(args.cwd, args.prNumber, args.label);
+    await ghCli.removePrLabel(args, args.prNumber, args.label);
   },
   "pr.merge": (args) =>
-    ghCli.mergePr(
-      args.cwd,
-      args.prNumber,
-      args.strategy,
-      args.admin,
-      args.auto,
-      args.hasMergeQueue,
-    ),
+    ghCli.mergePr(args, args.prNumber, args.strategy, args.admin, args.auto, args.hasMergeQueue),
   "pr.updateBranch": async (args) => {
-    await ghCli.updatePrBranch(args.cwd, args.prNumber);
+    await ghCli.updatePrBranch(args, args.prNumber);
   },
   "pr.close": async (args) => {
-    await ghCli.closePr(args.cwd, args.prNumber);
+    await ghCli.closePr(args, args.prNumber);
   },
-  "pr.mergeQueueStatus": (args) => ghCli.getMergeQueueStatus(args.cwd, args.prNumber),
-  "pr.comments": (args) => ghCli.getPrReviewComments(args.cwd, args.prNumber),
+  "pr.mergeQueueStatus": (args) => ghCli.getMergeQueueStatus(args, args.prNumber),
+  "pr.comments": (args) => ghCli.getPrReviewComments(args, args.prNumber),
   "pr.replyToComment": async (args) => {
-    await ghCli.replyToReviewComment(args.cwd, args.prNumber, args.commentId, args.body);
+    await ghCli.replyToReviewComment(args, args.prNumber, args.commentId, args.body);
   },
   "pr.comment": async (args) => {
-    await ghCli.createPrComment(args.cwd, args.prNumber, args.body);
+    await ghCli.createPrComment(args, args.prNumber, args.body);
   },
-  "pr.issueComments": (args) => ghCli.getIssueComments(args.cwd, args.prNumber),
-  "pr.contributors": (args) => ghCli.getPrContributors(args.cwd, args.prNumber),
-  "pr.searchUsers": (args) => ghCli.searchUsers(args.cwd, args.query),
-  "pr.issuesList": (args) => ghCli.listIssuesAndPrs(args.cwd, args.limit),
-  "pr.reviewRequests": (args) => ghCli.getPrReviewRequests(args.cwd, args.prNumber),
-  "pr.reviewThreads": (args) => ghCli.getPrReviewThreads(args.cwd, args.prNumber),
+  "pr.issueComments": (args) => ghCli.getIssueComments(args, args.prNumber),
+  "pr.contributors": (args) => ghCli.getPrContributors(args, args.prNumber),
+  "pr.searchUsers": (args) => ghCli.searchUsers(args, args.query),
+  "pr.issuesList": (args) => ghCli.listIssuesAndPrs(args, args.limit),
+  "pr.reviewRequests": (args) => ghCli.getPrReviewRequests(args, args.prNumber),
+  "pr.reviewThreads": (args) => ghCli.getPrReviewThreads(args, args.prNumber),
   "pr.resolveThread": async (args) => {
-    await ghCli.resolveReviewThread(args.cwd, args.threadId);
+    await ghCli.resolveReviewThread(args, args.threadId);
   },
   "pr.unresolveThread": async (args) => {
-    await ghCli.unresolveReviewThread(args.cwd, args.threadId);
+    await ghCli.unresolveReviewThread(args, args.threadId);
   },
   "pr.createComment": async (args) => {
     await ghCli.createReviewComment(args);
@@ -99,17 +92,17 @@ export const pullRequestHandlers: Pick<
   "pr.submitReview": async (args) => {
     await ghCli.submitReview(args);
   },
-  "pr.reactions": (args) => ghCli.getPrReactions(args.cwd, args.prNumber),
+  "pr.reactions": (args) => ghCli.getPrReactions(args, args.prNumber),
   "pr.addReaction": async (args) => {
-    await ghCli.addReaction(args.cwd, args.subjectId, args.content);
+    await ghCli.addReaction(args, args.subjectId, args.content);
   },
   "pr.removeReaction": async (args) => {
-    await ghCli.removeReaction(args.cwd, args.subjectId, args.content);
+    await ghCli.removeReaction(args, args.subjectId, args.content);
   },
-  "checks.list": (args) => ghCli.getPrChecks(args.cwd, args.prNumber),
-  "checks.logs": (args) => ghCli.getRunLogs(args.cwd, args.runId),
+  "checks.list": (args) => ghCli.getPrChecks(args, args.prNumber),
+  "checks.logs": (args) => ghCli.getRunLogs(args, args.runId),
   "checks.rerunFailed": async (args) => {
-    await ghCli.rerunFailedJobs(args.cwd, args.runId);
+    await ghCli.rerunFailedJobs(args, args.runId);
   },
-  "checks.annotations": (args) => ghCli.getCheckAnnotations(args.cwd, args.prNumber),
+  "checks.annotations": (args) => ghCli.getCheckAnnotations(args, args.prNumber),
 };

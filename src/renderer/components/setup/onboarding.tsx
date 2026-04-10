@@ -1,15 +1,17 @@
+import type { Workspace } from "@/shared/ipc";
+
 import { Button } from "@/components/ui/button";
 import { DispatchLogo } from "@/renderer/components/shared/dispatch-logo";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { FolderOpen, GitBranch, Trash2 } from "lucide-react";
+import { FolderOpen, GitBranch, Globe, Lock, Search, Trash2 } from "lucide-react";
+import { useCallback, useRef, useState } from "react";
 
 /**
  * Onboarding flow: shown when no workspaces are configured.
  *
- * The user adds local git repositories that Dispatch will watch.
- * Once at least one repo is added, they can proceed.
+ * Users can add repositories either by searching GitHub or linking a local folder.
  */
 
 interface OnboardingProps {
@@ -24,7 +26,15 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   const workspaces = workspacesQuery.data ?? [];
 
   const addMutation = useMutation({
-    mutationFn: (args: { path: string }) => ipc("workspace.add", args),
+    mutationFn: (args: { owner: string; repo: string; path?: string | null; name?: string }) =>
+      ipc("workspace.add", args),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workspace"] });
+    },
+  });
+
+  const addFromFolderMutation = useMutation({
+    mutationFn: (args: { path: string }) => ipc("workspace.addFromFolder", args),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workspace"] });
     },
@@ -38,25 +48,22 @@ export function Onboarding({ onComplete }: OnboardingProps) {
   });
 
   const setActiveMutation = useMutation({
-    mutationFn: (args: { path: string }) => ipc("workspace.setActive", args),
+    mutationFn: (args: { id: number }) => ipc("workspace.setActive", args),
   });
 
   const pickFolderMutation = useMutation({
     mutationFn: () => ipc("workspace.pickFolder"),
     onSuccess: (result) => {
       if (result) {
-        addMutation.mutate({ path: result });
+        addFromFolderMutation.mutate({ path: result });
       }
-    },
-    onError: () => {
-      // Error shown via pickFolderMutation.isError below
     },
   });
 
   function handleContinue() {
     const [firstWorkspace] = workspaces;
     if (firstWorkspace) {
-      setActiveMutation.mutate({ path: firstWorkspace.path }, { onSuccess: () => onComplete() });
+      setActiveMutation.mutate({ id: firstWorkspace.id }, { onSuccess: () => onComplete() });
     }
   }
 
@@ -64,7 +71,6 @@ export function Onboarding({ onComplete }: OnboardingProps) {
     <div className="bg-bg-root flex h-screen flex-col items-center justify-center px-8">
       {/* Header */}
       <div className="flex flex-col items-center gap-3">
-        {/* Logo mark */}
         <div style={{ filter: "drop-shadow(0 0 30px rgba(212, 136, 58, 0.12))" }}>
           <DispatchLogo size={48} />
         </div>
@@ -86,8 +92,8 @@ export function Onboarding({ onComplete }: OnboardingProps) {
           />
         </div>
         <p className="text-text-secondary max-w-md text-center text-[13px] leading-relaxed">
-          Add a local Git repository to get started. Dispatch will watch it for pull requests that
-          need your attention.
+          Add a GitHub repository to get started. Dispatch will watch it for pull requests that need
+          your attention.
         </p>
       </div>
 
@@ -96,48 +102,51 @@ export function Onboarding({ onComplete }: OnboardingProps) {
         {workspaces.length > 0 && (
           <div className="mb-4 flex flex-col gap-1.5">
             {workspaces.map((ws) => (
-              <div
+              <WorkspaceCard
                 key={ws.id}
-                className="border-border bg-bg-raised flex items-center gap-3 rounded-lg border px-4 py-3"
-              >
-                <GitBranch
-                  size={16}
-                  className="text-primary shrink-0"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-text-primary text-sm font-medium">{ws.name}</p>
-                  <p className="text-text-tertiary truncate font-mono text-[11px]">{ws.path}</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeMutation.mutate({ id: ws.id })}
-                  className="text-text-tertiary hover:bg-bg-elevated hover:text-destructive flex h-7 w-7 cursor-pointer items-center justify-center rounded-md transition-colors"
-                >
-                  <Trash2 size={13} />
-                </button>
-              </div>
+                workspace={ws}
+                onRemove={() => removeMutation.mutate({ id: ws.id })}
+              />
             ))}
           </div>
         )}
 
-        {/* Add repo button */}
-        <Button
-          variant="outline"
-          className="w-full gap-2 border-dashed"
-          onClick={() => pickFolderMutation.mutate()}
-          disabled={pickFolderMutation.isPending || addMutation.isPending}
-        >
-          <FolderOpen size={14} />
-          {pickFolderMutation.isPending ? "Opening..." : "Add a repository"}
-        </Button>
+        {/* Add repo buttons */}
+        <div className="flex flex-col gap-2">
+          <GitHubRepoSearch
+            onSelect={(result) => {
+              addMutation.mutate({
+                owner: result.owner,
+                repo: result.repo,
+                name: result.repo,
+              });
+            }}
+            isPending={addMutation.isPending}
+          />
 
-        {(addMutation.isError || pickFolderMutation.isError) && (
+          <Button
+            variant="outline"
+            className="w-full gap-2"
+            onClick={() => pickFolderMutation.mutate()}
+            disabled={pickFolderMutation.isPending || addFromFolderMutation.isPending}
+          >
+            <FolderOpen size={14} />
+            {pickFolderMutation.isPending ? "Opening..." : "Link local folder"}
+          </Button>
+        </div>
+
+        {(addMutation.isError || addFromFolderMutation.isError || pickFolderMutation.isError) && (
           <p className="text-destructive mt-2 text-xs">
             {addMutation.isError
               ? String(
-                  (addMutation.error as unknown as Error)?.message ?? "Not a valid git repository",
+                  (addMutation.error as unknown as Error)?.message ?? "Failed to add repository",
                 )
-              : "Failed to open folder picker"}
+              : addFromFolderMutation.isError
+                ? String(
+                    (addFromFolderMutation.error as unknown as Error)?.message ??
+                      "Not a valid git repository",
+                  )
+                : "Failed to open folder picker"}
           </p>
         )}
       </div>
@@ -157,6 +166,160 @@ export function Onboarding({ onComplete }: OnboardingProps) {
       <p className="text-text-tertiary mt-4 text-[11px]">
         You can always add more repositories later from settings.
       </p>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
+function WorkspaceCard({ workspace, onRemove }: { workspace: Workspace; onRemove: () => void }) {
+  return (
+    <div className="border-border bg-bg-raised flex items-center gap-3 rounded-lg border px-4 py-3">
+      <GitBranch
+        size={16}
+        className="text-primary shrink-0"
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-text-primary text-sm font-medium">
+          {workspace.owner}/{workspace.repo}
+        </p>
+        {workspace.path ? (
+          <p className="text-text-tertiary truncate font-mono text-[11px]">{workspace.path}</p>
+        ) : (
+          <p className="text-text-ghost text-[11px]">Remote only</p>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={onRemove}
+        className="text-text-tertiary hover:bg-bg-elevated hover:text-destructive flex h-7 w-7 cursor-pointer items-center justify-center rounded-md transition-colors"
+      >
+        <Trash2 size={13} />
+      </button>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// GitHub repo search
+// ---------------------------------------------------------------------------
+
+interface GhRepoSearchResult {
+  owner: string;
+  repo: string;
+  fullName: string;
+  description: string | null;
+  isPrivate: boolean;
+}
+
+function GitHubRepoSearch({
+  onSelect,
+  isPending,
+}: {
+  onSelect: (result: GhRepoSearchResult) => void;
+  isPending: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const [showResults, setShowResults] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const searchQuery = useQuery({
+    queryKey: ["workspace", "searchGitHub", query],
+    queryFn: () => ipc("workspace.searchGitHub", { query, limit: 15 }),
+    enabled: showResults,
+    staleTime: 30_000,
+  });
+
+  const handleInputChange = useCallback((value: string) => {
+    setQuery(value);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    debounceRef.current = setTimeout(() => {
+      queryClient.invalidateQueries({
+        queryKey: ["workspace", "searchGitHub", value],
+      });
+    }, 300);
+  }, []);
+
+  const results = searchQuery.data ?? [];
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative"
+    >
+      <div className="border-border bg-bg-surface flex items-center gap-2 rounded-lg border px-3 py-2.5">
+        <Search
+          size={14}
+          className="text-text-tertiary shrink-0"
+        />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => handleInputChange(e.target.value)}
+          onFocus={() => setShowResults(true)}
+          onBlur={() => {
+            // Delay to allow click on results
+            setTimeout(() => setShowResults(false), 200);
+          }}
+          placeholder="Search your GitHub repositories..."
+          className="text-text-primary placeholder:text-text-ghost min-w-0 flex-1 bg-transparent text-sm outline-none"
+          disabled={isPending}
+        />
+      </div>
+
+      {/* Results dropdown */}
+      {showResults && (
+        <div className="border-border bg-bg-surface absolute top-full right-0 left-0 z-50 mt-1 max-h-[280px] overflow-y-auto rounded-lg border shadow-lg">
+          {searchQuery.isLoading && (
+            <div className="text-text-tertiary px-3 py-4 text-center text-xs">Searching...</div>
+          )}
+          {!searchQuery.isLoading && results.length === 0 && (
+            <div className="text-text-tertiary px-3 py-4 text-center text-xs">
+              {query ? "No repositories found" : "Type to search or see your repos"}
+            </div>
+          )}
+          {results.map((result) => (
+            <button
+              key={result.fullName}
+              type="button"
+              className="hover:bg-bg-raised flex w-full cursor-pointer items-center gap-2.5 px-3 py-2.5 text-left transition-colors"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onSelect(result);
+                setQuery("");
+                setShowResults(false);
+              }}
+            >
+              {result.isPrivate ? (
+                <Lock
+                  size={12}
+                  className="text-text-tertiary shrink-0"
+                />
+              ) : (
+                <Globe
+                  size={12}
+                  className="text-text-tertiary shrink-0"
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="text-text-primary truncate font-mono text-[12px] font-medium">
+                  {result.fullName}
+                </p>
+                {result.description && (
+                  <p className="text-text-tertiary mt-0.5 truncate text-[11px]">
+                    {result.description}
+                  </p>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

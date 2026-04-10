@@ -1,4 +1,5 @@
 import "@testing-library/jest-dom/vitest";
+import type * as TooltipModule from "@/components/ui/tooltip";
 import type { ReactNode } from "react";
 
 import { DiffToolbar } from "@/renderer/components/review/diff/diff-toolbar";
@@ -11,10 +12,21 @@ vi.mock(import("@/hooks/use-media-query"), () => ({
 }));
 
 vi.mock(import("@/components/ui/tooltip"), () => ({
-  Tooltip: ({ children }: { children: ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ render }: { render: ReactNode }) => render,
-  TooltipPopup: ({ children }: { children: ReactNode }) => <>{children}</>,
-}));
+  const Tooltip = (({ children }: { children?: ReactNode }) => <>{children ?? null}</>) as unknown as
+    typeof TooltipModule.Tooltip;
+  const TooltipTrigger = ((props: { render?: unknown }) => {
+    const { render } = props;
+    if (typeof render === "function") {
+      return null;
+    }
+
+    return <>{(render as ReactNode) ?? null}</>;
+  }) as unknown as typeof TooltipModule.TooltipTrigger;
+  const TooltipPopup = (({ children }: { children?: ReactNode }) => <>{children ?? null}</>) as unknown as
+    typeof TooltipModule.TooltipPopup;
+
+  return { Tooltip, TooltipTrigger, TooltipPopup };
+});
 
 const SIMPLE_DIFF = `diff --git a/src/example.ts b/src/example.ts
 index abc1234..def5678 100644

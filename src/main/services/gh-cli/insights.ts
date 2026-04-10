@@ -2,29 +2,30 @@
 import type { GhPrEnrichment, GhPrListItemCore } from "../../../shared/ipc";
 
 import {
+  type RepoTarget,
   CACHE_TTL_LONG_MS,
   MAX_CONCURRENT_GH_CALLS,
   genericCache,
   getOrLoadCached,
-  getOwnerRepo,
   getRepoInfo,
   getUpstreamArgs,
   ghExec,
   invalidateReleaseCaches,
   mapWithConcurrency,
   parseJsonOutput,
+  resolveRepoCwd,
 } from "./core";
 import { listPrsCore, listPrsEnrichment } from "./prs";
 
 export async function listAllPrs(
-  workspaces: Array<{ path: string; name: string }>,
+  workspaces: Array<{ owner: string; repo: string; path: string | null; name: string }>,
   filter: "reviewRequested" | "authored" | "all",
   state: "open" | "closed" | "merged" | "all" = "open",
 ): Promise<
   Array<
     GhPrListItemCore & {
       workspace: string;
-      workspacePath: string;
+      workspacePath: string | null;
       repository: string;
       pullRequestRepository: string;
       isForkWorkspace: boolean;
@@ -35,22 +36,23 @@ export async function listAllPrs(
     workspaces,
     MAX_CONCURRENT_GH_CALLS,
     async (workspace) => {
-      const workspaceRepo = await getRepoInfo(workspace.path).catch(async () => {
-        const { owner, repo } = await getOwnerRepo(workspace.path);
-        const nameWithOwner = `${owner}/${repo}`;
-        return {
-          nameWithOwner,
-          isFork: false,
-          parent: null,
-          canPush: true,
-          hasMergeQueue: false,
-        };
-      });
+      const target: RepoTarget = {
+        cwd: workspace.path,
+        owner: workspace.owner,
+        repo: workspace.repo,
+      };
+      const workspaceRepo = await getRepoInfo(target).catch(() => ({
+        nameWithOwner: `${workspace.owner}/${workspace.repo}`,
+        isFork: false,
+        parent: null,
+        canPush: true,
+        hasMergeQueue: false,
+      }));
       const pullRequestRepository =
         workspaceRepo.isFork && workspaceRepo.parent
           ? workspaceRepo.parent
           : workspaceRepo.nameWithOwner;
-      const prs = await listPrsCore(workspace.path, filter, state);
+      const prs = await listPrsCore(target, filter, state);
       return prs.map((pr) => ({
         ...pr,
         workspace: workspace.name,
@@ -70,7 +72,7 @@ export async function listAllPrs(
         Array<
           GhPrListItemCore & {
             workspace: string;
-            workspacePath: string;
+            workspacePath: string | null;
             repository: string;
             pullRequestRepository: string;
             isForkWorkspace: boolean;
@@ -82,13 +84,13 @@ export async function listAllPrs(
 }
 
 export async function listAllPrsEnrichment(
-  workspaces: Array<{ path: string; name: string }>,
+  workspaces: Array<{ owner: string; repo: string; path: string | null; name: string }>,
   filter: "reviewRequested" | "authored" | "all",
   state: "open" | "closed" | "merged" | "all" = "open",
 ): Promise<
   Array<
     GhPrEnrichment & {
-      workspacePath: string;
+      workspacePath: string | null;
       repository: string;
       pullRequestRepository: string;
       isForkWorkspace: boolean;
@@ -99,22 +101,23 @@ export async function listAllPrsEnrichment(
     workspaces,
     MAX_CONCURRENT_GH_CALLS,
     async (workspace) => {
-      const workspaceRepo = await getRepoInfo(workspace.path).catch(async () => {
-        const { owner, repo } = await getOwnerRepo(workspace.path);
-        const nameWithOwner = `${owner}/${repo}`;
-        return {
-          nameWithOwner,
-          isFork: false,
-          parent: null,
-          canPush: true,
-          hasMergeQueue: false,
-        };
-      });
+      const target: RepoTarget = {
+        cwd: workspace.path,
+        owner: workspace.owner,
+        repo: workspace.repo,
+      };
+      const workspaceRepo = await getRepoInfo(target).catch(() => ({
+        nameWithOwner: `${workspace.owner}/${workspace.repo}`,
+        isFork: false,
+        parent: null,
+        canPush: true,
+        hasMergeQueue: false,
+      }));
       const pullRequestRepository =
         workspaceRepo.isFork && workspaceRepo.parent
           ? workspaceRepo.parent
           : workspaceRepo.nameWithOwner;
-      const enrichments = await listPrsEnrichment(workspace.path, filter, state);
+      const enrichments = await listPrsEnrichment(target, filter, state);
       return enrichments.map((enrichment) => ({
         ...enrichment,
         workspacePath: workspace.path,
@@ -132,7 +135,7 @@ export async function listAllPrsEnrichment(
       ): result is PromiseFulfilledResult<
         Array<
           GhPrEnrichment & {
-            workspacePath: string;
+            workspacePath: string | null;
             repository: string;
             pullRequestRepository: string;
             isForkWorkspace: boolean;
@@ -144,7 +147,7 @@ export async function listAllPrsEnrichment(
 }
 
 export function getPrCycleTime(
-  cwd: string,
+  cwdOrTarget: string | RepoTarget,
   since: string,
 ): Promise<
   Array<{
@@ -160,7 +163,11 @@ export function getPrCycleTime(
     deletions: number;
   }>
 > {
-  const key = `cycleTime::${cwd}::${since}`;
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
+  const key = `cycleTime::${resolved.nwo}::${since}`;
   type CycleTimeResult = Array<{
     prNumber: number;
     title: string;
@@ -179,6 +186,7 @@ export function getPrCycleTime(
     loader: async () => {
       const { stdout } = await ghExec(
         [
+          ...resolved.repoFlag,
           "pr",
           "list",
           "--state",
@@ -188,7 +196,7 @@ export function getPrCycleTime(
           "--limit",
           "50",
         ],
-        { cwd, timeout: 30_000 },
+        { cwd: resolved.cwd, timeout: 30_000 },
       );
 
       const prs = parseJsonOutput<
@@ -238,18 +246,32 @@ export function getPrCycleTime(
 }
 
 export function getReviewLoad(
-  cwd: string,
+  cwdOrTarget: string | RepoTarget,
   since: string,
 ): Promise<Array<{ reviewer: string; reviewCount: number; avgResponseTime: number }>> {
-  const key = `reviewLoad::${cwd}::${since}`;
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
+  const key = `reviewLoad::${resolved.nwo}::${since}`;
   type ReviewLoadResult = Array<{ reviewer: string; reviewCount: number; avgResponseTime: number }>;
   return getOrLoadCached({
     cache: genericCache,
     key,
     loader: async () => {
       const { stdout } = await ghExec(
-        ["pr", "list", "--state", "all", "--json", "number,createdAt,reviews", "--limit", "50"],
-        { cwd, timeout: 30_000 },
+        [
+          ...resolved.repoFlag,
+          "pr",
+          "list",
+          "--state",
+          "all",
+          "--json",
+          "number,createdAt,reviews",
+          "--limit",
+          "50",
+        ],
+        { cwd: resolved.cwd, timeout: 30_000 },
       );
 
       const prs = parseJsonOutput<
@@ -290,7 +312,7 @@ export function getReviewLoad(
 }
 
 export function listReleases(
-  cwd: string,
+  cwdOrTarget: string | RepoTarget,
   limit = 20,
 ): Promise<
   Array<{
@@ -303,7 +325,11 @@ export function listReleases(
     author: { login: string };
   }>
 > {
-  const key = `releases::${cwd}::${limit}`;
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
+  const key = `releases::${resolved.nwo}::${limit}`;
   type ReleaseResult = Array<{
     tagName: string;
     name: string;
@@ -317,7 +343,7 @@ export function listReleases(
     cache: genericCache,
     key,
     loader: async () => {
-      const upstreamArgs = await getUpstreamArgs(cwd);
+      const upstreamArgs = await getUpstreamArgs(cwdOrTarget);
       const { stdout } = await ghExec(
         [
           ...upstreamArgs,
@@ -328,7 +354,7 @@ export function listReleases(
           "--limit",
           String(limit),
         ],
-        { cwd, timeout: 15_000 },
+        { cwd: resolved.cwd, timeout: 15_000 },
       );
       const releases = parseJsonOutput<
         Array<{
@@ -346,7 +372,7 @@ export function listReleases(
         async (release) => {
           const { stdout: detail } = await ghExec(
             [...upstreamArgs, "release", "view", release.tagName, "--json", "body,author"],
-            { cwd, timeout: 10_000 },
+            { cwd: resolved.cwd, timeout: 10_000 },
           );
           const data = parseJsonOutput<{ body: string; author: { login: string } }>(detail);
           return { ...release, body: data.body ?? "", author: data.author ?? { login: "" } };
@@ -364,7 +390,9 @@ export function listReleases(
 }
 
 export async function createRelease(args: {
-  cwd: string;
+  cwd: string | null;
+  owner: string;
+  repo: string;
   tagName: string;
   name: string;
   body: string;
@@ -372,7 +400,10 @@ export async function createRelease(args: {
   isPrerelease: boolean;
   target: string;
 }): Promise<{ url: string }> {
+  const target: RepoTarget = { cwd: args.cwd, owner: args.owner, repo: args.repo };
+  const resolved = resolveRepoCwd(target);
   const ghArgs = [
+    ...resolved.repoFlag,
     "release",
     "create",
     args.tagName,
@@ -389,20 +420,46 @@ export async function createRelease(args: {
   if (args.isPrerelease) {
     ghArgs.push("--prerelease");
   }
-  const { stdout } = await ghExec(ghArgs, { cwd: args.cwd, timeout: 30_000 });
-  invalidateReleaseCaches(args.cwd);
+  const { stdout } = await ghExec(ghArgs, { cwd: resolved.cwd, timeout: 30_000 });
+  invalidateReleaseCaches(resolved.nwo);
   return { url: stdout.trim() };
 }
 
-export async function generateChangelog(cwd: string, sinceTag: string): Promise<string> {
+export async function generateChangelog(
+  cwdOrTarget: string | RepoTarget,
+  sinceTag: string,
+): Promise<string> {
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
   const { stdout: tagDate } = await ghExec(
-    ["release", "view", sinceTag, "--json", "createdAt", "--jq", ".createdAt"],
-    { cwd, timeout: 10_000 },
+    [
+      ...resolved.repoFlag,
+      "release",
+      "view",
+      sinceTag,
+      "--json",
+      "createdAt",
+      "--jq",
+      ".createdAt",
+    ],
+    { cwd: resolved.cwd, timeout: 10_000 },
   );
 
   const { stdout } = await ghExec(
-    ["pr", "list", "--state", "merged", "--json", "number,title,author,mergedAt", "--limit", "50"],
-    { cwd, timeout: 15_000 },
+    [
+      ...resolved.repoFlag,
+      "pr",
+      "list",
+      "--state",
+      "merged",
+      "--json",
+      "number,title,author,mergedAt",
+      "--limit",
+      "50",
+    ],
+    { cwd: resolved.cwd, timeout: 15_000 },
   );
 
   const prs =

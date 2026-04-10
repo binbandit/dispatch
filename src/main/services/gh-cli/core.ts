@@ -7,6 +7,7 @@ import type {
   GhPrListItemCore,
   GhUser,
   RepoInfo,
+  RepoTarget,
 } from "../../../shared/ipc";
 
 import {
@@ -75,6 +76,25 @@ export async function ghExec(
   }
 }
 
+/**
+ * Resolve a RepoTarget to gh CLI execution options.
+ * When a local path is available, uses it as cwd (gh auto-detects repo from git remote).
+ * When no local path, uses `-R owner/repo` flag instead.
+ */
+export function resolveRepoCwd(target: RepoTarget): {
+  cwd?: string;
+  repoFlag: string[];
+  nwo: string;
+} {
+  const nwo = `${target.owner}/${target.repo}`;
+  if (target.cwd) {
+    return { cwd: target.cwd, repoFlag: [], nwo };
+  }
+  return { repoFlag: ["-R", nwo], nwo };
+}
+
+export { type RepoTarget } from "../../../shared/ipc";
+
 export async function getAuthenticatedUser(): Promise<GhUser | null> {
   try {
     const { stdout } = await ghExec(
@@ -134,7 +154,7 @@ function normalizeGitHubHost(host: string): string {
 }
 
 export function getAvatarUrl(
-  cwd: string,
+  cwd: string | null,
   login: string,
   host: string,
 ): Promise<GhAvatarLookup | null> {
@@ -161,7 +181,7 @@ export function getAvatarUrl(
             "--jq",
             "{login: .login, avatarUrl: .avatar_url}",
           ],
-          { cwd, timeout: 10_000 },
+          { cwd: cwd ?? undefined, timeout: 10_000 },
         );
         const data = parseJsonOutput<{ login: string; avatarUrl: string | null }>(stdout);
 
@@ -184,9 +204,14 @@ export async function switchAccount(host: string, login: string): Promise<void> 
   invalidateAllCaches();
 }
 
-export async function getOwnerRepo(cwd: string): Promise<{ owner: string; repo: string }> {
+export async function getOwnerRepo(
+  cwdOrTarget: string | RepoTarget,
+): Promise<{ owner: string; repo: string }> {
+  if (typeof cwdOrTarget !== "string") {
+    return { owner: cwdOrTarget.owner, repo: cwdOrTarget.repo };
+  }
   const { stdout } = await execFile("git", ["remote", "get-url", "origin"], {
-    cwd,
+    cwd: cwdOrTarget,
     timeout: 5000,
   });
   const url = stdout.trim();
@@ -205,21 +230,30 @@ export function parseRepoFullName(repoFullName: string): { owner: string; repo: 
   return { owner, repo };
 }
 
-export async function getPullRequestRepoFullName(cwd: string): Promise<string> {
+export async function getPullRequestRepoFullName(
+  cwdOrTarget: string | RepoTarget,
+): Promise<string> {
   try {
-    const info = await getRepoInfo(cwd);
+    const info = await getRepoInfo(cwdOrTarget);
     return info.isFork && info.parent ? info.parent : info.nameWithOwner;
   } catch {
-    const { owner, repo } = await getOwnerRepo(cwd);
+    const { owner, repo } = await getOwnerRepo(cwdOrTarget);
     return `${owner}/${repo}`;
   }
 }
 
-export async function getPullRequestRepo(cwd: string): Promise<{ owner: string; repo: string }> {
-  return parseRepoFullName(await getPullRequestRepoFullName(cwd));
+export async function getPullRequestRepo(
+  cwdOrTarget: string | RepoTarget,
+): Promise<{ owner: string; repo: string }> {
+  return parseRepoFullName(await getPullRequestRepoFullName(cwdOrTarget));
 }
 
-export async function getRepoHost(cwd: string): Promise<string | null> {
+export async function getRepoHost(cwdOrTarget: string | RepoTarget): Promise<string | null> {
+  const cwd = typeof cwdOrTarget === "string" ? cwdOrTarget : cwdOrTarget.cwd;
+  if (!cwd) {
+    // Remote-only workspace — default to github.com
+    return "github.com";
+  }
   try {
     const { stdout } = await execFile("git", ["remote", "get-url", "origin"], {
       cwd,
@@ -240,10 +274,20 @@ export async function getRepoHost(cwd: string): Promise<string | null> {
   return null;
 }
 
-export async function getRepoInfo(cwd: string): Promise<RepoInfo> {
+export async function getRepoInfo(cwdOrTarget: string | RepoTarget): Promise<RepoInfo> {
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[] }
+      : resolveRepoCwd(cwdOrTarget);
   const { stdout } = await ghExec(
-    ["repo", "view", "--json", "nameWithOwner,isFork,parent,viewerPermission,defaultBranchRef"],
-    { cwd, timeout: 10_000 },
+    [
+      "repo",
+      "view",
+      ...resolved.repoFlag,
+      "--json",
+      "nameWithOwner,isFork,parent,viewerPermission,defaultBranchRef",
+    ],
+    { cwd: resolved.cwd, timeout: 10_000 },
   );
   const data = parseJsonOutput<{
     nameWithOwner: string;
@@ -275,7 +319,7 @@ export async function getRepoInfo(cwd: string): Promise<RepoInfo> {
         "-f",
         `query=query($owner: String!, $repo: String!, $branch: String!) { repository(owner: $owner, name: $repo) { mergeQueue(branch: $branch) { id } } }`,
       ],
-      { cwd, timeout: 10_000 },
+      { cwd: resolved.cwd, timeout: 10_000 },
     );
     const gql = JSON.parse(gqlOut) as {
       data?: { repository?: { mergeQueue?: { id: string } | null } };
@@ -413,16 +457,19 @@ export const CACHE_TTL_LONG_MS = 60_000;
 
 export function cacheKey({
   cwd,
+  nwo,
   filter,
   state = "open",
   limit = resolvePrListLimit(),
 }: {
-  cwd: string;
+  cwd?: string | null;
+  nwo?: string;
   filter: string;
   state?: string;
   limit?: string;
 }): string {
-  return `${cwd}::${filter}::${state}::${limit}`;
+  const id = nwo ?? cwd ?? "unknown";
+  return `${id}::${filter}::${state}::${limit}`;
 }
 
 function getCached<T>(cache: CacheStore<T>, key: string): T | null {
@@ -516,10 +563,10 @@ export function getOrLoadCached<T>({
   return request;
 }
 
-export function invalidatePrListCaches(cwd: string): void {
+export function invalidatePrListCaches(id: string): void {
   for (const filter of ["reviewRequested", "authored", "all"] as const) {
     for (const state of ["open", "closed", "merged", "all"] as const) {
-      const key = cacheKey({ cwd, filter, state });
+      const key = cacheKey({ nwo: id, filter, state });
       invalidateCacheKey(prListCache, key);
       invalidateCacheKey(prEnrichmentCache, key);
       invalidateCacheKey(prFullCache, key);
@@ -527,15 +574,15 @@ export function invalidatePrListCaches(cwd: string): void {
   }
 }
 
-export function invalidateWorkflowCaches(cwd: string): void {
+export function invalidateWorkflowCaches(id: string): void {
   invalidateCacheWhere(
     genericCache,
-    (key) => key.startsWith(`workflows::${cwd}`) || key.startsWith(`workflowRuns::${cwd}::`),
+    (key) => key.startsWith(`workflows::${id}`) || key.startsWith(`workflowRuns::${id}::`),
   );
 }
 
-export function invalidateReleaseCaches(cwd: string): void {
-  invalidateCacheWhere(genericCache, (key) => key.startsWith(`releases::${cwd}::`));
+export function invalidateReleaseCaches(id: string): void {
+  invalidateCacheWhere(genericCache, (key) => key.startsWith(`releases::${id}::`));
 }
 
 export function invalidateAllCaches(): void {
@@ -595,14 +642,18 @@ export function buildFilterArgs({
   }
 }
 
-export async function getUpstreamArgs(cwd: string): Promise<string[]> {
+export async function getUpstreamArgs(cwdOrTarget: string | RepoTarget): Promise<string[]> {
   try {
-    const info = await getRepoInfo(cwd);
+    const info = await getRepoInfo(cwdOrTarget);
     if (info.isFork && info.parent) {
       return ["-R", info.parent];
     }
   } catch {
     // Not a fork or detection failed.
+  }
+  // For remote-only workspaces with no fork, use -R owner/repo
+  if (typeof cwdOrTarget !== "string" && !cwdOrTarget.cwd) {
+    return ["-R", `${cwdOrTarget.owner}/${cwdOrTarget.repo}`];
   }
   return [];
 }
@@ -645,4 +696,58 @@ export async function mapWithConcurrency<T, R>(
 
 export function cacheAuthorDisplayNames(prs: GhPrListItemCore[]): void {
   cacheDisplayNames(prs.map((pr) => ({ login: pr.author.login, name: pr.author.name ?? null })));
+}
+
+export interface GhRepoSearchResult {
+  owner: string;
+  repo: string;
+  fullName: string;
+  description: string | null;
+  isPrivate: boolean;
+}
+
+export async function searchRepos(query: string, limit = 30): Promise<GhRepoSearchResult[]> {
+  const args = query.trim()
+    ? [
+        "search",
+        "repos",
+        query,
+        "--json",
+        "fullName,description,isPrivate",
+        "--limit",
+        String(limit),
+      ]
+    : ["repo", "list", "--json", "nameWithOwner,description,isPrivate", "--limit", String(limit)];
+
+  const { stdout } = await ghExec(args, { timeout: 15_000 });
+
+  if (query.trim()) {
+    const results =
+      parseJsonOutput<Array<{ fullName: string; description: string; isPrivate: boolean }>>(stdout);
+    return results.map((r) => {
+      const [owner = "", repo = ""] = r.fullName.split("/");
+      return {
+        owner,
+        repo,
+        fullName: r.fullName,
+        description: r.description || null,
+        isPrivate: r.isPrivate,
+      };
+    });
+  }
+
+  const results =
+    parseJsonOutput<Array<{ nameWithOwner: string; description: string; isPrivate: boolean }>>(
+      stdout,
+    );
+  return results.map((r) => {
+    const [owner = "", repo = ""] = r.nameWithOwner.split("/");
+    return {
+      owner,
+      repo,
+      fullName: r.nameWithOwner,
+      description: r.description || null,
+      isPrivate: r.isPrivate,
+    };
+  });
 }

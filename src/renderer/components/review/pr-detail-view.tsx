@@ -269,6 +269,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
 
   const aiEnabled = isAiEnabledPreference(usePreference("aiEnabled"));
   const prDetail = detailQuery.data;
+  const aiReviewEnabled = aiEnabled && prDetail?.state === "OPEN";
   const {
     suggestionsForFile,
     isGenerating: isAiGenerating,
@@ -283,7 +284,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     files,
     rawDiff: rawDiff ?? null,
     existingComments: commentsQuery.data ?? [],
-    enabled: aiEnabled,
+    enabled: aiReviewEnabled,
   });
 
   const currentFile = files[currentFileIndex] ?? null;
@@ -440,7 +441,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
 
   // Toggle viewed state for current file via `v` key
   const handleToggleViewed = useCallback(() => {
-    if (!currentFilePath || selectedCommit || isFullFileLoading) {
+    if (!currentFilePath || selectedCommit || prDetail?.state !== "OPEN" || isFullFileLoading) {
       return;
     }
     const isCurrentlyViewed = viewedQuery.data?.includes(currentFilePath) ?? false;
@@ -454,7 +455,15 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       .catch(() => {
         toastManager.add({ title: "Failed to update viewed state", type: "error" });
       });
-  }, [currentFilePath, isFullFileLoading, prNumber, repoName, selectedCommit, viewedQuery]);
+  }, [
+    currentFilePath,
+    isFullFileLoading,
+    prDetail?.state,
+    prNumber,
+    repoName,
+    selectedCommit,
+    viewedQuery,
+  ]);
 
   // Keyboard shortcuts — centralized via useKeyboardShortcuts
   const { getBinding } = useKeybindings();
@@ -531,6 +540,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
 
   const pr = detailQuery.data;
   const isCompletedPr = isCompletedPullRequest(pr);
+  const reviewControlsEnabled = !selectedCommit && !isCompletedPr;
   const totalAdditions = pr.files.reduce((sum, f) => sum + f.additions, 0);
   const totalDeletions = pr.files.reduce((sum, f) => sum + f.deletions, 0);
   const isAuthor = currentUser !== null && pr.author.login === currentUser;
@@ -636,12 +646,14 @@ function PrDetail({ prNumber }: { prNumber: number }) {
                   : false
             }
             onToggleViewed={handleToggleViewed}
-            hideReviewControls={Boolean(selectedCommit)}
+            hideReviewControls={!reviewControlsEnabled}
             onAiSuggest={
-              aiEnabled && currentFilePath ? () => generateForFile(currentFilePath) : undefined
+              aiReviewEnabled && reviewControlsEnabled && currentFilePath
+                ? () => generateForFile(currentFilePath)
+                : undefined
             }
             isAiSuggesting={currentFilePath ? isAiGenerating(currentFilePath) : false}
-            aiSuggestEnabled={aiEnabled}
+            aiSuggestEnabled={aiReviewEnabled}
             isFullFileLoading={isFullFileLoading}
           />
 
@@ -663,19 +675,18 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               comments={selectedCommit ? emptyCommentsMap : commentsMap}
               annotations={selectedCommit ? emptyAnnotationsMap : annotationsMap}
               prNumber={prNumber}
-              activeComposer={selectedCommit || isCompletedPr ? null : activeComposer}
-              onCommentRange={selectedCommit || isCompletedPr ? undefined : setActiveComposer}
-              onCloseComposer={
-                selectedCommit || isCompletedPr ? undefined : () => setActiveComposer(null)
-              }
+              activeComposer={reviewControlsEnabled ? activeComposer : null}
+              onCommentRange={reviewControlsEnabled ? setActiveComposer : undefined}
+              onCloseComposer={reviewControlsEnabled ? () => setActiveComposer(null) : undefined}
               fullFileContent={showFullFile ? (fullFileQuery.data ?? null) : null}
               diffMode={viewMode}
               resolvedThreadIds={selectedCommit ? emptyResolvedIds : resolvedThreadIds}
               reviewCommentReactions={
                 selectedCommit ? undefined : reactionsQuery.data?.reviewComments
               }
-              aiSuggestions={selectedCommit ? undefined : aiSuggestionsMap}
-              onPostSuggestion={postSuggestion}
+              aiSuggestions={reviewControlsEnabled ? aiSuggestionsMap : undefined}
+              reviewActionsEnabled={reviewControlsEnabled}
+              onPostSuggestion={reviewControlsEnabled ? postSuggestion : undefined}
               onDismissSuggestion={dismissSuggestion}
             />
           ) : (

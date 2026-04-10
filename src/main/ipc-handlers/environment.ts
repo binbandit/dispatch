@@ -25,13 +25,15 @@ export const environmentHandlers: Pick<
   "env.user": () => ghCli.getAuthenticatedUser(),
   "env.avatarUrl": (args) => ghCli.getAvatarUrl(args.cwd, args.login, args.host),
   "env.repoAccount": async (args) => {
-    const saved = repo.getRepoAccount(args.cwd);
-    if (saved) {
-      return saved;
+    if (args.cwd) {
+      const saved = repo.getRepoAccount(args.cwd);
+      if (saved) {
+        return saved;
+      }
     }
 
     const accounts = await ghCli.listAccounts();
-    const repoHost = await ghCli.getRepoHost(args.cwd);
+    const repoHost = await ghCli.getRepoHost(args);
     if (repoHost) {
       const match = accounts.find((account) => account.host === repoHost);
       if (match) {
@@ -46,13 +48,13 @@ export const environmentHandlers: Pick<
 
     return { host: active.host, login: active.login };
   },
-  "repo.info": (args) => ghCli.getRepoInfo(args.cwd),
+  "repo.info": (args) => ghCli.getRepoInfo(args),
   "env.accounts": () => ghCli.listAccounts(),
   "env.switchAccount": async (args) => {
     await ghCli.switchAccount(args.host, args.login);
     const activeWorkspace = repo.getActiveWorkspace();
-    if (activeWorkspace) {
-      repo.setRepoAccount(activeWorkspace, args.host, args.login);
+    if (activeWorkspace?.path) {
+      repo.setRepoAccount(activeWorkspace.path, args.host, args.login);
     }
   },
 };

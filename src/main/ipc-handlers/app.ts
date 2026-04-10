@@ -55,12 +55,13 @@ export const appHandlers: Pick<
       win.setWindowButtonPosition({ x: args.x, y: args.y });
     }
   },
-  "app.devRepoStatus": async () => {
+  "app.devRepoStatus": async (args) => {
     if (!process.env.VITE_DEV_SERVER_URL) {
       return disabledDevRepoStatus;
     }
 
-    const repoRoot = await gitCli.getRepoRoot(process.cwd());
+    const cwd = args.cwd ?? process.cwd();
+    const repoRoot = await gitCli.getRepoRoot(cwd);
     if (!repoRoot) {
       return disabledDevRepoStatus;
     }

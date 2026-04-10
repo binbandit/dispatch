@@ -16,12 +16,14 @@ import { useCallback, useState } from "react";
 
 export function EditablePrTitle({
   canEdit,
-  cwd,
+  repoTarget,
+  nwo,
   prNumber,
   title,
 }: {
   canEdit: boolean;
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
+  nwo: string;
   prNumber: number;
   title: string;
 }) {
@@ -39,19 +41,20 @@ export function EditablePrTitle({
   }, []);
 
   const updateTitleMutation = useMutation({
-    mutationFn: (nextTitle: string) => ipc("pr.updateTitle", { cwd, prNumber, title: nextTitle }),
+    mutationFn: (nextTitle: string) =>
+      ipc("pr.updateTitle", { ...repoTarget, prNumber, title: nextTitle }),
     onSuccess: (_data, nextTitle) => {
       const updatedAt = new Date().toISOString();
 
-      queryClient.setQueryData<GhPrDetail | undefined>(["pr", "detail", cwd, prNumber], (old) =>
+      queryClient.setQueryData<GhPrDetail | undefined>(["pr", "detail", nwo, prNumber], (old) =>
         old ? { ...old, title: nextTitle, updatedAt } : old,
       );
 
       setDraftTitle(nextTitle);
       setIsEditing(false);
 
-      void queryClient.invalidateQueries({ queryKey: ["pr", "detail", cwd, prNumber] });
-      void queryClient.invalidateQueries({ queryKey: ["pr", "list", cwd] });
+      void queryClient.invalidateQueries({ queryKey: ["pr", "detail", nwo, prNumber] });
+      void queryClient.invalidateQueries({ queryKey: ["pr", "list", nwo] });
       void queryClient.invalidateQueries({ queryKey: ["pr", "listAll"] });
 
       toastManager.add({ title: "Title updated", type: "success" });

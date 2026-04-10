@@ -12,8 +12,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
  * Supports search with match highlighting and navigation.
  */
 
-interface LogViewerProps {
-  cwd: string;
+export interface LogViewerProps {
+  repoTarget: import("@/shared/ipc").RepoTarget;
   runId: number;
   searchQuery?: string;
   activeMatchIndex?: number;
@@ -21,15 +21,15 @@ interface LogViewerProps {
 }
 
 export function LogViewer({
-  cwd,
+  repoTarget,
   runId,
   searchQuery = "",
   activeMatchIndex = 0,
   onMatchCountChange,
 }: LogViewerProps) {
   const logQuery = useQuery({
-    queryKey: ["checks", "logs", cwd, runId],
-    queryFn: () => ipc("checks.logs", { cwd, runId }),
+    queryKey: ["checks", "logs", repoTarget.owner, repoTarget.repo, runId],
+    queryFn: () => ipc("checks.logs", { ...repoTarget, runId }),
     staleTime: 60_000,
     retry: 1,
   });

@@ -15,7 +15,7 @@ import { GitMerge, RefreshCw } from "lucide-react";
 
 export function MergeChecklist({
   pr,
-  cwd,
+  repoTarget,
   prNumber,
 }: {
   pr: {
@@ -28,7 +28,7 @@ export function MergeChecklist({
       mergeMethod: string;
     } | null;
   };
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
   prNumber: number;
 }) {
   const hasApproval = pr.reviewDecision === "APPROVED";
@@ -39,7 +39,7 @@ export function MergeChecklist({
   const isBehind = pr.mergeStateStatus === "BEHIND";
 
   const updateBranchMutation = useMutation({
-    mutationFn: () => ipc("pr.updateBranch", { cwd, prNumber }),
+    mutationFn: () => ipc("pr.updateBranch", { ...repoTarget, prNumber }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       toastManager.add({ title: "Branch updated", type: "success" });

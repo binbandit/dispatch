@@ -65,7 +65,7 @@ function renderRunDetail() {
   return render(
     <QueryClientProvider client={queryClient}>
       <RunDetail
-        cwd="/tmp/dispatch"
+        repoTarget={{ cwd: "/tmp/dispatch", owner: "test-owner", repo: "test-repo" }}
         runId={99}
       />
     </QueryClientProvider>,

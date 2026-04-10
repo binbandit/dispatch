@@ -1,7 +1,5 @@
-import { existsSync } from "node:fs";
-
 import { getDatabase } from "./database";
-import { resolveActiveWorkspacePath, splitWorkspaceRows } from "./workspace-state";
+import { splitWorkspaceRows } from "./workspace-state";
 
 // ---------------------------------------------------------------------------
 // Review State (Incremental Diff)
@@ -281,29 +279,56 @@ export function deletePreferences(keys: string[]): void {
 // Workspaces
 // ---------------------------------------------------------------------------
 
-export function addWorkspace(path: string, name: string): void {
+export function addWorkspace(args: {
+  owner: string;
+  repo: string;
+  path?: string | null;
+  name: string;
+}): void {
   const db = getDatabase();
-  db.prepare(`
-    INSERT INTO workspaces (path, name, added_at)
-    VALUES (?, ?, datetime('now'))
-    ON CONFLICT(path) DO NOTHING
-  `).run(path, name);
-}
+  // Check if workspace already exists by owner/repo or path
+  const existing = db
+    .prepare(
+      "SELECT id FROM workspaces WHERE (owner = ? AND repo = ?) OR (path IS NOT NULL AND path = ?)",
+    )
+    .get(args.owner, args.repo, args.path ?? null) as { id: number } | undefined;
 
-function workspaceExists(path: string): boolean {
-  return path.length > 0 && existsSync(path);
+  if (existing) {
+    db.prepare(`
+      UPDATE workspaces SET
+        owner = ?,
+        repo = ?,
+        path = COALESCE(?, path),
+        name = ?
+      WHERE id = ?
+    `).run(args.owner, args.repo, args.path ?? null, args.name, existing.id);
+  } else {
+    db.prepare(`
+      INSERT INTO workspaces (owner, repo, path, name, added_at)
+      VALUES (?, ?, ?, ?, datetime('now'))
+    `).run(args.owner, args.repo, args.path ?? null, args.name);
+  }
 }
 
 function pruneMissingWorkspaces(): Array<{
   id: number;
-  path: string;
+  owner: string | null;
+  repo: string | null;
+  path: string | null;
   name: string;
   added_at: string;
 }> {
   const db = getDatabase();
   const rows = db
-    .prepare("SELECT id, path, name, added_at FROM workspaces ORDER BY added_at DESC")
-    .all() as Array<{ id: number; path: string; name: string; added_at: string }>;
+    .prepare("SELECT id, owner, repo, path, name, added_at FROM workspaces ORDER BY added_at DESC")
+    .all() as Array<{
+    id: number;
+    owner: string | null;
+    repo: string | null;
+    path: string | null;
+    name: string;
+    added_at: string;
+  }>;
 
   const { staleRows, validRows } = splitWorkspaceRows(rows);
 
@@ -312,15 +337,17 @@ function pruneMissingWorkspaces(): Array<{
   }
 
   const staleIds = staleRows.map((row) => row.id);
-  const stalePaths = staleRows.map((row) => row.path);
+  const stalePaths = staleRows.flatMap((row) => (row.path ? [row.path] : []));
   const idPlaceholders = staleIds.map(() => "?").join(", ");
-  const pathPlaceholders = stalePaths.map(() => "?").join(", ");
 
   db.prepare(`DELETE FROM workspaces WHERE id IN (${idPlaceholders})`).run(...staleIds);
-  db.prepare(`DELETE FROM repo_accounts WHERE path IN (${pathPlaceholders})`).run(...stalePaths);
+  if (stalePaths.length > 0) {
+    const pathPlaceholders = stalePaths.map(() => "?").join(", ");
+    db.prepare(`DELETE FROM repo_accounts WHERE path IN (${pathPlaceholders})`).run(...stalePaths);
+  }
 
   const activeWorkspace = getPreference("activeWorkspace");
-  if (activeWorkspace && stalePaths.includes(activeWorkspace)) {
+  if (activeWorkspace && staleIds.some((id) => String(id) === activeWorkspace)) {
     deletePreferences(["activeWorkspace"]);
   }
 
@@ -329,18 +356,42 @@ function pruneMissingWorkspaces(): Array<{
 
 export function getWorkspaces(): Array<{
   id: number;
-  path: string;
+  owner: string;
+  repo: string;
+  path: string | null;
   name: string;
   addedAt: string;
 }> {
   const rows = pruneMissingWorkspaces();
-  return rows.map((r) => ({ id: r.id, path: r.path, name: r.name, addedAt: r.added_at }));
+  const workspaces: Array<{
+    id: number;
+    owner: string;
+    repo: string;
+    path: string | null;
+    name: string;
+    addedAt: string;
+  }> = [];
+
+  for (const row of rows) {
+    if (row.owner && row.repo) {
+      workspaces.push({
+        id: row.id,
+        owner: row.owner,
+        repo: row.repo,
+        path: row.path,
+        name: row.name,
+        addedAt: row.added_at,
+      });
+    }
+  }
+
+  return workspaces;
 }
 
 export function removeWorkspace(id: number): void {
   const db = getDatabase();
   const row = db.prepare("SELECT path FROM workspaces WHERE id = ?").get(id) as
-    | { path: string }
+    | { path: string | null }
     | undefined;
   db.prepare("DELETE FROM workspaces WHERE id = ?").run(id);
 
@@ -348,37 +399,90 @@ export function removeWorkspace(id: number): void {
     return;
   }
 
-  db.prepare("DELETE FROM repo_accounts WHERE path = ?").run(row.path);
+  if (row.path) {
+    db.prepare("DELETE FROM repo_accounts WHERE path = ?").run(row.path);
+  }
 
   const activeWorkspace = getPreference("activeWorkspace");
-  if (activeWorkspace === row.path) {
+  if (activeWorkspace === String(id)) {
     deletePreferences(["activeWorkspace"]);
-    const fallbackWorkspace = getWorkspaces()[0]?.path ?? null;
-    if (fallbackWorkspace) {
-      setPreference("activeWorkspace", fallbackWorkspace);
+    const [fallback] = getWorkspaces();
+    if (fallback) {
+      setPreference("activeWorkspace", String(fallback.id));
     }
   }
 }
 
-export function getActiveWorkspace(): string | null {
-  const activeWorkspace = getPreference("activeWorkspace");
-  const fallbackWorkspace = resolveActiveWorkspacePath(activeWorkspace, getWorkspaces());
-  if (activeWorkspace && activeWorkspace !== fallbackWorkspace) {
+/** Returns the active workspace's nwo (owner/repo), or null if none. */
+export function getActiveWorkspaceNwo(): string | null {
+  const activeId = getPreference("activeWorkspace");
+  const workspaces = getWorkspaces();
+
+  if (activeId) {
+    const match = workspaces.find((ws) => String(ws.id) === activeId);
+    if (match) {
+      return `${match.owner}/${match.repo}`;
+    }
     deletePreferences(["activeWorkspace"]);
   }
-  if (fallbackWorkspace) {
-    setPreference("activeWorkspace", fallbackWorkspace);
+
+  const [fallback] = workspaces;
+  if (fallback) {
+    setPreference("activeWorkspace", String(fallback.id));
+    return `${fallback.owner}/${fallback.repo}`;
   }
 
-  return fallbackWorkspace;
+  return null;
 }
 
-export function setActiveWorkspace(path: string): void {
-  if (!workspaceExists(path)) {
-    throw new Error(`Workspace path does not exist: ${path}`);
+export function getActiveWorkspace(): {
+  id: number;
+  owner: string;
+  repo: string;
+  path: string | null;
+  name: string;
+} | null {
+  const activeId = getPreference("activeWorkspace");
+  const workspaces = getWorkspaces();
+
+  if (activeId) {
+    // Try matching by ID first
+    const matchById = workspaces.find((ws) => String(ws.id) === activeId);
+    if (matchById) {
+      return matchById;
+    }
+
+    // Migrate legacy path-based active workspace preference
+    if (activeId.startsWith("/")) {
+      const matchByPath = workspaces.find((ws) => ws.path === activeId);
+      if (matchByPath) {
+        setPreference("activeWorkspace", String(matchByPath.id));
+        return matchByPath;
+      }
+    }
+
+    deletePreferences(["activeWorkspace"]);
   }
 
-  setPreference("activeWorkspace", path);
+  const [fallback] = workspaces;
+  if (fallback) {
+    setPreference("activeWorkspace", String(fallback.id));
+    return fallback;
+  }
+
+  return null;
+}
+
+export function setActiveWorkspace(id: number): void {
+  const db = getDatabase();
+  const row = db.prepare("SELECT id FROM workspaces WHERE id = ?").get(id) as
+    | { id: number }
+    | undefined;
+  if (!row) {
+    throw new Error(`Workspace not found: ${id}`);
+  }
+
+  setPreference("activeWorkspace", String(id));
 }
 
 // ---------------------------------------------------------------------------

@@ -39,7 +39,7 @@ import { RunDetail } from "./run-detail";
  */
 
 export function WorkflowsDashboard() {
-  const { cwd } = useWorkspace();
+  const { repoTarget, nwo } = useWorkspace();
   const { route, navigate } = useRouter();
   const initialRunId = route.view === "workflows" ? (route.runId ?? null) : null;
   const fromPr = route.view === "workflows" ? (route.fromPr ?? null) : null;
@@ -62,17 +62,17 @@ export function WorkflowsDashboard() {
 
   // Workflows list
   const workflowsQuery = useQuery({
-    queryKey: ["workflows", "list", cwd],
-    queryFn: () => ipc("workflows.list", { cwd }),
+    queryKey: ["workflows", "list", nwo],
+    queryFn: () => ipc("workflows.list", { ...repoTarget }),
   });
   const workflows = workflowsQuery.data ?? [];
 
   // Workflow runs (filtered by selected workflow)
   const runsQuery = useQuery({
-    queryKey: ["workflows", "runs", cwd, selectedWorkflow],
+    queryKey: ["workflows", "runs", nwo, selectedWorkflow],
     queryFn: () =>
       ipc("workflows.runs", {
-        cwd,
+        ...repoTarget,
         workflowId: selectedWorkflow ?? undefined,
         limit: 200,
       }),
@@ -281,7 +281,7 @@ export function WorkflowsDashboard() {
         {/* Trigger button */}
         {selectedWorkflow && (
           <TriggerButton
-            cwd={cwd}
+            repoTarget={repoTarget}
             workflowId={selectedWorkflow}
           />
         )}
@@ -314,7 +314,7 @@ export function WorkflowsDashboard() {
                 selectedRun={selectedRun}
                 compareRun={compareRun}
                 onSelectRun={handleSelectRun}
-                cwd={cwd}
+                repoTarget={repoTarget}
               />
             )}
           </div>
@@ -331,13 +331,13 @@ export function WorkflowsDashboard() {
               <div className="bg-bg-surface h-full overflow-y-auto">
                 {compareRun ? (
                   <RunComparison
-                    cwd={cwd}
+                    repoTarget={repoTarget}
                     baseRunId={selectedRun}
                     compareRunId={compareRun}
                   />
                 ) : (
                   <RunDetail
-                    cwd={cwd}
+                    repoTarget={repoTarget}
                     runId={selectedRun}
                   />
                 )}
@@ -359,13 +359,13 @@ function RunTable({
   selectedRun,
   compareRun,
   onSelectRun,
-  cwd,
+  repoTarget,
 }: {
   runs: GhWorkflowRun[];
   selectedRun: number | null;
   compareRun: number | null;
   onSelectRun: (id: number, shiftKey: boolean) => void;
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
 }) {
   return (
     <div className="divide-border divide-y">
@@ -376,7 +376,7 @@ function RunTable({
           isSelected={selectedRun === run.databaseId}
           isCompare={compareRun === run.databaseId}
           onSelect={(shiftKey) => onSelectRun(run.databaseId, shiftKey)}
-          cwd={cwd}
+          repoTarget={repoTarget}
         />
       ))}
     </div>
@@ -388,16 +388,16 @@ function RunRow({
   isSelected,
   isCompare,
   onSelect,
-  cwd,
+  repoTarget,
 }: {
   run: GhWorkflowRun;
   isSelected: boolean;
   isCompare: boolean;
   onSelect: (shiftKey: boolean) => void;
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
 }) {
   const rerunMutation = useMutation({
-    mutationFn: (args: { cwd: string; runId: number }) => ipc("workflows.rerunAll", args),
+    mutationFn: (runId: number) => ipc("workflows.rerunAll", { ...repoTarget, runId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workflows", "runs"] });
       toastManager.add({ title: "Re-run started", type: "success" });
@@ -408,7 +408,7 @@ function RunRow({
   });
 
   const cancelMutation = useMutation({
-    mutationFn: (args: { cwd: string; runId: number }) => ipc("workflows.cancel", args),
+    mutationFn: (runId: number) => ipc("workflows.cancel", { ...repoTarget, runId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workflows", "runs"] });
       toastManager.add({ title: "Run cancelled", type: "success" });
@@ -465,7 +465,7 @@ function RunRow({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    rerunMutation.mutate({ cwd, runId: run.databaseId });
+                    rerunMutation.mutate(run.databaseId);
                   }}
                   className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary cursor-pointer rounded-sm p-1"
                 >
@@ -491,7 +491,7 @@ function RunRow({
             title="Cancel workflow run?"
             description={`This will cancel "${run.displayTitle}". The run cannot be resumed once cancelled.`}
             confirmLabel="Cancel run"
-            onConfirm={() => cancelMutation.mutate({ cwd, runId: run.databaseId })}
+            onConfirm={() => cancelMutation.mutate(run.databaseId)}
           />
         )}
       </div>
@@ -541,10 +541,16 @@ function getStatusColor(status: string, conclusion: string | null): string {
 // Trigger button
 // ---------------------------------------------------------------------------
 
-function TriggerButton({ cwd, workflowId }: { cwd: string; workflowId: number }) {
+function TriggerButton({
+  repoTarget,
+  workflowId,
+}: {
+  repoTarget: import("@/shared/ipc").RepoTarget;
+  workflowId: number;
+}) {
   const triggerMutation = useMutation({
-    mutationFn: (args: { cwd: string; workflowId: string; ref: string }) =>
-      ipc("workflows.trigger", args),
+    mutationFn: (args: { workflowId: string; ref: string }) =>
+      ipc("workflows.trigger", { ...repoTarget, ...args }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workflows", "runs"] });
       toastManager.add({ title: "Workflow triggered", type: "success" });
@@ -561,7 +567,6 @@ function TriggerButton({ cwd, workflowId }: { cwd: string; workflowId: number })
       disabled={triggerMutation.isPending}
       onClick={() => {
         triggerMutation.mutate({
-          cwd,
           workflowId: String(workflowId),
           ref: "main",
         });

@@ -1,21 +1,27 @@
-import type { GhWorkflow, GhWorkflowJobGraph, GhWorkflowRun, GhWorkflowRunDetail } from "../../ipc";
+import type {
+  GhWorkflow,
+  GhWorkflowJobGraph,
+  GhWorkflowRun,
+  GhWorkflowRunDetail,
+  RepoTarget,
+} from "../../ipc";
 
 export interface WorkflowIpcApi {
-  "workflows.list": { args: { cwd: string }; result: GhWorkflow[] };
+  "workflows.list": { args: RepoTarget; result: GhWorkflow[] };
   "workflows.runs": {
-    args: { cwd: string; workflowId?: number; limit?: number };
+    args: RepoTarget & { workflowId?: number; limit?: number };
     result: GhWorkflowRun[];
   };
-  "workflows.runDetail": { args: { cwd: string; runId: number }; result: GhWorkflowRunDetail };
+  "workflows.runDetail": { args: RepoTarget & { runId: number }; result: GhWorkflowRunDetail };
   "workflows.trigger": {
-    args: { cwd: string; workflowId: string; ref: string; inputs?: Record<string, string> };
+    args: RepoTarget & { workflowId: string; ref: string; inputs?: Record<string, string> };
     result: void;
   };
-  "workflows.cancel": { args: { cwd: string; runId: number }; result: void };
-  "workflows.rerunAll": { args: { cwd: string; runId: number }; result: void };
-  "workflows.yaml": { args: { cwd: string; workflowId: string }; result: string };
+  "workflows.cancel": { args: RepoTarget & { runId: number }; result: void };
+  "workflows.rerunAll": { args: RepoTarget & { runId: number }; result: void };
+  "workflows.yaml": { args: RepoTarget & { workflowId: string }; result: string };
   "workflows.jobGraph": {
-    args: { cwd: string; workflowId: string };
+    args: RepoTarget & { workflowId: string };
     result: GhWorkflowJobGraph;
   };
 }

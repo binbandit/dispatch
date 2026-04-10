@@ -37,8 +37,8 @@ interface ReactionBarProps {
   prNumber: number;
 }
 
-export function ReactionBar({ reactions, subjectId, prNumber }: ReactionBarProps) {
-  const { cwd } = useWorkspace();
+export function ReactionBar({ reactions, subjectId }: ReactionBarProps) {
+  const { repoTarget } = useWorkspace();
   const [pickerOpen, setPickerOpen] = useState(false);
   const [optimistic, setOptimistic] = useState<
     Map<GhReactionContent, { count: number; viewerHasReacted: boolean }>
@@ -50,8 +50,8 @@ export function ReactionBar({ reactions, subjectId, prNumber }: ReactionBarProps
   const toggleMutation = useMutation({
     mutationFn: async (args: { content: GhReactionContent; removing: boolean }) => {
       await (args.removing
-        ? ipc("pr.removeReaction", { cwd, subjectId, content: args.content })
-        : ipc("pr.addReaction", { cwd, subjectId, content: args.content }));
+        ? ipc("pr.removeReaction", { ...repoTarget, subjectId, content: args.content })
+        : ipc("pr.addReaction", { ...repoTarget, subjectId, content: args.content }));
     },
     onMutate: (args) => {
       // Optimistic update
@@ -73,7 +73,7 @@ export function ReactionBar({ reactions, subjectId, prNumber }: ReactionBarProps
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["pr", "reactions", cwd, prNumber] });
+      queryClient.invalidateQueries({ queryKey: ["pr", "reactions"] });
     },
     onError: (err: Error) => {
       // Revert optimistic update

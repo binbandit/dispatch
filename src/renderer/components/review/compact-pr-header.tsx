@@ -30,7 +30,7 @@ interface CompactPrHeaderProps {
   isAuthor: boolean;
   panelOpen: boolean;
   onTogglePanel: () => void;
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
   totalAdditions: number;
   totalDeletions: number;
   showPanelToggle: boolean;
@@ -50,7 +50,7 @@ export function CompactPrHeader({
   onRefresh,
   canEdit,
 }: CompactPrHeaderProps) {
-  const { cwd } = useWorkspace();
+  const { repoTarget } = useWorkspace();
   const nameFormat = useDisplayNameFormat();
   const compactHeader = useMediaQuery({ max: 1160 });
   const denseHeader = useMediaQuery({ max: 940 });
@@ -60,7 +60,8 @@ export function CompactPrHeader({
   const completedLabel = getCompletedPullRequestLabel(pr.state);
 
   const titleMutation = useMutation({
-    mutationFn: (title: string) => ipc("pr.updateTitle", { cwd, prNumber: pr.number, title }),
+    mutationFn: (title: string) =>
+      ipc("pr.updateTitle", { ...repoTarget, prNumber: pr.number, title }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pr"] });
       setEditing(false);

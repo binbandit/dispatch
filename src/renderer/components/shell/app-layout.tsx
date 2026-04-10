@@ -67,9 +67,7 @@ function AppShell() {
   useEffect(() => {
     const { api } = globalThis as typeof globalThis & { api: ElectronApi };
     const cleanup = api.onNavigate((trayRoute) => {
-      if (trayRoute.workspacePath) {
-        switchWorkspace(trayRoute.workspacePath);
-      }
+      // Workspace switching from tray is handled via workspace.setActive in main process
       if (trayRoute.view === "settings") {
         navigate({ view: "settings" });
       } else if (trayRoute.view === "review" && trayRoute.prNumber) {

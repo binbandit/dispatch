@@ -15,6 +15,7 @@ import {
   listPrsEnrichment,
   listWorkflowRuns,
   rerunWorkflowRun,
+  submitReview,
   switchAccount,
   updatePrTitle,
 } from "./gh-cli";
@@ -397,11 +398,15 @@ describe("gh-cli caching", () => {
 
   it("creates left-side review comments for deleted lines", async () => {
     execFileMock
+      .mockResolvedValueOnce({ stdout: "OPEN\n", stderr: "" })
       .mockResolvedValueOnce({ stdout: "abc123def456\n", stderr: "" })
+      .mockRejectedValueOnce(new Error("repo view unavailable"))
       .mockResolvedValueOnce({ stdout: "", stderr: "" });
 
     await createReviewComment({
       cwd: "/repo-comments",
+      owner: "test-owner",
+      repo: "test-repo",
       prNumber: 42,
       body: "Comment on removed code",
       path: "src/removed.ts",
@@ -410,11 +415,11 @@ describe("gh-cli caching", () => {
     });
 
     expect(execFileMock).toHaveBeenNthCalledWith(
-      2,
+      4,
       "gh",
       expect.arrayContaining([
         "api",
-        "repos/{owner}/{repo}/pulls/42/comments",
+        "repos/test-owner/test-repo/pulls/42/comments",
         "-X",
         "POST",
         "-f",
@@ -426,6 +431,27 @@ describe("gh-cli caching", () => {
         "-f",
         "side=LEFT",
       ]),
+      expect.anything(),
+    );
+  });
+
+  it("rejects review submission for merged pull requests before invoking gh review", async () => {
+    execFileMock.mockResolvedValueOnce({ stdout: "MERGED\n", stderr: "" });
+
+    await expect(
+      submitReview({
+        cwd: "/repo-comments",
+        owner: "test-owner",
+        repo: "test-repo",
+        prNumber: 42,
+        event: "APPROVE",
+      }),
+    ).rejects.toThrow("Review actions are unavailable for closed or merged pull requests.");
+
+    expect(execFileMock.mock.calls).toHaveLength(1);
+    expect(execFileMock).toHaveBeenCalledWith(
+      "gh",
+      expect.arrayContaining(["pr", "view", "42", "--json", "state", "--jq", ".state"]),
       expect.anything(),
     );
   });

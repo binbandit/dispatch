@@ -11,19 +11,35 @@ import type {
 import { parse as parseYaml } from "yaml";
 
 import {
+  type RepoTarget,
   genericCache,
   getOrLoadCached,
   ghExec,
   invalidateWorkflowCaches,
   parseJsonOutput,
+  resolveRepoCwd,
 } from "./core";
 
-export async function getPrChecks(cwd: string, prNumber: number): Promise<GhCheckRun[]> {
+export async function getPrChecks(
+  cwdOrTarget: string | RepoTarget,
+  prNumber: number,
+): Promise<GhCheckRun[]> {
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
   let stdout: string;
   try {
     const result = await ghExec(
-      ["pr", "checks", String(prNumber), "--json", "name,state,bucket,link,startedAt,completedAt"],
-      { cwd },
+      [
+        ...resolved.repoFlag,
+        "pr",
+        "checks",
+        String(prNumber),
+        "--json",
+        "name,state,bucket,link,startedAt,completedAt",
+      ],
+      { cwd: resolved.cwd },
     );
     ({ stdout } = result);
   } catch (error) {
@@ -75,21 +91,41 @@ function mapBucketToConclusion(bucket: string): string | null {
   }
 }
 
-export async function getRunLogs(cwd: string, runId: number): Promise<string> {
-  const { stdout } = await ghExec(["run", "view", String(runId), "--log"], {
-    cwd,
+export async function getRunLogs(cwdOrTarget: string | RepoTarget, runId: number): Promise<string> {
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
+  const { stdout } = await ghExec([...resolved.repoFlag, "run", "view", String(runId), "--log"], {
+    cwd: resolved.cwd,
     timeout: 60_000,
   });
   return stdout;
 }
 
-export async function rerunFailedJobs(cwd: string, runId: number): Promise<void> {
-  await ghExec(["run", "rerun", String(runId), "--failed"], { cwd });
-  invalidateWorkflowCaches(cwd);
+export async function rerunFailedJobs(
+  cwdOrTarget: string | RepoTarget,
+  runId: number,
+): Promise<void> {
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
+  await ghExec([...resolved.repoFlag, "run", "rerun", String(runId), "--failed"], {
+    cwd: resolved.cwd,
+  });
+  invalidateWorkflowCaches(resolved.nwo);
 }
 
-export async function getCheckAnnotations(cwd: string, prNumber: number): Promise<GhAnnotation[]> {
-  const checks = await getPrChecks(cwd, prNumber);
+export async function getCheckAnnotations(
+  cwdOrTarget: string | RepoTarget,
+  prNumber: number,
+): Promise<GhAnnotation[]> {
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
+  const checks = await getPrChecks(cwdOrTarget, prNumber);
   const failingChecks = checks.filter((check) => check.conclusion === "failure");
 
   const annotationPromises = failingChecks.map(async (check) => {
@@ -101,8 +137,13 @@ export async function getCheckAnnotations(cwd: string, prNumber: number): Promis
 
     try {
       const { stdout } = await ghExec(
-        ["api", `repos/{owner}/{repo}/check-runs/${runId}/annotations`, "--paginate"],
-        { cwd, timeout: 15_000 },
+        [
+          ...resolved.repoFlag,
+          "api",
+          `repos/{owner}/{repo}/check-runs/${runId}/annotations`,
+          "--paginate",
+        ],
+        { cwd: resolved.cwd, timeout: 15_000 },
       );
       const parsed = parseJsonOutput<
         Array<{
@@ -132,15 +173,19 @@ export async function getCheckAnnotations(cwd: string, prNumber: number): Promis
   return results.flat();
 }
 
-export function listWorkflows(cwd: string): Promise<GhWorkflow[]> {
-  const key = `workflows::${cwd}`;
+export function listWorkflows(cwdOrTarget: string | RepoTarget): Promise<GhWorkflow[]> {
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
+  const key = `workflows::${resolved.nwo}`;
   return getOrLoadCached({
     cache: genericCache,
     key,
     loader: async () => {
       const { stdout } = await ghExec(
-        ["workflow", "list", "--json", "id,name,state", "--limit", "50"],
-        { cwd },
+        [...resolved.repoFlag, "workflow", "list", "--json", "id,name,state", "--limit", "50"],
+        { cwd: resolved.cwd },
       );
       return parseJsonOutput<GhWorkflow[]>(stdout);
     },
@@ -148,17 +193,22 @@ export function listWorkflows(cwd: string): Promise<GhWorkflow[]> {
 }
 
 export function listWorkflowRuns(
-  cwd: string,
+  cwdOrTarget: string | RepoTarget,
   workflowId?: number,
   limit = 20,
 ): Promise<GhWorkflowRun[]> {
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
   const effectiveLimit = Math.min(limit, 50);
-  const key = `workflowRuns::${cwd}::${workflowId ?? "all"}::${effectiveLimit}`;
+  const key = `workflowRuns::${resolved.nwo}::${workflowId ?? "all"}::${effectiveLimit}`;
   return getOrLoadCached({
     cache: genericCache,
     key,
     loader: async () => {
       const ghArgs = [
+        ...resolved.repoFlag,
         "run",
         "list",
         "--json",
@@ -169,59 +219,92 @@ export function listWorkflowRuns(
       if (workflowId) {
         ghArgs.push("--workflow", String(workflowId));
       }
-      const { stdout } = await ghExec(ghArgs, { cwd });
+      const { stdout } = await ghExec(ghArgs, { cwd: resolved.cwd });
       return parseJsonOutput<GhWorkflowRun[]>(stdout);
     },
   }) as Promise<GhWorkflowRun[]>;
 }
 
 export async function getWorkflowRunDetail(
-  cwd: string,
+  cwdOrTarget: string | RepoTarget,
   runId: number,
 ): Promise<GhWorkflowRunDetail> {
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
   const { stdout } = await ghExec(
     [
+      ...resolved.repoFlag,
       "run",
       "view",
       String(runId),
       "--json",
       "databaseId,displayTitle,name,status,conclusion,headBranch,headSha,createdAt,updatedAt,event,workflowName,workflowDatabaseId,jobs,attempt",
     ],
-    { cwd },
+    { cwd: resolved.cwd },
   );
   return parseJsonOutput<GhWorkflowRunDetail>(stdout);
 }
 
 export async function triggerWorkflow(args: {
-  cwd: string;
+  cwd: string | null;
+  owner: string;
+  repo: string;
   workflowId: string;
   ref: string;
   inputs?: Record<string, string>;
 }): Promise<void> {
-  const ghArgs = ["workflow", "run", args.workflowId, "--ref", args.ref];
+  const target: RepoTarget = { cwd: args.cwd, owner: args.owner, repo: args.repo };
+  const resolved = resolveRepoCwd(target);
+  const ghArgs = [...resolved.repoFlag, "workflow", "run", args.workflowId, "--ref", args.ref];
   if (args.inputs) {
     for (const [key, value] of Object.entries(args.inputs)) {
       ghArgs.push("-f", `${key}=${value}`);
     }
   }
-  await ghExec(ghArgs, { cwd: args.cwd, timeout: 15_000 });
-  invalidateWorkflowCaches(args.cwd);
+  await ghExec(ghArgs, { cwd: resolved.cwd, timeout: 15_000 });
+  invalidateWorkflowCaches(resolved.nwo);
 }
 
-export async function cancelWorkflowRun(cwd: string, runId: number): Promise<void> {
-  await ghExec(["run", "cancel", String(runId)], { cwd });
-  invalidateWorkflowCaches(cwd);
+export async function cancelWorkflowRun(
+  cwdOrTarget: string | RepoTarget,
+  runId: number,
+): Promise<void> {
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
+  await ghExec([...resolved.repoFlag, "run", "cancel", String(runId)], { cwd: resolved.cwd });
+  invalidateWorkflowCaches(resolved.nwo);
 }
 
-export async function rerunWorkflowRun(cwd: string, runId: number): Promise<void> {
-  await ghExec(["run", "rerun", String(runId)], { cwd });
-  invalidateWorkflowCaches(cwd);
+export async function rerunWorkflowRun(
+  cwdOrTarget: string | RepoTarget,
+  runId: number,
+): Promise<void> {
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
+  await ghExec([...resolved.repoFlag, "run", "rerun", String(runId)], { cwd: resolved.cwd });
+  invalidateWorkflowCaches(resolved.nwo);
 }
 
-export async function getWorkflowYaml(cwd: string, workflowId: string): Promise<string> {
-  const { stdout } = await ghExec(["workflow", "view", workflowId, "--yaml"], {
-    cwd,
-  });
+export async function getWorkflowYaml(
+  cwdOrTarget: string | RepoTarget,
+  workflowId: string,
+): Promise<string> {
+  const resolved =
+    typeof cwdOrTarget === "string"
+      ? { cwd: cwdOrTarget, repoFlag: [] as string[], nwo: cwdOrTarget }
+      : resolveRepoCwd(cwdOrTarget);
+  const { stdout } = await ghExec(
+    [...resolved.repoFlag, "workflow", "view", workflowId, "--yaml"],
+    {
+      cwd: resolved.cwd,
+    },
+  );
   return stdout;
 }
 
@@ -266,9 +349,9 @@ export function parseJobGraphFromYaml(yaml: string): GhWorkflowJobGraph {
  * dependency graph.
  */
 export async function getWorkflowJobGraph(
-  cwd: string,
+  cwdOrTarget: string | RepoTarget,
   workflowId: string,
 ): Promise<GhWorkflowJobGraph> {
-  const yaml = await getWorkflowYaml(cwd, workflowId);
+  const yaml = await getWorkflowYaml(cwdOrTarget, workflowId);
   return parseJobGraphFromYaml(yaml);
 }

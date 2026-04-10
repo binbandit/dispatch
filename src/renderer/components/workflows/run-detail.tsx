@@ -35,11 +35,11 @@ import { LogViewer } from "./log-viewer";
 type DetailViewMode = "list" | "graph";
 
 interface RunDetailProps {
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
   runId: number;
 }
 
-export function RunDetail({ cwd, runId }: RunDetailProps) {
+export function RunDetail({ repoTarget, runId }: RunDetailProps) {
   const [logSearch, setLogSearch] = useState("");
   const [matchIndex, setMatchIndex] = useState(0);
   const [matchCount, setMatchCount] = useState(0);
@@ -56,21 +56,22 @@ export function RunDetail({ cwd, runId }: RunDetailProps) {
   }
 
   const detailQuery = useQuery({
-    queryKey: ["workflows", "runDetail", cwd, runId],
-    queryFn: () => ipc("workflows.runDetail", { cwd, runId }),
+    queryKey: ["workflows", "runDetail", repoTarget.owner, repoTarget.repo, runId],
+    queryFn: () => ipc("workflows.runDetail", { ...repoTarget, runId }),
     refetchInterval: 10_000,
   });
 
   const workflowId = detailQuery.data?.workflowDatabaseId;
   const jobGraphQuery = useQuery({
-    queryKey: ["workflows", "jobGraph", cwd, workflowId],
-    queryFn: () => ipc("workflows.jobGraph", { cwd, workflowId: String(workflowId ?? "") }),
+    queryKey: ["workflows", "jobGraph", repoTarget.owner, repoTarget.repo, workflowId],
+    queryFn: () =>
+      ipc("workflows.jobGraph", { ...repoTarget, workflowId: String(workflowId ?? "") }),
     enabled: viewMode === "graph" && workflowId !== undefined,
     staleTime: 300_000,
   });
 
   const rerunMutation = useMutation({
-    mutationFn: () => ipc("workflows.rerunAll", { cwd, runId }),
+    mutationFn: () => ipc("workflows.rerunAll", { ...repoTarget, runId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workflows"] });
       toastManager.add({ title: "Re-run started", type: "success" });
@@ -78,7 +79,7 @@ export function RunDetail({ cwd, runId }: RunDetailProps) {
   });
 
   const rerunFailedMutation = useMutation({
-    mutationFn: () => ipc("checks.rerunFailed", { cwd, runId }),
+    mutationFn: () => ipc("checks.rerunFailed", { ...repoTarget, runId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workflows"] });
       toastManager.add({ title: "Failed jobs re-running", type: "success" });
@@ -192,7 +193,7 @@ export function RunDetail({ cwd, runId }: RunDetailProps) {
         {hasFailed && (
           <AiFailureExplainer
             checkName={buildFailureExplanationLabel(run)}
-            cwd={cwd}
+            repoTarget={repoTarget}
             runId={runId}
           />
         )}
@@ -275,7 +276,7 @@ export function RunDetail({ cwd, runId }: RunDetailProps) {
           <JobRow
             key={job.name}
             job={job}
-            cwd={cwd}
+            repoTarget={repoTarget}
             runId={runId}
             searchQuery={logSearch}
             activeMatchIndex={matchIndex}
@@ -364,14 +365,14 @@ function GanttTimeline({ jobs }: { jobs: GhWorkflowRunJob[] }) {
 
 function JobRow({
   job,
-  cwd,
+  repoTarget,
   runId,
   searchQuery,
   activeMatchIndex,
   onMatchCountChange,
 }: {
   job: GhWorkflowRunJob;
-  cwd: string;
+  repoTarget: import("@/shared/ipc").RepoTarget;
   runId: number;
   searchQuery: string;
   activeMatchIndex: number;
@@ -435,7 +436,7 @@ function JobRow({
           {/* Logs */}
           <div className="mt-2 pl-6">
             <LogViewer
-              cwd={cwd}
+              repoTarget={repoTarget}
               runId={runId}
               searchQuery={searchQuery}
               activeMatchIndex={activeMatchIndex}
