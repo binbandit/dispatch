@@ -1,4 +1,4 @@
-import type { GhWorkflowJobGraphNode, GhWorkflowRunJob } from "@/shared/ipc";
+import type { GhWorkflowJobGraphNode, GhWorkflowRunJob, RepoTarget } from "@/shared/ipc";
 
 import { Spinner } from "@/components/ui/spinner";
 import { ipc } from "@/renderer/lib/app/ipc";
@@ -41,7 +41,7 @@ const PADDING_Y = 28;
 // ---------------------------------------------------------------------------
 
 interface WorkflowFlowchartProps {
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
   workflowId: string | null;
   jobs: GhWorkflowRunJob[];
 }
@@ -242,8 +242,8 @@ function computeLayout(
   }
 
   // Build runtime lookup maps. GitHub Actions job names in the runtime API
-  // often differ from the YAML job IDs (the YAML key is "build" but the run
-  // shows "Build"), so we try exact → case-insensitive → substring.
+  // Often differ from the YAML job IDs (the YAML key is "build" but the run
+  // Shows "Build"), so we try exact → case-insensitive → substring.
   const runtimeByName = new Map<string, GhWorkflowRunJob>();
   const runtimeByLower = new Map<string, GhWorkflowRunJob>();
   for (const runtimeJob of runtimeJobs) {

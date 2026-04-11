@@ -186,7 +186,7 @@ function resolveSizeBucket(pr: GhPrListItemCore): PrSizeBucket | null {
 function createSearchIndex(item: SearchablePrItem): SearchIndex {
   return {
     authorTerms: [item.pr.author.login, item.pr.author.name ?? ""]
-      .map(normalizeSearchValue)
+      .map((term) => normalizeSearchValue(term))
       .filter(Boolean),
     base: normalizeSearchValue(item.pr.baseRefName),
     branches: [

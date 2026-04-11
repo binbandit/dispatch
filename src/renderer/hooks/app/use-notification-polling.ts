@@ -7,25 +7,25 @@ import { summarizePrChecks } from "@/renderer/lib/review/pr-check-status";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 
-type AllReviewPr = GhPrListItemCore & {
+interface AllReviewPr extends GhPrListItemCore {
   workspace: string;
   workspacePath: string | null;
   pullRequestRepository: string;
-};
+}
 
-type AllReviewPrEnrichment = GhPrEnrichment & {
+interface AllReviewPrEnrichment extends GhPrEnrichment {
   workspacePath: string | null;
   pullRequestRepository: string;
-};
+}
 
-type NotificationInput = {
+interface NotificationInput {
   type: "review" | "ci-fail" | "approve" | "merge";
   title: string;
   body: string;
   prNumber: number;
   workspace: string;
   authorLogin?: string;
-};
+}
 
 function getPrNotificationKey(pr: { pullRequestRepository: string; number: number }): string {
   return `${pr.pullRequestRepository}::${pr.number}`;
@@ -186,23 +186,21 @@ export function useNotificationPolling(): void {
 
     for (const [key, pr] of reviewEnrichmentByKey) {
       const corePr = reviewByKey.get(key);
-      if (!corePr) {
-        continue;
-      }
+      if (corePr) {
+        const wasFailing = previousReviewEnrichment.current.get(key);
+        const isFailing = isCiFailing(pr);
+        const previouslyFailing = wasFailing ? isCiFailing(wasFailing) : false;
 
-      const wasFailing = previousReviewEnrichment.current.get(key);
-      const isFailing = isCiFailing(pr);
-      const previouslyFailing = wasFailing ? isCiFailing(wasFailing) : false;
-
-      if (isFailing && !previouslyFailing) {
-        showNotification({
-          type: "ci-fail",
-          title: "CI checks failed",
-          body: `#${corePr.number} ${corePr.title} by ${corePr.author.login}`,
-          prNumber: corePr.number,
-          workspace: getNotificationWorkspace(corePr, nwo),
-          authorLogin: corePr.author.login,
-        });
+        if (isFailing && !previouslyFailing) {
+          showNotification({
+            type: "ci-fail",
+            title: "CI checks failed",
+            body: `#${corePr.number} ${corePr.title} by ${corePr.author.login}`,
+            prNumber: corePr.number,
+            workspace: getNotificationWorkspace(corePr, nwo),
+            authorLogin: corePr.author.login,
+          });
+        }
       }
     }
 

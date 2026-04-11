@@ -1,3 +1,4 @@
+/* eslint-disable import/max-dependencies -- This popover is a small composition root for notifications, routing, and workspace switching. */
 import type { Workspace } from "@/shared/ipc";
 
 import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";

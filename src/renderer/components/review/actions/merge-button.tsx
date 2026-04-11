@@ -1,4 +1,7 @@
+/* eslint-disable import/max-dependencies -- This component intentionally composes merge state, queue status, and action affordances in one surface. */
 /* eslint-disable no-negated-condition -- The merge CTA variants are clearer when expressed from the disabled and blocked states first. */
+import type { RepoTarget } from "@/shared/ipc";
+
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
@@ -31,7 +34,7 @@ export function MergeButton({
   canAdmin,
   hasMergeQueue,
 }: {
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
   prNumber: number;
   pr: {
     reviewDecision: string;

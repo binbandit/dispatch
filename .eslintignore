@@ -1,0 +1,5 @@
+better-hub/
+dist/
+dist-electron/
+out/
+coverage/

@@ -100,7 +100,7 @@ function ProfileContent({ login }: { login: string }) {
         )}
         {profile.location && <MetaItem icon={MapPin}>{profile.location}</MetaItem>}
         <MetaItem icon={Users}>
-          {profile.followers} follower{profile.followers !== 1 ? "s" : ""}
+          {profile.followers} follower{profile.followers === 1 ? "" : "s"}
         </MetaItem>
         <MetaItem icon={Calendar}>{formatAge(profile.createdAt)}</MetaItem>
       </div>

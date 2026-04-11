@@ -304,8 +304,7 @@ describe("MergeButton - Admin behavior with auto-merge already enabled", () => {
       }),
     });
 
-    const buttons = screen.getAllByRole("button");
-    const chevronButton = buttons[1];
+    const [, chevronButton] = screen.getAllByRole("button");
     if (!chevronButton) {
       throw new Error("Chevron button not found");
     }

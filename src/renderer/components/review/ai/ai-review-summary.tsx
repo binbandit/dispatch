@@ -1,3 +1,4 @@
+/* eslint-disable import/max-dependencies -- This card orchestrates AI state, cached data, and rendering concerns in one review summary surface. */
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";

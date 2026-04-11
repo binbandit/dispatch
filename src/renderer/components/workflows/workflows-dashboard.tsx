@@ -1,5 +1,5 @@
 /* eslint-disable import/max-dependencies -- This screen is a top-level dashboard composition. */
-import type { GhWorkflowRun } from "@/shared/ipc";
+import type { GhWorkflowRun, RepoTarget } from "@/shared/ipc";
 
 import { Button } from "@/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
@@ -365,7 +365,7 @@ function RunTable({
   selectedRun: number | null;
   compareRun: number | null;
   onSelectRun: (id: number, shiftKey: boolean) => void;
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
 }) {
   return (
     <div className="divide-border divide-y">
@@ -394,7 +394,7 @@ function RunRow({
   isSelected: boolean;
   isCompare: boolean;
   onSelect: (shiftKey: boolean) => void;
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
 }) {
   const rerunMutation = useMutation({
     mutationFn: (runId: number) => ipc("workflows.rerunAll", { ...repoTarget, runId }),
@@ -541,13 +541,7 @@ function getStatusColor(status: string, conclusion: string | null): string {
 // Trigger button
 // ---------------------------------------------------------------------------
 
-function TriggerButton({
-  repoTarget,
-  workflowId,
-}: {
-  repoTarget: import("@/shared/ipc").RepoTarget;
-  workflowId: number;
-}) {
+function TriggerButton({ repoTarget, workflowId }: { repoTarget: RepoTarget; workflowId: number }) {
   const triggerMutation = useMutation({
     mutationFn: (args: { workflowId: string; ref: string }) =>
       ipc("workflows.trigger", { ...repoTarget, ...args }),

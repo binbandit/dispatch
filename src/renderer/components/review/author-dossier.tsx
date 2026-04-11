@@ -136,10 +136,10 @@ export function AuthorDossier({ login, author, createdAt }: AuthorDossierProps) 
             )}
             {profile.location && <MetaItem icon={MapPin}>{profile.location}</MetaItem>}
             <MetaItem icon={Users}>
-              {profile.followers} follower{profile.followers !== 1 ? "s" : ""}
+              {profile.followers} follower{profile.followers === 1 ? "" : "s"}
             </MetaItem>
             <MetaItem icon={GitPullRequest}>
-              {profile.publicRepos} repo{profile.publicRepos !== 1 ? "s" : ""}
+              {profile.publicRepos} repo{profile.publicRepos === 1 ? "" : "s"}
             </MetaItem>
             <MetaItem icon={Calendar}>Joined {formatAccountAge(profile.createdAt)}</MetaItem>
           </div>
@@ -243,5 +243,5 @@ function formatAccountAge(createdAt: string): string {
   if (years < 1) {
     return "< 1 year ago";
   }
-  return `${years} year${years !== 1 ? "s" : ""} ago`;
+  return `${years} year${years === 1 ? "" : "s"} ago`;
 }

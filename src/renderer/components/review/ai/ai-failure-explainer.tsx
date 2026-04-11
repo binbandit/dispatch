@@ -1,3 +1,5 @@
+import type { RepoTarget } from "@/shared/ipc";
+
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useAiTaskConfig } from "@/renderer/hooks/ai/use-ai-task-config";
@@ -8,7 +10,7 @@ import { useState } from "react";
 
 interface AiFailureExplainerProps {
   checkName: string;
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
   runId: number;
 }
 

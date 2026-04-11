@@ -1,5 +1,5 @@
 /* eslint-disable import/max-dependencies -- The side panel is an intentional composition root for PR detail tabs. */
-import type { GhPrDetail, GhPrReactions, GhReviewThread } from "@/shared/ipc";
+import type { GhPrDetail, GhPrReactions, GhReviewThread, RepoTarget } from "@/shared/ipc";
 
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
@@ -76,7 +76,7 @@ export function SidePanelOverlay({
     <div
       className="bg-bg-surface flex shrink-0 flex-col"
       style={{
-        width: width != null ? `${width}px` : "min(380px, 45%)",
+        width: width === undefined ? "min(380px, 45%)" : `${width}px`,
         borderLeft: "1px solid var(--border)",
       }}
     >
@@ -98,10 +98,16 @@ export function SidePanelOverlay({
             const idx = tabs.indexOf(activeTab);
             if (e.key === "ArrowRight") {
               e.preventDefault();
-              setActiveTab(tabs[(idx + 1) % tabs.length]!);
+              const nextTab = tabs.at((idx + 1) % tabs.length);
+              if (nextTab) {
+                setActiveTab(nextTab);
+              }
             } else if (e.key === "ArrowLeft") {
               e.preventDefault();
-              setActiveTab(tabs[(idx - 1 + tabs.length) % tabs.length]!);
+              const previousTab = tabs.at((idx - 1 + tabs.length) % tabs.length);
+              if (previousTab) {
+                setActiveTab(previousTab);
+              }
             }
           }}
         >
@@ -574,7 +580,7 @@ function LabelSection({
   prNumber,
   labels,
 }: {
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
   prNumber: number;
   labels: Array<{ name: string; color: string }>;
 }) {
@@ -675,7 +681,7 @@ function LabelPicker({
   currentLabels,
   onClose,
 }: {
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
   prNumber: number;
   currentLabels: string[];
   onClose: () => void;

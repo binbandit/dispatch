@@ -1,4 +1,4 @@
-import type { GhWorkflowRunDetail, GhWorkflowRunJob } from "@/shared/ipc";
+import type { GhWorkflowRunDetail, GhWorkflowRunJob, RepoTarget } from "@/shared/ipc";
 
 import { Spinner } from "@/components/ui/spinner";
 import { ipc } from "@/renderer/lib/app/ipc";
@@ -16,7 +16,7 @@ import { useMemo } from "react";
  */
 
 interface RunComparisonProps {
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
   baseRunId: number;
   compareRunId: number;
 }

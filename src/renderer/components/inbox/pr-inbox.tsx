@@ -309,14 +309,18 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
             const idx = tabs.indexOf(activeFilter);
             if (e.key === "ArrowRight" || e.key === "ArrowDown") {
               e.preventDefault();
-              const next = tabs[(idx + 1) % tabs.length]!;
-              setActiveFilter(next);
-              setFocusIndex(0);
+              const next = tabs.at((idx + 1) % tabs.length);
+              if (next) {
+                setActiveFilter(next);
+                setFocusIndex(0);
+              }
             } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
               e.preventDefault();
-              const prev = tabs[(idx - 1 + tabs.length) % tabs.length]!;
-              setActiveFilter(prev);
-              setFocusIndex(0);
+              const prev = tabs.at((idx - 1 + tabs.length) % tabs.length);
+              if (prev) {
+                setActiveFilter(prev);
+                setFocusIndex(0);
+              }
             }
           }}
         >

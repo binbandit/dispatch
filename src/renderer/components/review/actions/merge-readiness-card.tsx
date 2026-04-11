@@ -1,3 +1,5 @@
+import type { RepoTarget } from "@/shared/ipc";
+
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { ipc } from "@/renderer/lib/app/ipc";
@@ -18,7 +20,7 @@ interface MergeReadinessCardProps {
   noConflicts: boolean;
   hasChecks: boolean;
   isBehind: boolean;
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
   prNumber: number;
 }
 

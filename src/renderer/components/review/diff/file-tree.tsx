@@ -352,27 +352,50 @@ export function FileTree({
       if (visibleNodes.length === 0) {
         return;
       }
+
+      const focusVisibleNode = (index: number) => {
+        const node = visibleNodes.at(index);
+        if (!node) {
+          return;
+        }
+
+        setFocusedPath(node.path);
+        treeContainerRef.current
+          ?.querySelector(`[data-tree-path="${CSS.escape(node.path)}"]`)
+          ?.scrollIntoView({ block: "nearest" });
+      };
+
       const currentIndex = focusedPath ? visibleNodes.findIndex((n) => n.path === focusedPath) : -1;
       const current = currentIndex >= 0 ? visibleNodes[currentIndex] : null;
+      const focusParentDirectory = () => {
+        if (currentIndex <= 0) {
+          return;
+        }
+
+        const parts = (current?.path ?? "").split("/");
+        if (parts.length <= 1) {
+          return;
+        }
+
+        const parentPath = parts.slice(0, -1).join("/");
+        const parentIdx = visibleNodes.findIndex((node) => node.path === parentPath);
+        const parentNode = parentIdx === -1 ? undefined : visibleNodes.at(parentIdx);
+        if (parentNode) {
+          setFocusedPath(parentNode.path);
+        }
+      };
 
       switch (e.key) {
         case "ArrowDown": {
           e.preventDefault();
           const next = Math.min(currentIndex + 1, visibleNodes.length - 1);
-          setFocusedPath(visibleNodes[next]!.path);
-          // Scroll into view
-          treeContainerRef.current
-            ?.querySelector(`[data-tree-path="${CSS.escape(visibleNodes[next]!.path)}"]`)
-            ?.scrollIntoView({ block: "nearest" });
+          focusVisibleNode(next);
           break;
         }
         case "ArrowUp": {
           e.preventDefault();
           const prev = Math.max(currentIndex <= 0 ? 0 : currentIndex - 1, 0);
-          setFocusedPath(visibleNodes[prev]!.path);
-          treeContainerRef.current
-            ?.querySelector(`[data-tree-path="${CSS.escape(visibleNodes[prev]!.path)}"]`)
-            ?.scrollIntoView({ block: "nearest" });
+          focusVisibleNode(prev);
           break;
         }
         case "ArrowRight": {
@@ -381,7 +404,10 @@ export function FileTree({
             toggleExpand(current.path);
           } else if (current?.type === "dir" && current.children?.length) {
             // Already expanded — move focus to first child
-            setFocusedPath(current.children[0]!.path);
+            const [firstChild] = current.children;
+            if (firstChild) {
+              setFocusedPath(firstChild.path);
+            }
           }
           break;
         }
@@ -389,16 +415,9 @@ export function FileTree({
           e.preventDefault();
           if (current?.type === "dir" && expandedPaths.has(current.path)) {
             toggleExpand(current.path);
-          } else if (currentIndex > 0) {
+          } else {
             // Move to parent dir (find nearest ancestor dir)
-            const parts = (current?.path ?? "").split("/");
-            if (parts.length > 1) {
-              const parentPath = parts.slice(0, -1).join("/");
-              const parentIdx = visibleNodes.findIndex((n) => n.path === parentPath);
-              if (parentIdx >= 0) {
-                setFocusedPath(visibleNodes[parentIdx]!.path);
-              }
-            }
+            focusParentDirectory();
           }
           break;
         }
@@ -411,8 +430,9 @@ export function FileTree({
           }
           break;
         }
-        default:
-          return;
+        default: {
+          break;
+        }
       }
     },
     [visibleNodes, focusedPath, expandedPaths, toggleExpand, selectFile],
@@ -444,7 +464,10 @@ export function FileTree({
         onKeyDown={handleTreeKeyDown}
         onFocus={() => {
           if (!focusedPath && visibleNodes.length > 0) {
-            setFocusedPath(visibleNodes[0]!.path);
+            const [firstNode] = visibleNodes;
+            if (firstNode) {
+              setFocusedPath(firstNode.path);
+            }
           }
         }}
       >

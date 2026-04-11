@@ -1,5 +1,5 @@
 /* eslint-disable import/max-dependencies -- This header intentionally composes several small review controls. */
-import type { GhPrDetail } from "@/shared/ipc";
+import type { GhPrDetail, RepoTarget } from "@/shared/ipc";
 
 import { toastManager } from "@/components/ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
@@ -30,7 +30,7 @@ interface CompactPrHeaderProps {
   isAuthor: boolean;
   panelOpen: boolean;
   onTogglePanel: () => void;
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
   totalAdditions: number;
   totalDeletions: number;
   showPanelToggle: boolean;

@@ -1,4 +1,4 @@
-import type { GhPrDetail } from "@/shared/ipc";
+import type { GhPrDetail, RepoTarget } from "@/shared/ipc";
 
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
@@ -22,7 +22,7 @@ export function EditablePrTitle({
   title,
 }: {
   canEdit: boolean;
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
   nwo: string;
   prNumber: number;
   title: string;

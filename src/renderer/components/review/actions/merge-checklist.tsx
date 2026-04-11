@@ -1,3 +1,5 @@
+import type { RepoTarget } from "@/shared/ipc";
+
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { ipc } from "@/renderer/lib/app/ipc";
@@ -28,7 +30,7 @@ export function MergeChecklist({
       mergeMethod: string;
     } | null;
   };
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
   prNumber: number;
 }) {
   const hasApproval = pr.reviewDecision === "APPROVED";

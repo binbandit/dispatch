@@ -176,18 +176,17 @@ function extractLooseJsonStringField(raw: string, key: string): string | null {
         value += raw[index];
         index += 1;
       }
-      continue;
-    }
-
-    if (character === '"') {
-      const remainder = raw.slice(index + 1).trimStart();
-      if (remainder.startsWith("}") || remainder.startsWith(",")) {
-        return decodeLooseJsonString(value).trim();
+    } else {
+      if (character === '"') {
+        const remainder = raw.slice(index + 1).trimStart();
+        if (remainder.startsWith("}") || remainder.startsWith(",")) {
+          return decodeLooseJsonString(value).trim();
+        }
       }
-    }
 
-    value += character;
-    index += 1;
+      value += character;
+      index += 1;
+    }
   }
 
   return null;

@@ -1,3 +1,6 @@
+/* eslint-disable import/max-dependencies -- This panel intentionally combines run actions, live status, logs, and AI explanation affordances. */
+import type { RepoTarget } from "@/shared/ipc";
+
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { AiFailureExplainer } from "@/renderer/components/review/ai/ai-failure-explainer";
@@ -161,13 +164,7 @@ export function ChecksPanel({ prNumber }: ChecksPanelProps) {
   );
 }
 
-function RerunButton({
-  repoTarget,
-  runId,
-}: {
-  repoTarget: import("@/shared/ipc").RepoTarget;
-  runId: number;
-}) {
+function RerunButton({ repoTarget, runId }: { repoTarget: RepoTarget; runId: number }) {
   const rerunMutation = useMutation({
     mutationFn: () => ipc("checks.rerunFailed", { ...repoTarget, runId }),
     onSuccess: () => {
