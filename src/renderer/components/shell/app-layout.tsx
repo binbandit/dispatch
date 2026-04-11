@@ -116,7 +116,7 @@ interface AppShellProps {
 }
 
 function AppShell({ resumeState, resumeReady, initialFileNavState }: AppShellProps) {
-  const { route, navigate } = useRouter();
+  const { route, navigate, toggleSettings } = useRouter();
   const { nwo } = useWorkspace();
   const { getBinding } = useKeybindings();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -141,6 +141,7 @@ function AppShell({ resumeState, resumeReady, initialFileNavState }: AppShellPro
     { ...getBinding("views.workflows"), handler: () => navigate({ view: "workflows" }) },
     { ...getBinding("views.metrics"), handler: () => navigate({ view: "metrics" }) },
     { ...getBinding("views.releases"), handler: () => navigate({ view: "releases" }) },
+    { ...getBinding("views.settings"), handler: toggleSettings },
   ]);
   useNotificationPolling();
 

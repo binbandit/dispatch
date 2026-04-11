@@ -326,6 +326,7 @@ describe("shortcut categories", () => {
     expect(ids).toContain("views.workflows");
     expect(ids).toContain("views.metrics");
     expect(ids).toContain("views.releases");
+    expect(ids).toContain("views.settings");
   });
 });
 

@@ -83,6 +83,13 @@ export const DEFAULT_KEYBINDINGS: ShortcutDefinition[] = [
   { id: "views.metrics", key: "3", label: "Metrics", category: "Views" },
   { id: "views.releases", key: "4", label: "Releases", category: "Views" },
   { id: "views.shortcuts", key: "?", label: "Keyboard shortcuts", category: "Views" },
+  {
+    id: "views.settings",
+    key: ",",
+    modifiers: ["meta"],
+    label: "Settings",
+    category: "Views",
+  },
 ];
 
 export const DEFAULT_KEYBINDINGS_MAP = new Map(DEFAULT_KEYBINDINGS.map((def) => [def.id, def]));
