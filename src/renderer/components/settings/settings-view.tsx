@@ -326,18 +326,19 @@ export function SettingsView() {
       {/* Side navigation */}
       <nav className="border-border flex w-[200px] shrink-0 flex-col border-r py-6">
         <div className="px-5">
-          <div className="mb-2 flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={toggleSettings}
-              className="bg-bg-root text-text-tertiary hover:text-text-primary hover:bg-bg-raised inline-flex h-7 w-7 items-center justify-center rounded-md border border-transparent transition-all duration-[--duration-fast] cursor-pointer"
-              aria-label="Back to previous screen"
-              title="Back to previous screen"
-            >
-              <ArrowLeft size={14} />
-            </button>
-            <h1 className="font-heading text-text-primary text-2xl font-bold italic">Settings</h1>
-          </div>
+          <button
+            type="button"
+            onClick={toggleSettings}
+            className="group mb-2.5 flex cursor-pointer items-center gap-1.5 text-[10px] font-semibold tracking-[0.06em] text-[--text-tertiary] uppercase transition-colors duration-[--duration-fast] hover:text-[--accent-text]"
+            aria-label="Back to previous screen"
+          >
+            <ArrowLeft
+              size={11}
+              className="transition-transform duration-[--duration-fast] group-hover:-translate-x-0.5"
+            />
+            Back
+          </button>
+          <h1 className="font-heading text-text-primary text-2xl font-bold italic">Settings</h1>
         </div>
         <div className="mt-4 flex flex-col gap-0.5 px-2">
           {navSections.map(({ id, label, icon: Icon }) => (
