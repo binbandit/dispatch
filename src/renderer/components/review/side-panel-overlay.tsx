@@ -43,6 +43,8 @@ interface SidePanelOverlayProps {
   reviewThreads?: GhReviewThread[];
   reactions?: GhPrReactions;
   canEdit?: boolean;
+  /** Panel width in pixels. When provided, overrides the default fixed width. */
+  width?: number;
 }
 
 export function SidePanelOverlay({
@@ -59,6 +61,7 @@ export function SidePanelOverlay({
   reviewThreads,
   reactions,
   canEdit,
+  width,
 }: SidePanelOverlayProps) {
   const setActiveTab = onTabChange;
 
@@ -70,7 +73,7 @@ export function SidePanelOverlay({
     <div
       className="bg-bg-surface flex shrink-0 flex-col"
       style={{
-        width: "min(380px, 45%)",
+        width: width != null ? `${width}px` : "min(380px, 45%)",
         borderLeft: "1px solid var(--border)",
       }}
     >

@@ -15,6 +15,7 @@ import {
 } from "@/renderer/components/review/diff/diff-viewer";
 import { EmptyState } from "@/renderer/components/shared/empty-state";
 import { PrDetailSkeleton } from "@/renderer/components/shared/loading-skeletons";
+import { ResizeHandle } from "@/renderer/components/shared/resize-handle";
 import { useAiSuggestions } from "@/renderer/hooks/ai/use-ai-suggestions";
 import { useKeyboardShortcuts } from "@/renderer/hooks/app/use-keyboard-shortcuts";
 import { isAiEnabledPreference, usePreference } from "@/renderer/hooks/preferences/use-preference";
@@ -54,6 +55,10 @@ interface PrDetailViewProps {
 }
 
 const FLOATING_REVIEW_BAR_CLEARANCE = 96;
+const PANEL_DEFAULT_WIDTH = 380;
+const PANEL_MIN_WIDTH = 280;
+const PANEL_MAX_RATIO = 0.5;
+const PANEL_WIDTH_KEY = "dispatch-panel-width";
 
 export function PrDetailView({ prNumber }: PrDetailViewProps) {
   if (!prNumber) {
@@ -94,6 +99,30 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const setViewMode = setViewModeOverride;
   const showFullFile = viewMode === "full-file";
   const [activeComposer, setActiveComposer] = useState<CommentRange | null>(null);
+
+  // Resizable side panel
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const stored = sessionStorage.getItem(PANEL_WIDTH_KEY);
+    return stored ? Number(stored) : PANEL_DEFAULT_WIDTH;
+  });
+  const splitContainerRef = useRef<HTMLDivElement>(null);
+  const handlePanelResize = useCallback((clientX: number) => {
+    const container = splitContainerRef.current;
+    if (!container) {
+      return;
+    }
+    const rect = container.getBoundingClientRect();
+    const maxWidth = Math.floor(rect.width * PANEL_MAX_RATIO);
+    const newWidth = Math.round(
+      Math.min(maxWidth, Math.max(PANEL_MIN_WIDTH, rect.right - clientX)),
+    );
+    setPanelWidth(newWidth);
+    sessionStorage.setItem(PANEL_WIDTH_KEY, String(newWidth));
+  }, []);
+  const handlePanelResetWidth = useCallback(() => {
+    setPanelWidth(PANEL_DEFAULT_WIDTH);
+    sessionStorage.setItem(PANEL_WIDTH_KEY, String(PANEL_DEFAULT_WIDTH));
+  }, []);
 
   const highlighter = useSyntaxHighlighter();
 
@@ -692,7 +721,10 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       )}
 
       {/* Diff viewer area (relative for overlay positioning) */}
-      <div className="relative flex flex-1 overflow-hidden">
+      <div
+        ref={splitContainerRef}
+        className="relative flex flex-1 overflow-hidden"
+      >
         <div className="flex flex-1 flex-col overflow-hidden">
           <DiffToolbar
             currentFile={currentFile}
@@ -764,7 +796,13 @@ function PrDetail({ prNumber }: { prNumber: number }) {
           )}
         </div>
 
-        {/* Side panel overlay (380px, slides from right) */}
+        {/* Resize handle + Side panel */}
+        {panelOpen && (
+          <ResizeHandle
+            onResize={handlePanelResize}
+            onDoubleClick={handlePanelResetWidth}
+          />
+        )}
         <SidePanelOverlay
           open={panelOpen}
           onClose={() => setPanelOpen(false)}
@@ -780,6 +818,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
           reviewThreads={reviewThreadsQuery.data}
           reactions={reactionsQuery.data}
           canEdit={canPush}
+          width={panelWidth}
         />
 
         {/* Floating review bar — hidden when viewing a specific commit */}
