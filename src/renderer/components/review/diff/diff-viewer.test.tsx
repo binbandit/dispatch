@@ -1,5 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import type { AiSuggestion } from "@/renderer/lib/review/ai-suggestions";
+import type { Highlighter } from "shiki";
 
 import { DiffViewer } from "@/renderer/components/review/diff/diff-viewer";
 import { parseDiff } from "@/renderer/lib/review/diff-parser";
@@ -51,6 +52,28 @@ export function alpha() {
   return "new alpha";
 }
 const after = true;`;
+
+const WORD_DIFF_RENDER_DIFF = `diff --git a/src/counts.ts b/src/counts.ts
+index abc1234..def5678 100644
+--- a/src/counts.ts
++++ b/src/counts.ts
+@@ -1,3 +1,3 @@
+ export function totalCount(count: number) {
+-  return oldCount + count;
++  return newCount + count;
+ }`;
+
+const SHIFTED_PAIR_DIFF = `diff --git a/src/review.ts b/src/review.ts
+index abc1234..def5678 100644
+--- a/src/review.ts
++++ b/src/review.ts
+@@ -10,3 +10,4 @@
+-const status = "draft";
+-const count = items.length;
++const header = createHeader();
++const status = "published";
++const itemCount = items.length;
+ console.log("done");`;
 
 describe("DiffViewer", () => {
   beforeEach(() => {
@@ -191,5 +214,56 @@ describe("DiffViewer", () => {
     );
 
     expect(screen.getByText("Handle the renamed return path")).toBeInTheDocument();
+  });
+
+  it("keeps word-level highlights when syntax tokens are present", () => {
+    const file = parseDiff(WORD_DIFF_RENDER_DIFF)[0]!;
+    const highlighter = {
+      getLoadedLanguages: () => ["typescript"],
+      codeToTokens: (content: string) => ({
+        tokens: [[{ content, color: "rgb(16, 32, 48)" }]],
+      }),
+    } as unknown as Highlighter;
+
+    render(
+      <DiffViewer
+        file={file}
+        highlighter={highlighter}
+        language="typescript"
+      />,
+    );
+
+    const removedWord = screen.getByText("old");
+    const addedWord = screen.getByText("new");
+
+    expect(removedWord).toHaveClass("bg-diff-del-word");
+    expect(addedWord).toHaveClass("bg-diff-add-word");
+    expect(removedWord).toHaveStyle({ color: "rgb(16, 32, 48)" });
+    expect(addedWord).toHaveStyle({ color: "rgb(16, 32, 48)" });
+  });
+
+  it("keeps split rows aligned when inserted lines shift an add/delete run", () => {
+    const file = parseDiff(SHIFTED_PAIR_DIFF)[0]!;
+
+    render(
+      <DiffViewer
+        file={file}
+        diffMode="split"
+      />,
+    );
+
+    const insertedHeaderRow = screen.getByText("const header = createHeader();").closest("tr");
+    const statusRow = screen
+      .getByText((_, element) => element?.textContent === 'const status = "published";')
+      .closest("tr");
+    const itemCountRow = screen
+      .getByText((_, element) => element?.textContent === "const itemCount = items.length;")
+      .closest("tr");
+
+    expect(insertedHeaderRow?.textContent).not.toContain('const status = "draft";');
+    expect(statusRow?.textContent).toContain('const status = "draft";');
+    expect(statusRow?.textContent).toContain('const status = "published";');
+    expect(itemCountRow?.textContent).toContain("const count = items.length;");
+    expect(itemCountRow?.textContent).toContain("const itemCount = items.length;");
   });
 });

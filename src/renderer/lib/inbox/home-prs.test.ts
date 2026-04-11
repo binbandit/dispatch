@@ -1,5 +1,6 @@
 import {
   categorizeHomePrs,
+  filterHomePrSections,
   getDashboardPrKey,
   preferWorkspacePrs,
   type EnrichedDashboardPr,
@@ -144,6 +145,7 @@ describe("categorizeHomePrs", () => {
       number: 101,
       workspacePath: "/tmp/dispatch",
       workspace: "dispatch",
+      author: { login: "alex", name: "Alex" },
       reviewDecision: "REVIEW_REQUIRED",
     });
     const seenPr = {
@@ -199,5 +201,30 @@ describe("preferWorkspacePrs", () => {
     const [preferred] = preferWorkspacePrs([upstreamPr, forkPr], "/tmp/fork");
 
     expect(preferred?.pr.workspacePath).toBe("/tmp/fork");
+  });
+});
+
+describe("filterHomePrSections", () => {
+  it("supports author shortcut queries like the dashboard placeholder suggests", () => {
+    const authoredPr = createDashboardItem({
+      number: 42,
+      author: { login: "brayden", name: "Brayden Doyle" },
+    });
+    const reviewPr = createDashboardItem({
+      number: 84,
+      author: { login: "alex", name: "Alex Kim" },
+      reviewDecision: "REVIEW_REQUIRED",
+      title: "Fix CI flakes",
+    });
+    const sections = categorizeHomePrs(
+      [authoredPr, reviewPr],
+      new Set([getDashboardPrKey(reviewPr.pr.pullRequestRepository, reviewPr.pr.number)]),
+      "brayden",
+    );
+
+    const filteredSections = filterHomePrSections(sections, "@brayden");
+
+    expect(filteredSections).toHaveLength(1);
+    expect(filteredSections[0]?.items.map((item) => item.pr.number)).toEqual([42]);
   });
 });

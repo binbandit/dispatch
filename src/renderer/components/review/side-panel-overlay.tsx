@@ -10,6 +10,7 @@ import { ReactionBar } from "@/renderer/components/review/comments/reaction-bar"
 import { CollapsibleDescription } from "@/renderer/components/shared/collapsible-description";
 import { GitHubAvatar } from "@/renderer/components/shared/github-avatar";
 import { MarkdownBody } from "@/renderer/components/shared/markdown-body";
+import { UserProfileTooltip } from "@/renderer/components/shared/user-profile-tooltip";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
@@ -391,10 +392,12 @@ function PanelOverviewContent({
                 className="flex items-center gap-2"
                 style={{ padding: "4px 0", fontSize: "12px" }}
               >
-                <GitHubAvatar
-                  login={review.author.login}
-                  size={20}
-                />
+                <UserProfileTooltip login={review.author.login}>
+                  <GitHubAvatar
+                    login={review.author.login}
+                    size={20}
+                  />
+                </UserProfileTooltip>
                 <span className="text-text-primary">{review.author.login}</span>
                 {request?.asCodeOwner && (
                   <span
@@ -459,10 +462,12 @@ function PanelOverviewContent({
                     T
                   </div>
                 ) : (
-                  <GitHubAvatar
-                    login={rr.login ?? rr.name}
-                    size={20}
-                  />
+                  <UserProfileTooltip login={rr.login ?? rr.name}>
+                    <GitHubAvatar
+                      login={rr.login ?? rr.name}
+                      size={20}
+                    />
+                  </UserProfileTooltip>
                 )}
                 <span className="text-text-secondary">
                   {rr.type === "Team" ? rr.name : (rr.login ?? rr.name)}

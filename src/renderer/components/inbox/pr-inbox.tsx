@@ -142,7 +142,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
   );
 
   const reReviewPrsWithActivity = useMemo(
-    () => reviewPrsWithActivity.filter((item) => item.item.hasNewActivity),
+    () => reviewPrsWithActivity.filter((item) => item.hasNewActivity),
     [reviewPrsWithActivity],
   );
 

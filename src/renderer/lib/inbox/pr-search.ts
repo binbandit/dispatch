@@ -76,7 +76,7 @@ interface MatchResult {
 }
 
 interface SearchIndex {
-  author: string;
+  authorTerms: string[];
   base: string;
   branches: string[];
   head: string;
@@ -185,7 +185,9 @@ function resolveSizeBucket(pr: GhPrListItemCore): PrSizeBucket | null {
 
 function createSearchIndex(item: SearchablePrItem): SearchIndex {
   return {
-    author: normalizeSearchValue(item.pr.author.login),
+    authorTerms: [item.pr.author.login, item.pr.author.name ?? ""]
+      .map(normalizeSearchValue)
+      .filter(Boolean),
     base: normalizeSearchValue(item.pr.baseRefName),
     branches: [
       normalizeSearchValue(item.pr.headRefName),
@@ -198,6 +200,18 @@ function createSearchIndex(item: SearchablePrItem): SearchIndex {
     size: resolveSizeBucket(item.pr),
     title: normalizeSearchValue(item.pr.title),
   };
+}
+
+function scoreBestTextMatch(
+  sources: string[],
+  query: string,
+  weights: { contains: number; exact: number; prefix: number; word: number },
+): number {
+  if (sources.length === 0) {
+    return 0;
+  }
+
+  return Math.max(...sources.map((source) => scoreTextMatch(source, query, weights)));
 }
 
 function scoreTextMatch(
@@ -278,7 +292,7 @@ function matchTextToken(index: SearchIndex, value: string): MatchResult {
     {
       field: "author",
       matched: false,
-      score: scoreTextMatch(index.author, value, {
+      score: scoreBestTextMatch(index.authorTerms, value, {
         contains: 36,
         exact: 72,
         prefix: 60,
@@ -378,7 +392,7 @@ function matchFieldToken(index: SearchIndex, token: PrSearchToken): MatchResult 
       return { field: "title", matched: score > 0, score };
     }
     case "author": {
-      const score = scoreTextMatch(index.author, token.value, {
+      const score = scoreBestTextMatch(index.authorTerms, token.value, {
         contains: 42,
         exact: 76,
         prefix: 64,
@@ -396,16 +410,12 @@ function matchFieldToken(index: SearchIndex, token: PrSearchToken): MatchResult 
       return { field: "repo", matched: score > 0, score };
     }
     case "branch": {
-      const score = Math.max(
-        ...index.branches.map((branch) =>
-          scoreTextMatch(branch, token.value, {
-            contains: 34,
-            exact: 68,
-            prefix: 56,
-            word: 46,
-          }),
-        ),
-      );
+      const score = scoreBestTextMatch(index.branches, token.value, {
+        contains: 34,
+        exact: 68,
+        prefix: 56,
+        word: 46,
+      });
       return { field: "branch", matched: score > 0, score };
     }
     case "head": {

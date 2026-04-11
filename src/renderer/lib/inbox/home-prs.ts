@@ -1,5 +1,7 @@
 import type { GhPrListItemCore } from "@/shared/ipc";
 
+import { searchPrs } from "./pr-search";
+
 export type DashboardPr = GhPrListItemCore & {
   workspace: string;
   workspacePath: string;
@@ -98,4 +100,27 @@ export function preferWorkspacePrs(
   }
 
   return [...deduped.values()];
+}
+
+export function filterHomePrSections(sections: PrSection[], query: string): PrSection[] {
+  const trimmedQuery = query.trim();
+  if (!trimmedQuery) {
+    return sections.filter((section) => section.items.length > 0);
+  }
+
+  const matchedKeys = new Set(
+    searchPrs(
+      sections.flatMap((section) => section.items),
+      trimmedQuery,
+    ).map(({ item }) => getDashboardPrKey(item.pr.workspacePath ?? "", item.pr.number)),
+  );
+
+  return sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) =>
+        matchedKeys.has(getDashboardPrKey(item.pr.workspacePath, item.pr.number)),
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
 }

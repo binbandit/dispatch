@@ -382,27 +382,19 @@ describe("computeWordDiff", () => {
 
   it("highlights changed prefix", () => {
     const result = computeWordDiff("const x = 1;", "let x = 1;");
-    // "t" at the end of "const" matches "t" at end of "let", so suffix includes "t x = 1;"
     expect(result.oldSegments).toEqual([
-      { text: "cons", type: "change" },
-      { text: "t x = 1;", type: "equal" },
+      { text: "const", type: "change" },
+      { text: " x = 1;", type: "equal" },
     ]);
     expect(result.newSegments).toEqual([
-      { text: "le", type: "change" },
-      { text: "t x = 1;", type: "equal" },
+      { text: "let", type: "change" },
+      { text: " x = 1;", type: "equal" },
     ]);
   });
 
   it("highlights changed suffix", () => {
-    // "return value;" vs "return value || null;"
-    // Common prefix: "return value" (12 chars)
-    // Common suffix: ";" (1 char)
-    // Old middle = "" (empty), new middle = " || null"
     const result = computeWordDiff("return value;", "return value || null;");
-    expect(result.oldSegments).toEqual([
-      { text: "return value", type: "equal" },
-      { text: ";", type: "equal" },
-    ]);
+    expect(result.oldSegments).toEqual([{ text: "return value;", type: "equal" }]);
     expect(result.newSegments).toEqual([
       { text: "return value", type: "equal" },
       { text: " || null", type: "change" },
@@ -418,8 +410,6 @@ describe("computeWordDiff", () => {
 
   it("handles realistic code change", () => {
     const result = computeWordDiff("  return a - b;", "  const result = a - b;");
-    // Common prefix: "  "
-    // Common suffix: " a - b;"
     expect(result.oldSegments).toEqual([
       { text: "  ", type: "equal" },
       { text: "return", type: "change" },
@@ -430,5 +420,160 @@ describe("computeWordDiff", () => {
       { text: "const result =", type: "change" },
       { text: " a - b;", type: "equal" },
     ]);
+  });
+
+  it("keeps operators intact instead of matching partial punctuation", () => {
+    const result = computeWordDiff("if (value === next) {", "if (value !== next) {");
+    expect(result.oldSegments).toEqual([
+      { text: "if (value ", type: "equal" },
+      { text: "===", type: "change" },
+      { text: " next) {", type: "equal" },
+    ]);
+    expect(result.newSegments).toEqual([
+      { text: "if (value ", type: "equal" },
+      { text: "!==", type: "change" },
+      { text: " next) {", type: "equal" },
+    ]);
+  });
+
+  it("treats optional chaining and nullish operators as semantic tokens", () => {
+    const result = computeWordDiff(
+      "const value = foo?.bar ?? fallback;",
+      "const value = foo.bar ?? fallback;",
+    );
+    expect(result.oldSegments).toEqual([
+      { text: "const value = foo", type: "equal" },
+      { text: "?.", type: "change" },
+      { text: "bar ?? fallback;", type: "equal" },
+    ]);
+    expect(result.newSegments).toEqual([
+      { text: "const value = foo", type: "equal" },
+      { text: ".", type: "change" },
+      { text: "bar ?? fallback;", type: "equal" },
+    ]);
+  });
+});
+
+describe("inline word diff segments in parsed hunks", () => {
+  it("attaches word-level segments to paired add and delete lines", () => {
+    const raw = `diff --git a/src/counts.ts b/src/counts.ts
+index abc1234..def5678 100644
+--- a/src/counts.ts
++++ b/src/counts.ts
+@@ -1,3 +1,3 @@
+ export function totalCount(count: number) {
+-  return oldCount + count;
++  return newCount + count;
+ }`;
+
+    const file = parseDiff(raw)[0]!;
+    const removedLine = file.hunks[0]!.lines.find((line) => line.type === "del");
+    const addedLine = file.hunks[0]!.lines.find((line) => line.type === "add");
+
+    expect(removedLine?.segments).toEqual([
+      { text: "  return ", type: "equal" },
+      { text: "old", type: "change" },
+      { text: "Count + count;", type: "equal" },
+    ]);
+    expect(addedLine?.segments).toEqual([
+      { text: "  return ", type: "equal" },
+      { text: "new", type: "change" },
+      { text: "Count + count;", type: "equal" },
+    ]);
+  });
+
+  it("pairs delete/add runs by similarity instead of raw position", () => {
+    const raw = `diff --git a/src/review.ts b/src/review.ts
+index abc1234..def5678 100644
+--- a/src/review.ts
++++ b/src/review.ts
+@@ -10,3 +10,4 @@
+-const status = "draft";
+-const count = items.length;
++const header = createHeader();
++const status = "published";
++const itemCount = items.length;
+ console.log("done");`;
+
+    const file = parseDiff(raw)[0]!;
+    const changedLines = file.hunks[0]!.lines;
+    const deletedStatusLine = changedLines.find(
+      (line) => line.content === 'const status = "draft";',
+    );
+    const deletedCountLine = changedLines.find(
+      (line) => line.content === "const count = items.length;",
+    );
+    const insertedHeaderLine = changedLines.find(
+      (line) => line.content === "const header = createHeader();",
+    );
+    const addedStatusLine = changedLines.find(
+      (line) => line.content === 'const status = "published";',
+    );
+    const addedItemCountLine = changedLines.find(
+      (line) => line.content === "const itemCount = items.length;",
+    );
+
+    expect(insertedHeaderLine?.pairId).toBeUndefined();
+    expect(deletedStatusLine?.pairId).toBe(0);
+    expect(addedStatusLine?.pairId).toBe(0);
+    expect(deletedCountLine?.pairId).toBe(1);
+    expect(addedItemCountLine?.pairId).toBe(1);
+    expect(addedStatusLine?.segments).toEqual([
+      { text: 'const status = "', type: "equal" },
+      { text: "published", type: "change" },
+      { text: '";', type: "equal" },
+    ]);
+    expect(addedItemCountLine?.segments).toEqual([
+      { text: "const ", type: "equal" },
+      { text: "itemCount", type: "change" },
+      { text: " = items.length;", type: "equal" },
+    ]);
+  });
+
+  it("keeps larger rewrite blocks aligned around inserted summary lines", () => {
+    const raw = `diff --git a/src/status.ts b/src/status.ts
+index abc1234..def5678 100644
+--- a/src/status.ts
++++ b/src/status.ts
+@@ -20,4 +20,5 @@
+-const readyLine = renderLine("ready", readyCount);
+-const blockedLine = renderLine("blocked", blockedCount);
+-const failedLine = renderLine("failed", failedCount);
++const summaryLine = renderSummary(totalCount);
++const readyStatusLine = renderLine("ready", readyCount);
++const blockedStatusLine = renderLine("blocked", blockedCount);
++const failedStatusLine = renderLine("failed", failedCount);
+ renderFooter();`;
+
+    const file = parseDiff(raw)[0]!;
+    const removedReadyLine = file.hunks[0]!.lines.find(
+      (line) => line.content === 'const readyLine = renderLine("ready", readyCount);',
+    );
+    const removedBlockedLine = file.hunks[0]!.lines.find(
+      (line) => line.content === 'const blockedLine = renderLine("blocked", blockedCount);',
+    );
+    const removedFailedLine = file.hunks[0]!.lines.find(
+      (line) => line.content === 'const failedLine = renderLine("failed", failedCount);',
+    );
+    const insertedSummaryLine = file.hunks[0]!.lines.find(
+      (line) => line.content === "const summaryLine = renderSummary(totalCount);",
+    );
+    const addedReadyLine = file.hunks[0]!.lines.find(
+      (line) => line.content === 'const readyStatusLine = renderLine("ready", readyCount);',
+    );
+    const addedBlockedLine = file.hunks[0]!.lines.find(
+      (line) => line.content === 'const blockedStatusLine = renderLine("blocked", blockedCount);',
+    );
+    const addedFailedLine = file.hunks[0]!.lines.find(
+      (line) => line.content === 'const failedStatusLine = renderLine("failed", failedCount);',
+    );
+
+    expect(insertedSummaryLine?.pairId).toBeUndefined();
+    expect(removedReadyLine?.pairId).toBe(0);
+    expect(addedReadyLine?.pairId).toBe(0);
+    expect(removedBlockedLine?.pairId).toBe(1);
+    expect(addedBlockedLine?.pairId).toBe(1);
+    expect(removedFailedLine?.pairId).toBe(2);
+    expect(addedFailedLine?.pairId).toBe(2);
   });
 });

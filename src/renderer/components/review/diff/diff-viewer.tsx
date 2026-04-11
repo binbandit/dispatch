@@ -102,6 +102,11 @@ interface FlatLineEntry {
   line: FlatLine;
 }
 
+const DEFAULT_SHIKI_THEME_PAIR = {
+  light: DEFAULT_CODE_THEME_LIGHT,
+  dark: DEFAULT_CODE_THEME_DARK,
+} as const;
+
 function getCommentTarget(line: DiffLine): CommentTarget | null {
   if (line.type === "del" && line.oldLineNumber !== null) {
     return { line: line.oldLineNumber, side: "LEFT" };
@@ -199,23 +204,20 @@ function buildRows(
       if (!line) {
         break;
       }
-      const next = hunk.lines[i + 1];
-      const prev = i > 0 ? hunk.lines[i - 1] : undefined;
 
       if (line.type !== "hunk-header") {
         const lineKey = `line-${hunkIndex}-${i}-${line.type}-${line.oldLineNumber ?? "x"}-${line.newLineNumber ?? "x"}`;
 
-        let pairKey: string | null = null;
-        if (line.type === "del" && next?.type === "add") {
-          pairKey = `line-${hunkIndex}-${i + 1}-${next.type}-${next.oldLineNumber ?? "x"}-${next.newLineNumber ?? "x"}`;
-        } else if (line.type === "add" && prev?.type === "del") {
-          pairKey = `line-${hunkIndex}-${i - 1}-${prev.type}-${prev.oldLineNumber ?? "x"}-${prev.newLineNumber ?? "x"}`;
-        }
-
         appendLineRows(
           rows,
           filePath,
-          { key: lineKey, line: { ...line, pairKey } },
+          {
+            key: lineKey,
+            line: {
+              ...line,
+              pairKey: line.pairId === undefined ? null : `pair-${hunkIndex}-${line.pairId}`,
+            },
+          },
           comments,
           annotations,
           composerRange,
@@ -231,64 +233,107 @@ function buildRows(
 
 function buildSplitRows(rows: FlatRow[]): SplitRow[] {
   const splitRows: SplitRow[] = [];
-  let pendingDeleted: Extract<FlatRow, { kind: "line" }> | null = null;
-  let pendingAuxiliaryRows: NonLineFlatRow[] = [];
+  const pendingDeleted: Array<{
+    row: Extract<FlatRow, { kind: "line" }>;
+    auxiliaryRows: NonLineFlatRow[];
+  }> = [];
+  let lastLineDestination:
+    | { kind: "direct" }
+    | { kind: "pending-deleted"; entry: (typeof pendingDeleted)[number] }
+    | null = null;
 
-  const flushPendingDeleted = () => {
-    if (!pendingDeleted) {
+  const flushPendingDeletedAtIndex = (index: number) => {
+    const pendingEntry = pendingDeleted[index];
+    if (!pendingEntry) {
       return;
     }
 
     splitRows.push({
       kind: "pair",
-      key: pendingDeleted.key,
-      left: pendingDeleted.line,
+      key: pendingEntry.row.key,
+      left: pendingEntry.row.line,
       right: null,
     });
-    splitRows.push(...pendingAuxiliaryRows);
-    pendingDeleted = null;
-    pendingAuxiliaryRows = [];
+    splitRows.push(...pendingEntry.auxiliaryRows);
+    pendingDeleted.splice(index, 1);
+  };
+
+  const flushLeadingUnpairedDeleted = () => {
+    while (pendingDeleted[0]?.row.line.pairKey === null) {
+      flushPendingDeletedAtIndex(0);
+    }
+  };
+
+  const flushAllPendingDeleted = () => {
+    while (pendingDeleted.length > 0) {
+      flushPendingDeletedAtIndex(0);
+    }
   };
 
   for (const row of rows) {
     if (row.kind !== "line") {
-      if (pendingDeleted) {
-        pendingAuxiliaryRows.push(row);
+      if (lastLineDestination?.kind === "pending-deleted") {
+        lastLineDestination.entry.auxiliaryRows.push(row);
       } else {
         splitRows.push(row);
       }
     } else if (row.line.type === "hunk-header") {
-      flushPendingDeleted();
+      flushAllPendingDeleted();
       splitRows.push({ kind: "pair", key: row.key, left: row.line, right: null });
-    } else if (pendingDeleted && row.line.type === "add") {
-      splitRows.push({
-        kind: "pair",
-        key: `${pendingDeleted.key}-${row.key}`,
-        left: pendingDeleted.line,
-        right: row.line,
-      });
-      splitRows.push(...pendingAuxiliaryRows);
-      pendingDeleted = null;
-      pendingAuxiliaryRows = [];
+      lastLineDestination = { kind: "direct" };
     } else {
-      if (pendingDeleted) {
-        flushPendingDeleted();
-      }
-
       if (row.line.type === "del") {
-        pendingDeleted = row;
+        const pendingEntry = { row, auxiliaryRows: [] as NonLineFlatRow[] };
+        pendingDeleted.push(pendingEntry);
+        lastLineDestination = { kind: "pending-deleted", entry: pendingEntry };
+      } else if (row.line.type === "add") {
+        const matchedPendingIndex =
+          row.line.pairKey === null
+            ? -1
+            : pendingDeleted.findIndex(
+                (pendingEntry) => pendingEntry.row.line.pairKey === row.line.pairKey,
+              );
+
+        if (matchedPendingIndex >= 0) {
+          while (pendingDeleted[0]?.row.line.pairKey !== row.line.pairKey) {
+            flushPendingDeletedAtIndex(0);
+          }
+
+          const matchedPending = pendingDeleted.shift();
+          if (matchedPending) {
+            splitRows.push({
+              kind: "pair",
+              key: `${matchedPending.row.key}-${row.key}`,
+              left: matchedPending.row.line,
+              right: row.line,
+            });
+            splitRows.push(...matchedPending.auxiliaryRows);
+          }
+          lastLineDestination = { kind: "direct" };
+        } else {
+          flushLeadingUnpairedDeleted();
+          splitRows.push({
+            kind: "pair",
+            key: row.key,
+            left: null,
+            right: row.line,
+          });
+          lastLineDestination = { kind: "direct" };
+        }
       } else {
+        flushLeadingUnpairedDeleted();
         splitRows.push({
           kind: "pair",
           key: row.key,
           left: row.line.type === "add" ? null : row.line,
           right: row.line,
         });
+        lastLineDestination = { kind: "direct" };
       }
     }
   }
 
-  flushPendingDeleted();
+  flushAllPendingDeleted();
 
   return splitRows;
 }
@@ -341,18 +386,14 @@ function buildFullFileRows(
       for (let lineIndex = 0; lineIndex < hunk.lines.length; lineIndex++) {
         const line = hunk.lines[lineIndex];
         if (line && line.type !== "hunk-header") {
-          const next = hunk.lines[lineIndex + 1];
-          const prev = lineIndex > 0 ? hunk.lines[lineIndex - 1] : undefined;
           const lineKey = `full-${hunkIndex}-${lineIndex}-${line.type}-${line.oldLineNumber ?? "x"}-${line.newLineNumber ?? "x"}`;
-
-          let pairKey: string | null = null;
-          if (line.type === "del" && next?.type === "add") {
-            pairKey = `full-${hunkIndex}-${lineIndex + 1}-${next.type}-${next.oldLineNumber ?? "x"}-${next.newLineNumber ?? "x"}`;
-          } else if (line.type === "add" && prev?.type === "del") {
-            pairKey = `full-${hunkIndex}-${lineIndex - 1}-${prev.type}-${prev.oldLineNumber ?? "x"}-${prev.newLineNumber ?? "x"}`;
-          }
-
-          const lineEntry: FlatLineEntry = { key: lineKey, line: { ...line, pairKey } };
+          const lineEntry: FlatLineEntry = {
+            key: lineKey,
+            line: {
+              ...line,
+              pairKey: line.pairId === undefined ? null : `pair-${hunkIndex}-${line.pairId}`,
+            },
+          };
 
           if (line.type === "del") {
             pendingRemoved.push(lineEntry);
@@ -470,6 +511,24 @@ export function DiffViewer({
     () => ({ light: codeThemeLight, dark: codeThemeDark }),
     [codeThemeDark, codeThemeLight],
   );
+
+  // --- Scroll position persistence (per file) ---
+  const scrollKey = `dispatch-scroll:${getDiffFilePath(file)}`;
+  // Restore saved scroll position on mount
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) {
+      return;
+    }
+    const saved = sessionStorage.getItem(scrollKey);
+    if (saved) {
+      el.scrollTop = Number(saved);
+    }
+    // Save scroll position on unmount
+    return () => {
+      sessionStorage.setItem(scrollKey, String(el.scrollTop));
+    };
+  }, [scrollKey]);
 
   // --- Search state ---
   const [searchOpen, setSearchOpen] = useState(false);
@@ -873,7 +932,13 @@ function SplitDiffView({
                     style={{ tabSize: 4 }}
                   >
                     {row.left
-                      ? renderLineContent(row.left, highlighter, language, shikiTheme, resolvedTheme)
+                      ? renderLineContent(
+                          row.left,
+                          highlighter,
+                          language,
+                          resolvedTheme,
+                          shikiTheme,
+                        )
                       : ""}
                   </span>
                 </div>
@@ -906,7 +971,13 @@ function SplitDiffView({
                     style={{ tabSize: 4 }}
                   >
                     {row.right
-                      ? renderLineContent(row.right, highlighter, language, shikiTheme, resolvedTheme)
+                      ? renderLineContent(
+                          row.right,
+                          highlighter,
+                          language,
+                          resolvedTheme,
+                          shikiTheme,
+                        )
                       : ""}
                   </span>
                 </div>
@@ -923,16 +994,14 @@ function renderLineContent(
   line: FlatLine,
   highlighter: Highlighter | null,
   language: string,
-  shikiTheme: { light: string; dark: string } = {
-    light: DEFAULT_CODE_THEME_LIGHT,
-    dark: DEFAULT_CODE_THEME_DARK,
-  },
   resolvedTheme: ThemeMode,
+  shikiTheme?: { light: string; dark: string },
 ): React.ReactNode {
+  const themePair = shikiTheme ?? DEFAULT_SHIKI_THEME_PAIR;
   const hasWordDiff = Boolean(line.segments?.some((segment) => segment.type === "change"));
   const tokens =
     highlighter && language !== "text"
-      ? safeTokenize(highlighter, line.content, language, shikiTheme, resolvedTheme)
+      ? safeTokenize(highlighter, line.content, language, resolvedTheme, themePair)
       : null;
   if (hasWordDiff && line.segments) {
     return tokens ? (
@@ -950,7 +1019,12 @@ function renderLineContent(
     );
   }
   if (tokens) {
-    return <SyntaxContent tokens={tokens} resolvedTheme={resolvedTheme} />;
+    return (
+      <SyntaxContent
+        tokens={tokens}
+        resolvedTheme={resolvedTheme}
+      />
+    );
   }
   return line.content;
 }
@@ -1205,7 +1279,7 @@ function DiffLineRow({
 
   const tokens =
     highlighter && language !== "text"
-      ? safeTokenize(highlighter, line.content, language, shikiTheme, resolvedTheme)
+      ? safeTokenize(highlighter, line.content, language, resolvedTheme, shikiTheme)
       : null;
 
   const commentTarget = getCommentTarget(line);
@@ -1504,13 +1578,11 @@ function safeTokenize(
   highlighter: Highlighter,
   content: string,
   lang: string,
-  shikiTheme: { light: string; dark: string } = {
-    light: DEFAULT_CODE_THEME_LIGHT,
-    dark: DEFAULT_CODE_THEME_DARK,
-  },
   resolvedTheme: ThemeMode,
+  shikiTheme?: { light: string; dark: string },
 ): ShikiToken[] | null {
-  const cacheKey = getShikiTokenCacheKey(content, lang, shikiTheme);
+  const themePair = shikiTheme ?? DEFAULT_SHIKI_THEME_PAIR;
+  const cacheKey = getShikiTokenCacheKey(content, lang, themePair);
   const cached = shikiTokenCache.get(cacheKey);
   if (cached !== undefined) {
     return cached;
@@ -1522,21 +1594,22 @@ function safeTokenize(
       setShikiTokenCache(cacheKey, null);
       return null;
     }
-    let result;
-    try {
-      result = highlighter.codeToTokens(content, {
-        lang: lang as Parameters<Highlighter["codeToTokens"]>[1]["lang"],
-        themes: {
-          light: shikiTheme.light,
-          dark: shikiTheme.dark,
-        } as Parameters<Highlighter["codeToTokens"]>[1]["themes"],
-      } as Parameters<Highlighter["codeToTokens"]>[1]);
-    } catch {
-      result = highlighter.codeToTokens(content, {
-        lang: lang as Parameters<Highlighter["codeToTokens"]>[1]["lang"],
-        theme: shikiTheme[resolvedTheme],
-      } as Parameters<Highlighter["codeToTokens"]>[1]);
-    }
+    const result = (() => {
+      try {
+        return highlighter.codeToTokens(content, {
+          lang: lang as Parameters<Highlighter["codeToTokens"]>[1]["lang"],
+          themes: {
+            light: themePair.light,
+            dark: themePair.dark,
+          } as Parameters<Highlighter["codeToTokens"]>[1]["themes"],
+        } as Parameters<Highlighter["codeToTokens"]>[1]);
+      } catch {
+        return highlighter.codeToTokens(content, {
+          lang: lang as Parameters<Highlighter["codeToTokens"]>[1]["lang"],
+          theme: themePair[resolvedTheme],
+        } as Parameters<Highlighter["codeToTokens"]>[1]);
+      }
+    })();
     const tokens = (result.tokens[0] as ShikiToken[] | undefined) ?? null;
     setShikiTokenCache(cacheKey, tokens);
     return tokens;
@@ -1546,7 +1619,13 @@ function safeTokenize(
   }
 }
 
-function SyntaxContent({ tokens, resolvedTheme }: { tokens: ShikiToken[]; resolvedTheme: ThemeMode }) {
+function SyntaxContent({
+  tokens,
+  resolvedTheme,
+}: {
+  tokens: ShikiToken[];
+  resolvedTheme: ThemeMode;
+}) {
   return (
     <>
       {tokens.map((token, i) => (

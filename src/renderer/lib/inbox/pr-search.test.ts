@@ -88,7 +88,7 @@ describe("searchPrs", () => {
       pr: {
         number: 42,
         title: "Refine pull request search",
-        author: { login: "brayden" },
+        author: { login: "brayden", name: "Brayden Doyle" },
         headRefName: "feature/pr-search",
         baseRefName: "main",
         reviewDecision: "REVIEW_REQUIRED",
@@ -164,6 +164,14 @@ describe("searchPrs", () => {
     ).toEqual([9]);
 
     expect(searchPrs(items, "size:xl -is:draft").map(({ item }) => item.pr.number)).toEqual([120]);
+  });
+
+  it("matches author queries against logins and display names", () => {
+    expect(searchPrs(items, "@brayden").map(({ item }) => item.pr.number)).toEqual([42]);
+    expect(searchPrs(items, 'author:"Brayden Doyle"').map(({ item }) => item.pr.number)).toEqual([
+      42,
+    ]);
+    expect(searchPrs(items, "doyle").map(({ item }) => item.pr.number)).toEqual([42]);
   });
 
   it("orders positive matches by relevance before recency", () => {

@@ -81,6 +81,14 @@ function classifyPrSize(additions: number, deletions: number): PrSize {
   return "xl";
 }
 
+function matchesPrAuthor(pr: GhPrListItemCore, query: string): boolean {
+  const normalizedQuery = query.toLowerCase();
+  return (
+    pr.author.login.toLowerCase().includes(normalizedQuery) ||
+    (pr.author.name?.toLowerCase().includes(normalizedQuery) ?? false)
+  );
+}
+
 export function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
   const rawQuery = useCommandQuery();
   const filters = useCommandFilters();
@@ -120,9 +128,9 @@ export function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
       filtered = filtered.filter((pr) => pr.number === filters.pr);
     }
 
-    if (filters.author) {
-      const author = filters.author.toLowerCase();
-      filtered = filtered.filter((pr) => pr.author.login.toLowerCase().includes(author));
+    const authorFilter = filters.author;
+    if (authorFilter) {
+      filtered = filtered.filter((pr) => matchesPrAuthor(pr, authorFilter));
     }
 
     if (filters.branch) {
@@ -176,7 +184,10 @@ export function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
 
     if (filters.text) {
       filtered = filtered.filter((pr) =>
-        commandMatch(`${pr.title} #${pr.number} ${pr.author.login}`, filters.text),
+        commandMatch(
+          `${pr.title} #${pr.number} ${pr.author.login} ${pr.author.name ?? ""}`,
+          filters.text,
+        ),
       );
     }
 

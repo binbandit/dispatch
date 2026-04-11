@@ -28,7 +28,15 @@ export function TriageView({
   commentCounts,
   meta,
 }: TriageViewProps) {
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  const TRIAGE_KEY = "dispatch-triage-collapsed";
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
+    try {
+      const saved = sessionStorage.getItem(TRIAGE_KEY);
+      return saved ? (JSON.parse(saved) as Record<string, boolean>) : {};
+    } catch {
+      return {};
+    }
+  });
 
   function isSectionExpanded(section: TriageSection, index: number): boolean {
     const stored = collapsedSections[section.id];
@@ -41,7 +49,11 @@ export function TriageView({
 
   function toggleSection(section: TriageSection, index: number) {
     const expanded = isSectionExpanded(section, index);
-    setCollapsedSections((prev) => ({ ...prev, [section.id]: expanded }));
+    setCollapsedSections((prev) => {
+      const next = { ...prev, [section.id]: expanded };
+      sessionStorage.setItem(TRIAGE_KEY, JSON.stringify(next));
+      return next;
+    });
   }
 
   return (

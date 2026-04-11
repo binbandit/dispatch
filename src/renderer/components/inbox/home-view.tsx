@@ -12,6 +12,7 @@ import { useRouter } from "@/renderer/lib/app/router";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import {
   categorizeHomePrs,
+  filterHomePrSections,
   getDashboardPrKey,
   type DashboardPr,
   type EnrichedDashboardPr,
@@ -166,24 +167,10 @@ export function HomeView() {
   );
 
   // Search filter
-  const filteredSections = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return sections.filter((sec) => sec.items.length > 0);
-    }
-    const q = searchQuery.toLowerCase();
-    return sections
-      .map((sec) => ({
-        ...sec,
-        items: sec.items.filter(
-          ({ pr }) =>
-            pr.title.toLowerCase().includes(q) ||
-            `#${pr.number}`.includes(q) ||
-            pr.author.login.toLowerCase().includes(q) ||
-            (pr.author.name?.toLowerCase().includes(q) ?? false),
-        ),
-      }))
-      .filter((sec) => sec.items.length > 0);
-  }, [sections, searchQuery]);
+  const filteredSections = useMemo(
+    () => filterHomePrSections(sections, searchQuery),
+    [searchQuery, sections],
+  );
   const filteredCount = useMemo(
     () => filteredSections.reduce((sum, section) => sum + section.items.length, 0),
     [filteredSections],
