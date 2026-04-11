@@ -1,4 +1,5 @@
 import type { AiSuggestion } from "@/renderer/lib/review/ai-suggestions";
+import type { ReviewThreadState } from "@/renderer/lib/review/review-comments";
 /* eslint-disable import/max-dependencies, max-depth, max-params -- Diff rendering is dense and performance-sensitive; targeted tests give better protection than these structural caps here. */
 import type { GhReactionGroup } from "@/shared/ipc";
 import type { Highlighter } from "shiki";
@@ -26,7 +27,6 @@ import {
   type ShikiToken,
   type ThemeMode,
 } from "@/renderer/lib/review/highlighter";
-import type { ReviewThreadState } from "@/renderer/lib/review/review-comments";
 import { getReviewPositionKey } from "@/renderer/lib/review/review-position";
 import { ChevronDown, ChevronUp, Plus, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -921,6 +921,7 @@ function SplitDiffView({
                 <td
                   colSpan={5}
                   className="border-border-subtle bg-diff-hunk-bg text-info h-6 border-y px-3 text-[11px]"
+                  data-hunk
                 >
                   {row.left.content}
                 </td>
@@ -1210,6 +1211,7 @@ function renderSupportingRow({
       <div
         key={row.key}
         data-comment-line={commentLine ?? undefined}
+        data-comment
       >
         <InlineComment
           comments={row.comments}
@@ -1298,7 +1300,10 @@ function DiffLineRow({
 }) {
   if (line.type === "hunk-header") {
     return (
-      <div className="border-border-subtle bg-diff-hunk-bg text-info flex h-6 items-center border-y px-3 text-[11px]">
+      <div
+        className="border-border-subtle bg-diff-hunk-bg text-info flex h-6 items-center border-y px-3 text-[11px]"
+        data-hunk
+      >
         {line.content}
       </div>
     );

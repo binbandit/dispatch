@@ -90,7 +90,21 @@ export function SidePanelOverlay({
           boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
         }}
       >
-        <div className="flex flex-1 gap-0">
+        <div
+          className="flex flex-1 gap-0"
+          role="tablist"
+          onKeyDown={(e) => {
+            const tabs: PanelTab[] = ["overview", "conversation", "commits", "checks"];
+            const idx = tabs.indexOf(activeTab);
+            if (e.key === "ArrowRight") {
+              e.preventDefault();
+              setActiveTab(tabs[(idx + 1) % tabs.length]!);
+            } else if (e.key === "ArrowLeft") {
+              e.preventDefault();
+              setActiveTab(tabs[(idx - 1 + tabs.length) % tabs.length]!);
+            }
+          }}
+        >
           <PanelTabButton
             label="Overview"
             active={activeTab === "overview"}

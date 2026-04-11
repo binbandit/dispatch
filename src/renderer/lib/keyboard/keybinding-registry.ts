@@ -33,6 +33,8 @@ export const DEFAULT_KEYBINDINGS: ShortcutDefinition[] = [
     label: "Toggle sidebar",
     category: "Navigation",
   },
+  { id: "navigation.prevHunk", key: "{", label: "Previous hunk", category: "Navigation" },
+  { id: "navigation.nextHunk", key: "}", label: "Next hunk", category: "Navigation" },
 
   // Actions
   { id: "actions.togglePanel", key: "i", label: "Toggle side panel", category: "Actions" },
@@ -45,6 +47,18 @@ export const DEFAULT_KEYBINDINGS: ShortcutDefinition[] = [
   },
   { id: "actions.toggleViewed", key: "v", label: "Toggle file viewed", category: "Actions" },
   { id: "actions.nextUnreviewed", key: "n", label: "Next unreviewed file", category: "Actions" },
+  { id: "actions.requestChanges", key: "r", label: "Request changes", category: "Actions" },
+  { id: "actions.approve", key: "a", label: "Approve PR", category: "Actions" },
+  { id: "actions.merge", key: "m", label: "Merge PR", category: "Actions" },
+  { id: "actions.closePanel", key: "Escape", label: "Close panel / dialog", category: "Actions" },
+  { id: "actions.nextComment", key: "c", label: "Next comment", category: "Actions" },
+  {
+    id: "actions.prevComment",
+    key: "c",
+    modifiers: ["shift"],
+    label: "Previous comment",
+    category: "Actions",
+  },
 
   // Search
   { id: "search.focusSearch", key: "/", label: "Focus search", category: "Search" },

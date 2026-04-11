@@ -173,6 +173,18 @@ function getAllFilePaths(node: TreeNode): string[] {
   return paths;
 }
 
+/** Build a flat list of visible nodes for keyboard traversal (respects collapsed dirs). */
+function getVisibleNodes(nodes: TreeNode[], expandedPaths: Set<string>): TreeNode[] {
+  const result: TreeNode[] = [];
+  for (const node of nodes) {
+    result.push(node);
+    if (node.type === "dir" && expandedPaths.has(node.path) && node.children) {
+      result.push(...getVisibleNodes(node.children, expandedPaths));
+    }
+  }
+  return result;
+}
+
 interface ContextMenuState {
   x: number;
   y: number;
@@ -250,7 +262,9 @@ export function FileTree({
   const tree = useMemo(() => buildTree(files), [files]);
   const [expandedPaths, setExpandedPaths] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [focusedPath, setFocusedPath] = useState<string | null>(null);
   const initializedRef = useRef(false);
+  const treeContainerRef = useRef<HTMLDivElement>(null);
   const canToggleViewed = Boolean(onToggleViewed || onSetFilesViewed);
 
   // Expand all directories on first render (render-time state adjustment)
@@ -331,6 +345,79 @@ export function FileTree({
   const toggleViewedHandler = canToggleViewed ? setFileViewed : undefined;
   const setFilesViewedHandler = canToggleViewed ? setFilesViewed : undefined;
 
+  const visibleNodes = useMemo(() => getVisibleNodes(tree, expandedPaths), [tree, expandedPaths]);
+
+  const handleTreeKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (visibleNodes.length === 0) {
+        return;
+      }
+      const currentIndex = focusedPath ? visibleNodes.findIndex((n) => n.path === focusedPath) : -1;
+      const current = currentIndex >= 0 ? visibleNodes[currentIndex] : null;
+
+      switch (e.key) {
+        case "ArrowDown": {
+          e.preventDefault();
+          const next = Math.min(currentIndex + 1, visibleNodes.length - 1);
+          setFocusedPath(visibleNodes[next]!.path);
+          // Scroll into view
+          treeContainerRef.current
+            ?.querySelector(`[data-tree-path="${CSS.escape(visibleNodes[next]!.path)}"]`)
+            ?.scrollIntoView({ block: "nearest" });
+          break;
+        }
+        case "ArrowUp": {
+          e.preventDefault();
+          const prev = Math.max(currentIndex <= 0 ? 0 : currentIndex - 1, 0);
+          setFocusedPath(visibleNodes[prev]!.path);
+          treeContainerRef.current
+            ?.querySelector(`[data-tree-path="${CSS.escape(visibleNodes[prev]!.path)}"]`)
+            ?.scrollIntoView({ block: "nearest" });
+          break;
+        }
+        case "ArrowRight": {
+          e.preventDefault();
+          if (current?.type === "dir" && !expandedPaths.has(current.path)) {
+            toggleExpand(current.path);
+          } else if (current?.type === "dir" && current.children?.length) {
+            // Already expanded — move focus to first child
+            setFocusedPath(current.children[0]!.path);
+          }
+          break;
+        }
+        case "ArrowLeft": {
+          e.preventDefault();
+          if (current?.type === "dir" && expandedPaths.has(current.path)) {
+            toggleExpand(current.path);
+          } else if (currentIndex > 0) {
+            // Move to parent dir (find nearest ancestor dir)
+            const parts = (current?.path ?? "").split("/");
+            if (parts.length > 1) {
+              const parentPath = parts.slice(0, -1).join("/");
+              const parentIdx = visibleNodes.findIndex((n) => n.path === parentPath);
+              if (parentIdx >= 0) {
+                setFocusedPath(visibleNodes[parentIdx]!.path);
+              }
+            }
+          }
+          break;
+        }
+        case "Enter": {
+          e.preventDefault();
+          if (current?.type === "file" && current.fileIndex !== undefined) {
+            selectFile(current.fileIndex);
+          } else if (current?.type === "dir") {
+            toggleExpand(current.path);
+          }
+          break;
+        }
+        default:
+          return;
+      }
+    },
+    [visibleNodes, focusedPath, expandedPaths, toggleExpand, selectFile],
+  );
+
   return (
     <div className="flex flex-col">
       {/* Progress bar — hidden when viewed tracking is disabled */}
@@ -348,8 +435,19 @@ export function FileTree({
         </div>
       )}
 
-      {/* Tree */}
-      <div className="flex flex-col">
+      {/* Tree — keyboard navigable */}
+      <div
+        ref={treeContainerRef}
+        className="flex flex-col focus:outline-none"
+        tabIndex={0}
+        role="tree"
+        onKeyDown={handleTreeKeyDown}
+        onFocus={() => {
+          if (!focusedPath && visibleNodes.length > 0) {
+            setFocusedPath(visibleNodes[0]!.path);
+          }
+        }}
+      >
         {tree.map((node) => (
           <TreeNodeRow
             key={node.path}
@@ -364,6 +462,7 @@ export function FileTree({
             onSetFilesViewed={setFilesViewedHandler}
             commentCounts={commentCounts}
             onContextMenu={handleContextMenu}
+            focusedPath={focusedPath}
           />
         ))}
       </div>
@@ -400,6 +499,7 @@ function TreeNodeRow({
   onSetFilesViewed,
   commentCounts,
   onContextMenu,
+  focusedPath,
 }: {
   node: TreeNode;
   depth: number;
@@ -412,6 +512,7 @@ function TreeNodeRow({
   onSetFilesViewed?: (filePaths: string[], viewed: boolean) => void;
   commentCounts: Map<string, number>;
   onContextMenu: (e: React.MouseEvent, node: TreeNode) => void;
+  focusedPath?: string | null;
 }) {
   const isExpanded = expandedPaths.has(node.path);
   const paddingLeft = depth * 16 + 8;
@@ -429,9 +530,10 @@ function TreeNodeRow({
           type="button"
           onClick={() => onToggle(node.path)}
           onContextMenu={(e) => onContextMenu(e, node)}
+          data-tree-path={node.path}
           className={`group hover:bg-bg-raised relative flex w-full cursor-pointer items-center gap-1 py-1.5 pr-2 text-left transition-colors ${
             allViewed ? "opacity-70" : ""
-          }`}
+          } ${focusedPath === node.path ? "ring-primary/50 ring-1 ring-inset" : ""}`}
           style={{ paddingLeft }}
         >
           {/* Indent guides */}
@@ -511,6 +613,7 @@ function TreeNodeRow({
                 onSetFilesViewed={onSetFilesViewed}
                 commentCounts={commentCounts}
                 onContextMenu={onContextMenu}
+                focusedPath={focusedPath}
               />
             ))}
           </div>
@@ -541,9 +644,10 @@ function TreeNodeRow({
         type="button"
         onClick={() => node.fileIndex !== undefined && onSelectFile(node.fileIndex)}
         onContextMenu={(e) => onContextMenu(e, node)}
+        data-tree-path={node.path}
         className={`group relative flex w-full cursor-pointer items-center gap-1.5 py-1.5 pr-2 text-left transition-colors ${
           isActive ? "bg-accent-muted" : "hover:bg-bg-raised"
-        }`}
+        } ${focusedPath === node.path && !isActive ? "ring-primary/50 ring-1 ring-inset" : ""}`}
         style={{ paddingLeft: paddingLeft + 15 }}
       >
         {/* Active indicator */}

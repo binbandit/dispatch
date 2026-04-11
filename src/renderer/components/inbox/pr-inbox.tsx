@@ -299,9 +299,27 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
         <h2 className="text-[14px] font-semibold tracking-[-0.01em]">Pull Requests</h2>
       </div>
 
-      {/* Filter toggle group */}
+      {/* Filter toggle group — arrow keys cycle tabs */}
       <div className="px-3 pb-2">
-        <div className="bg-bg-raised flex gap-0.5 rounded-md p-0.5">
+        <div
+          className="bg-bg-raised flex gap-0.5 rounded-md p-0.5"
+          role="tablist"
+          onKeyDown={(e) => {
+            const tabs: FilterTab[] = ["review", "reReview", "mine", "all"];
+            const idx = tabs.indexOf(activeFilter);
+            if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+              e.preventDefault();
+              const next = tabs[(idx + 1) % tabs.length]!;
+              setActiveFilter(next);
+              setFocusIndex(0);
+            } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+              e.preventDefault();
+              const prev = tabs[(idx - 1 + tabs.length) % tabs.length]!;
+              setActiveFilter(prev);
+              setFocusIndex(0);
+            }
+          }}
+        >
           <FilterButton
             label="Review"
             count={reviewPrs.length}

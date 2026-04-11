@@ -110,6 +110,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     return stored ? Number(stored) : PANEL_DEFAULT_WIDTH;
   });
   const splitContainerRef = useRef<HTMLDivElement>(null);
+  const diffAreaRef = useRef<HTMLDivElement>(null);
   const handlePanelResize = useCallback((clientX: number) => {
     const container = splitContainerRef.current;
     if (!container) {
@@ -570,12 +571,58 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     viewedQuery,
   ]);
 
+  // Hunk navigation — jump between diff hunks within the current file
+  const navigateDiffElement = useCallback((selector: string, direction: "prev" | "next") => {
+    const scrollContainer = diffAreaRef.current?.querySelector("[class*='overflow-auto']");
+    if (!scrollContainer) {
+      return;
+    }
+    const elements = [...scrollContainer.querySelectorAll(selector)] as HTMLElement[];
+    if (elements.length === 0) {
+      return;
+    }
+    const containerTop = scrollContainer.getBoundingClientRect().top;
+    if (direction === "next") {
+      for (const el of elements) {
+        const elTop = el.getBoundingClientRect().top - containerTop;
+        if (elTop > 8) {
+          el.scrollIntoView({ block: "center", behavior: "smooth" });
+          return;
+        }
+      }
+    } else {
+      for (let i = elements.length - 1; i >= 0; i--) {
+        const elTop = elements[i]!.getBoundingClientRect().top - containerTop;
+        if (elTop < -8) {
+          elements[i]!.scrollIntoView({ block: "center", behavior: "smooth" });
+          return;
+        }
+      }
+    }
+  }, []);
+
   // Keyboard shortcuts — centralized via useKeyboardShortcuts
   const { getBinding } = useKeybindings();
 
   useKeyboardShortcuts([
     { ...getBinding("navigation.prevFile"), handler: goToPrevFile },
     { ...getBinding("navigation.nextFile"), handler: goToNextFile },
+    {
+      ...getBinding("navigation.prevHunk"),
+      handler: () => navigateDiffElement("[data-hunk]", "prev"),
+    },
+    {
+      ...getBinding("navigation.nextHunk"),
+      handler: () => navigateDiffElement("[data-hunk]", "next"),
+    },
+    {
+      ...getBinding("actions.nextComment"),
+      handler: () => navigateDiffElement("[data-comment]", "next"),
+    },
+    {
+      ...getBinding("actions.prevComment"),
+      handler: () => navigateDiffElement("[data-comment]", "prev"),
+    },
     { ...getBinding("actions.togglePanel"), handler: togglePanel },
     {
       ...getBinding("actions.openConversation"),
@@ -583,6 +630,11 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         setPanelTab("conversation");
         setPanelOpen(true);
       },
+    },
+    {
+      ...getBinding("actions.closePanel"),
+      handler: () => setPanelOpen(false),
+      when: () => panelOpen,
     },
     { ...getBinding("actions.toggleViewed"), handler: handleToggleViewed },
     {
@@ -731,7 +783,10 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         ref={splitContainerRef}
         className="relative flex flex-1 overflow-hidden"
       >
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div
+          ref={diffAreaRef}
+          className="flex flex-1 flex-col overflow-hidden"
+        >
           <DiffToolbar
             currentFile={currentFile}
             currentIndex={resolvedCurrentFileIndex}

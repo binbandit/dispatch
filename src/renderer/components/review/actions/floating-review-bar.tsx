@@ -5,8 +5,10 @@ import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { ReviewMarkdownComposer } from "@/renderer/components/review/comments/review-markdown-composer";
+import { useKeyboardShortcuts } from "@/renderer/hooks/app/use-keyboard-shortcuts";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
+import { useKeybindings } from "@/renderer/lib/keyboard/keybinding-context";
 import { resolveMergeStrategy } from "@/renderer/lib/review/merge-strategy";
 import { summarizePrChecks } from "@/renderer/lib/review/pr-check-status";
 import { useMutation } from "@tanstack/react-query";
@@ -19,7 +21,7 @@ import {
   RefreshCw,
   ShieldAlert,
 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Floating review bar — mockup-pr-review-v14.html § .review-bar
@@ -267,6 +269,7 @@ function RequestChangesBarButton({
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState("");
   const hasReviewBody = body.trim().length > 0;
+  const { getBinding } = useKeybindings();
 
   const reviewMutation = useMutation({
     mutationFn: (reviewBody: string) =>
@@ -286,6 +289,14 @@ function RequestChangesBarButton({
       toastManager.add({ title: "Review failed", description: String(err.message), type: "error" });
     },
   });
+
+  useKeyboardShortcuts([
+    {
+      ...getBinding("actions.requestChanges"),
+      handler: () => setOpen((prev) => !prev),
+      when: () => !open,
+    },
+  ]);
 
   return (
     <div style={{ position: "relative" }}>
@@ -410,6 +421,7 @@ function ApproveBarButton({
   dense: boolean;
 }) {
   const alreadyApproved = currentUserReview === "APPROVED" && !isReRequested;
+  const { getBinding } = useKeybindings();
 
   const reviewMutation = useMutation({
     mutationFn: () =>
@@ -422,6 +434,14 @@ function ApproveBarButton({
       toastManager.add({ title: "Review failed", description: String(err.message), type: "error" });
     },
   });
+
+  useKeyboardShortcuts([
+    {
+      ...getBinding("actions.approve"),
+      handler: () => reviewMutation.mutate(),
+      when: () => !alreadyApproved && !reviewMutation.isPending,
+    },
+  ]);
 
   if (alreadyApproved) {
     return (
@@ -507,6 +527,7 @@ function MergeBarButton({
   const [menuOpen, setMenuOpen] = useState(false);
   const [strategy, setStrategy] = useState<"squash" | "merge" | "rebase">("squash");
   const menuRef = useRef<HTMLDivElement>(null);
+  const { getBinding } = useKeybindings();
 
   const mergeMutation = useMutation({
     mutationFn: (args: { admin?: boolean } | void) => {
@@ -586,6 +607,40 @@ function MergeBarButton({
   // Disable if auto-merge is already enabled
   const autoMergeAlreadyEnabled = pr.autoMergeRequest !== null;
   const disabled = isDraft || !canMerge || autoMergeAlreadyEnabled;
+
+  useKeyboardShortcuts([
+    {
+      ...getBinding("actions.merge"),
+      handler: () => mergeMutation.mutate(),
+      when: () => !disabled && !mergeMutation.isPending && !menuOpen,
+    },
+  ]);
+
+  // Close dropdown on Escape or click outside
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        closeMenu();
+      }
+    };
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        closeMenu();
+      }
+    };
+    globalThis.addEventListener("keydown", handleKey, true);
+    globalThis.addEventListener("mousedown", handleClick);
+    return () => {
+      globalThis.removeEventListener("keydown", handleKey, true);
+      globalThis.removeEventListener("mousedown", handleClick);
+    };
+  }, [menuOpen, closeMenu]);
+
   const mainBg = disabled ? "var(--bg-raised)" : "var(--success)";
   const mainColor = disabled ? "var(--text-tertiary)" : "var(--bg-root)";
   const mainBorder = disabled ? "var(--border)" : "var(--success)";
@@ -617,6 +672,9 @@ function MergeBarButton({
         >
           {mergeMutation.isPending ? <Spinner className="h-3 w-3" /> : <GitMerge size={11} />}
           {!dense && (compact ? "Ready" : "Merge when ready")}
+          {!compact && (
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>m</span>
+          )}
         </button>
         {canAdmin && (
           <button
@@ -707,6 +765,9 @@ function MergeBarButton({
       >
         {mergeMutation.isPending ? <Spinner className="h-3 w-3" /> : <GitMerge size={11} />}
         {!dense && (compact ? "Merge" : labels[strategy])}
+        {!compact && (
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>m</span>
+        )}
       </button>
       <button
         type="button"

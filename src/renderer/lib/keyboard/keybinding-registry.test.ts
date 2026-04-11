@@ -290,6 +290,8 @@ describe("shortcut categories", () => {
     expect(ids).toContain("navigation.prevFile");
     expect(ids).toContain("navigation.nextFile");
     expect(ids).toContain("navigation.toggleSidebar");
+    expect(ids).toContain("navigation.prevHunk");
+    expect(ids).toContain("navigation.nextHunk");
   });
 
   it("Actions category contains expected shortcuts", () => {
@@ -300,6 +302,12 @@ describe("shortcut categories", () => {
     expect(ids).toContain("actions.openConversation");
     expect(ids).toContain("actions.toggleViewed");
     expect(ids).toContain("actions.nextUnreviewed");
+    expect(ids).toContain("actions.requestChanges");
+    expect(ids).toContain("actions.approve");
+    expect(ids).toContain("actions.merge");
+    expect(ids).toContain("actions.closePanel");
+    expect(ids).toContain("actions.nextComment");
+    expect(ids).toContain("actions.prevComment");
   });
 
   it("Search category contains expected shortcuts", () => {
