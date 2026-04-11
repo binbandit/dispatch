@@ -14,7 +14,7 @@ import {
   session,
 } from "electron";
 
-import { BADGE_COUNT_CHANNEL } from "../shared/ipc";
+import { BADGE_COUNT_CHANNEL, WINDOW_STATE_CHANNEL } from "../shared/ipc";
 import { closeDatabase, initDatabase } from "./db/database";
 import { registerIpcHandler } from "./ipc-handler";
 import { trackFromMain } from "./services/analytics";
@@ -227,6 +227,9 @@ function createWindow(): BrowserWindow {
   const win = new BrowserWindow(WINDOW_CONFIG);
   configureExternalNavigation(win);
   setupImageAuth();
+  const emitWindowState = (): void => {
+    win.webContents.send(WINDOW_STATE_CHANNEL, { isFullscreen: win.isFullScreen() });
+  };
 
   // MacOS: hide instead of quit on close (tray keeps running)
   win.on("close", (event) => {
@@ -235,9 +238,13 @@ function createWindow(): BrowserWindow {
       win.hide();
     }
   });
+  win.on("enter-full-screen", emitWindowState);
+  win.on("leave-full-screen", emitWindowState);
+  win.webContents.on("did-finish-load", emitWindowState);
 
   win.once("ready-to-show", () => {
     win.show();
+    emitWindowState();
   });
 
   if (process.env.VITE_DEV_SERVER_URL) {

@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/menu";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { AddRepoDialog } from "@/renderer/components/shared/add-repo-dialog";
 import { DispatchLogo } from "@/renderer/components/shared/dispatch-logo";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { openExternal } from "@/renderer/lib/app/open-external";
@@ -37,7 +38,6 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 
-import { AddRepoDialog } from "@/renderer/components/shared/add-repo-dialog";
 import { NotificationCenter } from "./notification-center";
 
 /**
@@ -46,7 +46,14 @@ import { NotificationCenter } from "./notification-center";
  * Route-aware tabs: Review | Workflows
  * Workspace switcher + user menu in the right area
  */
-export function Navbar({ bannerVisible }: { bannerVisible?: boolean }) {
+export function Navbar({
+  bannerVisible,
+  isFullscreen,
+}: {
+  bannerVisible?: boolean;
+  isFullscreen: boolean;
+}) {
+  const isMac = globalThis.navigator?.platform?.includes("Mac") ?? false;
   const { route, navigate, toggleSettings } = useRouter();
   const collapseNavLabels = useMediaQuery({ max: 1100 });
   const collapseChromeLabels = useMediaQuery({ max: 940 });
@@ -64,7 +71,10 @@ export function Navbar({ bannerVisible }: { bannerVisible?: boolean }) {
     <header
       className="border-border bg-bg-surface flex h-10 shrink-0 items-center overflow-hidden border-b pr-3"
       style={
-        { WebkitAppRegion: "drag", paddingLeft: bannerVisible ? 16 : 92 } as React.CSSProperties
+        {
+          WebkitAppRegion: "drag",
+          paddingLeft: isMac && !isFullscreen && !bannerVisible ? 92 : 16,
+        } as React.CSSProperties
       }
     >
       {/* Logo */}

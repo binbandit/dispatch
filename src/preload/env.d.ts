@@ -16,6 +16,7 @@ declare global {
         properties?: Record<string, string | number | boolean>;
       }) => void,
     ): () => void;
+    onWindowStateChange(callback: (state: { isFullscreen: boolean }) => void): () => void;
   }
 
   var api: ElectronApi;

@@ -1,6 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
 
-import { ANALYTICS_CHANNEL, BADGE_COUNT_CHANNEL, IPC_CHANNEL } from "../shared/ipc";
+import {
+  ANALYTICS_CHANNEL,
+  BADGE_COUNT_CHANNEL,
+  IPC_CHANNEL,
+  WINDOW_STATE_CHANNEL,
+} from "../shared/ipc";
 
 type IpcResponse = { ok: true; data: unknown } | { ok: false; error: string };
 
@@ -77,6 +82,21 @@ contextBridge.exposeInMainWorld("api", {
     ipcRenderer.on(ANALYTICS_CHANNEL, handler);
     return () => {
       ipcRenderer.removeListener(ANALYTICS_CHANNEL, handler);
+    };
+  },
+
+  onWindowStateChange(
+    callback: (state: { isFullscreen: boolean }) => void,
+  ): () => void {
+    const handler = (
+      _event: Electron.IpcRendererEvent,
+      state: { isFullscreen: boolean },
+    ) => {
+      callback(state);
+    };
+    ipcRenderer.on(WINDOW_STATE_CHANNEL, handler);
+    return () => {
+      ipcRenderer.removeListener(WINDOW_STATE_CHANNEL, handler);
     };
   },
 });

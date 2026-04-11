@@ -18,10 +18,14 @@ const TRAFFIC_LIGHT_BANNER = { x: 16, y: 12 };
  */
 export function UpdateBanner({
   onVisibilityChange,
+  isFullscreen,
 }: {
   onVisibilityChange?: (visible: boolean) => void;
+  isFullscreen: boolean;
 }) {
+  const isMac = globalThis.navigator?.platform?.includes("Mac") ?? false;
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
+  const prevFullscreenRef = useRef(false);
 
   const statusQuery = useQuery({
     queryKey: ["app", "dev-repo-status"],
@@ -51,11 +55,18 @@ export function UpdateBanner({
   // Notify parent of visibility changes during render (no effect needed).
   // This is safe because the call is conditional — it only fires on transitions.
   const prevVisibleRef = useRef(visible);
-  if (prevVisibleRef.current !== visible) {
+  const trafficLightPosition =
+    visible && isMac && !isFullscreen ? TRAFFIC_LIGHT_BANNER : TRAFFIC_LIGHT_DEFAULT;
+
+  if (prevVisibleRef.current !== visible || prevFullscreenRef.current !== isFullscreen) {
+    if (prevVisibleRef.current !== visible) {
+      onVisibilityChange?.(visible);
+    }
     prevVisibleRef.current = visible;
-    onVisibilityChange?.(visible);
+    prevFullscreenRef.current = isFullscreen;
+
     // Reposition macOS traffic lights to center in the banner or navbar
-    void ipc("app.setTrafficLightPosition", visible ? TRAFFIC_LIGHT_BANNER : TRAFFIC_LIGHT_DEFAULT);
+    void ipc("app.setTrafficLightPosition", trafficLightPosition);
   }
 
   if (!visible || !status) {
@@ -65,7 +76,11 @@ export function UpdateBanner({
   const commitLabel = status.behindCount === 1 ? "1 commit" : `${status.behindCount} commits`;
 
   return (
-    <div className="border-border-accent bg-accent-muted/90 flex min-h-9 shrink-0 items-center gap-3 border-b py-1.5 pr-4 pl-24 shadow-sm">
+    <div
+      className={`border-border-accent bg-accent-muted/90 flex min-h-9 shrink-0 items-center gap-3 border-b py-1.5 pr-4 shadow-sm ${
+        isMac && isFullscreen ? "pl-4" : "pl-24"
+      }`}
+    >
       <div className="bg-bg-root/45 border-border-accent flex h-6 w-6 shrink-0 items-center justify-center rounded-full border">
         <GitBranch
           size={13}

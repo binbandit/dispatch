@@ -122,6 +122,7 @@ function AppShell({ resumeState, resumeReady, initialFileNavState }: AppShellPro
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [bannerVisible, setBannerVisible] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [fileNavState, setFileNavState] = useState<FileNavState>(
     initialFileNavState ?? DEFAULT_FILE_NAV_STATE,
   );
@@ -160,6 +161,14 @@ function AppShell({ resumeState, resumeReady, initialFileNavState }: AppShellPro
     });
     return cleanup;
   }, [navigate]);
+
+  useEffect(() => {
+    const { api } = globalThis as typeof globalThis & { api: ElectronApi };
+    const cleanup = api.onWindowStateChange((state) => {
+      setIsFullscreen(state.isFullscreen);
+    });
+    return cleanup;
+  }, []);
 
   const selectedPr = route.view === "review" ? route.prNumber : null;
 
@@ -249,7 +258,10 @@ function AppShell({ resumeState, resumeReady, initialFileNavState }: AppShellPro
       />
 
       {/* Update banner */}
-      <UpdateBanner onVisibilityChange={setBannerVisible} />
+      <UpdateBanner
+        onVisibilityChange={setBannerVisible}
+        isFullscreen={isFullscreen}
+      />
 
       {/* Accent bar */}
       <div
@@ -261,7 +273,10 @@ function AppShell({ resumeState, resumeReady, initialFileNavState }: AppShellPro
       />
 
       {/* Navbar */}
-      <Navbar bannerVisible={bannerVisible} />
+      <Navbar
+        bannerVisible={bannerVisible}
+        isFullscreen={isFullscreen}
+      />
 
       {/* View content */}
       {route.view === "review" && !selectedPr && <HomeView />}
