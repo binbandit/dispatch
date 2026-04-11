@@ -16,6 +16,7 @@ import {
   type DashboardPr,
   type EnrichedDashboardPr,
   type SectionId,
+  preferWorkspacePrs,
 } from "@/renderer/lib/inbox/home-prs";
 import { useKeybindings } from "@/renderer/lib/keyboard/keybinding-context";
 import {
@@ -63,23 +64,17 @@ export function HomeView() {
     staleTime: 60_000,
   });
 
-  // All PRs for the selected repository, including merged/closed.
+  // All PRs across workspaces, including merged/closed.
   const allQuery = useQuery({
-    queryKey: ["pr", "list", nwo, "all", "all"],
-    queryFn: () => ipc("pr.list", { ...repoTarget, filter: "all", state: "all" }),
-    refetchInterval: 30_000,
-  });
-
-  // Review-requested PRs for the selected repository.
-  const reviewQuery = useQuery({
-    queryKey: ["pr", "list", nwo, "reviewRequested", "open"],
-    queryFn: () => ipc("pr.list", { ...repoTarget, filter: "reviewRequested" }),
-    refetchInterval: 30_000,
-  });
-
-  const workspaceCountsQuery = useQuery({
     queryKey: ["pr", "listAll", "all", "all"],
     queryFn: () => ipc("pr.listAll", { filter: "all", state: "all" }),
+    refetchInterval: 30_000,
+  });
+
+  // Review-requested PRs across workspaces.
+  const reviewQuery = useQuery({
+    queryKey: ["pr", "listAll", "reviewRequested", "open"],
+    queryFn: () => ipc("pr.listAll", { filter: "reviewRequested", state: "open" }),
     refetchInterval: 30_000,
   });
 
@@ -135,33 +130,28 @@ export function HomeView() {
 
   const allPrs = useMemo(
     () =>
-      (allQuery.data ?? []).map((pr) =>
-        decoratePr({
-          ...pr,
-          workspace: repoName,
-          workspacePath: cwd ?? nwo,
-          repository: repoIdentity,
-          pullRequestRepository,
-          isForkWorkspace,
-        }),
+      preferWorkspacePrs(
+        (allQuery.data ?? []).map((pr) =>
+          decoratePr({
+            ...pr,
+            workspace: pr.workspace,
+            workspacePath: pr.workspacePath ?? (cwd ?? nwo),
+            repository: pr.repository,
+            pullRequestRepository: pr.pullRequestRepository,
+            isForkWorkspace: pr.isForkWorkspace,
+          }),
+        ),
+        cwd ?? nwo,
       ),
-    [
-      allQuery.data,
-      cwd,
-      decoratePr,
-      isForkWorkspace,
-      pullRequestRepository,
-      repoIdentity,
-      repoName,
-    ],
+    [allQuery.data, cwd, nwo, decoratePr],
   );
 
   const reviewRequestedKeys = useMemo(
     () =>
       new Set(
-        (reviewQuery.data ?? []).map((pr) => getDashboardPrKey(pullRequestRepository, pr.number)),
+        (reviewQuery.data ?? []).map((pr) => getDashboardPrKey(pr.pullRequestRepository, pr.number)),
       ),
-    [pullRequestRepository, reviewQuery.data],
+    [reviewQuery.data],
   );
 
   // Categorize into sections
@@ -196,17 +186,17 @@ export function HomeView() {
   const searchRefreshRequests = useMemo(
     () => [
       {
-        method: "pr.list" as const,
-        args: { ...repoTarget, filter: "all" as const, state: "all" as const },
-        queryKey: ["pr", "list", nwo, "all", "all"],
+        method: "pr.listAll" as const,
+        args: { filter: "all" as const, state: "all" as const },
+        queryKey: ["pr", "listAll", "all", "all"],
       },
       {
-        method: "pr.list" as const,
-        args: { ...repoTarget, filter: "reviewRequested" as const },
-        queryKey: ["pr", "list", nwo, "reviewRequested", "open"],
+        method: "pr.listAll" as const,
+        args: { filter: "reviewRequested" as const, state: "open" as const },
+        queryKey: ["pr", "listAll", "reviewRequested", "open"],
       },
     ],
-    [nwo, repoTarget],
+    [],
   );
 
   usePrSearchRefreshOnMiss({
@@ -224,7 +214,10 @@ export function HomeView() {
 
   // Attention count for hero
   const attentionCount = useMemo(
-    () => sections.find((s) => s.id === "attention")?.items.length ?? 0,
+    () =>
+      sections
+        .filter((s) => s.id === "attention" || s.id === "reReview")
+        .reduce((sum, section) => sum + section.items.length, 0),
     [sections],
   );
 
@@ -236,15 +229,15 @@ export function HomeView() {
   const workspaceCounts = useMemo(() => {
     const counts = new Map<string, number>();
 
-    for (const pr of workspaceCountsQuery.data ?? []) {
+    for (const pr of allQuery.data ?? []) {
       const wsKey = pr.workspacePath ?? "";
       counts.set(wsKey, (counts.get(wsKey) ?? 0) + 1);
     }
 
     return counts;
-  }, [workspaceCountsQuery.data]);
+  }, [allQuery.data]);
 
-  const activeWorkspaceCount = totalCount;
+  const activeWorkspaceCount = workspaceCounts.get(cwd ?? nwo) ?? 0;
 
   const toggleSection = useCallback((id: SectionId) => {
     setCollapsedSections((prev) => {
@@ -296,7 +289,7 @@ export function HomeView() {
 
       navigate({ view: "review", prNumber: pr.number });
     },
-    [cwd, navigate, switchWorkspace],
+    [navigate, switchWorkspace],
   );
 
   // Keyboard navigation
@@ -339,7 +332,6 @@ export function HomeView() {
       repoInfoQuery.refetch(),
       allQuery.refetch(),
       reviewQuery.refetch(),
-      workspaceCountsQuery.refetch(),
       prActivityQuery.refetch(),
       workspacesQuery.refetch(),
     ]).then((results) => {
@@ -362,7 +354,6 @@ export function HomeView() {
     repoInfoQuery,
     reviewQuery,
     userQuery,
-    workspaceCountsQuery,
     workspacesQuery,
   ]);
 
@@ -372,7 +363,6 @@ export function HomeView() {
     repoInfoQuery.isFetching ||
     allQuery.isFetching ||
     reviewQuery.isFetching ||
-    workspaceCountsQuery.isFetching ||
     prActivityQuery.isFetching ||
     workspacesQuery.isFetching;
 
@@ -445,7 +435,7 @@ export function HomeView() {
                 ) : (
                   <>
                     <span className="text-text-primary">Queue is empty.</span>{" "}
-                    <span className="text-text-secondary">No pull requests in this repo yet.</span>
+                    <span className="text-text-secondary">No pull requests in your queue yet.</span>
                   </>
                 )}
               </h1>
@@ -583,7 +573,7 @@ export function HomeView() {
                 No pull requests yet
               </p>
               <p className="text-text-secondary max-w-sm text-[13px]">
-                Open some pull requests to see them here.
+                Open some pull requests in one of your workspaces to see them here.
               </p>
             </div>
           )}

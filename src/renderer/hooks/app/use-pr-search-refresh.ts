@@ -9,6 +9,10 @@ export type PrSearchRefreshRequest = {
   method: "pr.list";
   args: IpcApi["pr.list"]["args"];
   queryKey: QueryKey;
+} | {
+  method: "pr.listAll";
+  args: IpcApi["pr.listAll"]["args"];
+  queryKey: QueryKey;
 };
 
 interface UsePrSearchRefreshOnMissOptions {
@@ -19,7 +23,10 @@ interface UsePrSearchRefreshOnMissOptions {
 }
 
 async function refreshPrSearchRequest(request: PrSearchRefreshRequest): Promise<void> {
-  const data = await ipc("pr.list", { ...request.args, forceRefresh: true });
+  const data =
+    request.method === "pr.list"
+      ? await ipc("pr.list", { ...request.args, forceRefresh: true })
+      : await ipc("pr.listAll", request.args);
   queryClient.setQueryData(request.queryKey, data);
 }
 

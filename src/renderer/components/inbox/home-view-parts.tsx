@@ -22,6 +22,7 @@ import {
   Loader2,
   Pencil,
   Plus,
+  RefreshCw,
   Search,
   Star,
   XCircle,
@@ -99,10 +100,23 @@ interface StatusTag {
     | "running"
     | "draft"
     | "closed"
-    | "merged";
+    | "merged"
+    | "reviewAgain";
 }
 
-function resolveStatusTag(pr: DashboardPr, currentUser: string | null): StatusTag | null {
+function resolveStatusTag(
+  pr: DashboardPr,
+  currentUser: string | null,
+  showRefreshCta: boolean,
+): StatusTag | null {
+  if (showRefreshCta) {
+    return {
+      label: "Re-review",
+      colorClass: "text-accent-text",
+      icon: "reviewAgain",
+    };
+  }
+
   if (pr.state === "MERGED") {
     return {
       label: "Merged",
@@ -396,12 +410,13 @@ export function PrSectionView({
   flatPrs: EnrichedDashboardPr[];
   animationDelay: number;
 }) {
-  const sectionClass = section.id === "attention" ? "rounded-lg -mx-0.5 px-0.5" : "";
+  const isPrioritySection = section.id === "attention" || section.id === "reReview";
+  const sectionClass = isPrioritySection ? "rounded-lg -mx-0.5 px-0.5" : "";
   const bodyClass =
-    section.id === "attention"
+    isPrioritySection
       ? "bg-[rgba(212,136,58,0.028)] rounded-b-lg border-t border-[rgba(212,136,58,0.08)]"
       : "border-t border-border-subtle";
-  const titleClass = section.id === "attention" ? "text-accent-text" : "text-text-secondary";
+  const titleClass = isPrioritySection ? "text-accent-text" : "text-text-secondary";
 
   return (
     <div
@@ -452,6 +467,7 @@ export function PrSectionView({
                 onClick={() => onSelectPr(item)}
                 isFocused={flatIndex === focusIndex}
                 isShipSection={section.id === "ship"}
+                showRefreshCta={section.id === "reReview"}
               />
             );
           })}
@@ -468,6 +484,7 @@ function PrRow({
   onClick,
   isFocused,
   isShipSection,
+  showRefreshCta,
 }: {
   item: EnrichedDashboardPr;
   currentUser: string | null;
@@ -475,9 +492,10 @@ function PrRow({
   onClick: () => void;
   isFocused: boolean;
   isShipSection: boolean;
+  showRefreshCta: boolean;
 }) {
   const { pr, hasNewActivity } = item;
-  const statusTag = resolveStatusTag(pr, currentUser);
+  const statusTag = resolveStatusTag(pr, currentUser, showRefreshCta);
   const barColor = resolveBarColor(pr, currentUser);
   const size = prSizeLabel(pr.additions, pr.deletions);
   const isDim = pr.state === "MERGED" || pr.state === "CLOSED" || pr.isDraft;
@@ -732,6 +750,16 @@ function StatusTagIcon({ icon }: { icon: StatusTag["icon"] }) {
           size={9}
           strokeWidth={strokeWidth}
           className={className}
+          {...hidden}
+        />
+      );
+    }
+    case "reviewAgain": {
+      return (
+        <RefreshCw
+          size={9}
+          strokeWidth={strokeWidth}
+          className={`${className} -scale-x-100`}
           {...hidden}
         />
       );

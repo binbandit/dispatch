@@ -13,7 +13,7 @@ export interface EnrichedDashboardPr {
   hasNewActivity: boolean;
 }
 
-export type SectionId = "attention" | "ship" | "progress" | "completed";
+export type SectionId = "attention" | "reReview" | "ship" | "progress" | "completed";
 
 export interface PrSection {
   id: SectionId;
@@ -33,15 +33,21 @@ export function categorizeHomePrs(
   currentUserCanMerge = true,
 ): PrSection[] {
   const attention: EnrichedDashboardPr[] = [];
+  const reReview: EnrichedDashboardPr[] = [];
   const ship: EnrichedDashboardPr[] = [];
   const progress: EnrichedDashboardPr[] = [];
   const completed: EnrichedDashboardPr[] = [];
 
   for (const item of prs) {
     const key = getDashboardPrKey(item.pr.pullRequestRepository, item.pr.number);
+    const isCurrentUserAuthor = currentUser !== null && item.pr.author.login === currentUser;
+    const shouldReviewAgain =
+      item.hasNewActivity && reviewRequestedKeys.has(key) && !isCurrentUserAuthor;
 
     if (item.pr.state === "MERGED" || item.pr.state === "CLOSED") {
       completed.push(item);
+    } else if (shouldReviewAgain) {
+      reReview.push(item);
     } else if (reviewRequestedKeys.has(key)) {
       attention.push(item);
     } else if (
@@ -50,11 +56,7 @@ export function categorizeHomePrs(
       item.pr.reviewDecision === "CHANGES_REQUESTED"
     ) {
       attention.push(item);
-    } else if (
-      currentUserCanMerge &&
-      !item.pr.isDraft &&
-      item.pr.reviewDecision === "APPROVED"
-    ) {
+    } else if (currentUserCanMerge && !item.pr.isDraft && item.pr.reviewDecision === "APPROVED") {
       ship.push(item);
     } else {
       progress.push(item);
@@ -63,6 +65,7 @@ export function categorizeHomePrs(
 
   return [
     { id: "attention", title: "Needs your attention", items: attention },
+    { id: "reReview", title: "Needs re-review", items: reReview },
     { id: "ship", title: "Ready to ship", items: ship },
     { id: "progress", title: "In progress", items: progress },
     {

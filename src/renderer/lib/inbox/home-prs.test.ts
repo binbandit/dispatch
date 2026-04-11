@@ -66,11 +66,13 @@ describe("categorizeHomePrs", () => {
 
     expect(sections.map((section) => section.id)).toEqual([
       "attention",
+      "reReview",
       "ship",
       "progress",
       "completed",
     ]);
     expect(getSection(sections, "attention")?.items).toHaveLength(1);
+    expect(getSection(sections, "reReview")?.items).toHaveLength(0);
   });
 
   it("keeps different repositories with the same pull request number distinct", () => {
@@ -136,7 +138,47 @@ describe("categorizeHomePrs", () => {
     expect(getSection(sections, "ship")?.items).toHaveLength(0);
     expect(getSection(sections, "progress")?.items).toHaveLength(1);
   });
-});
+
+  it("moves seen review requests with new activity into re-review", () => {
+    const reReviewPr = createDashboardItem({
+      number: 101,
+      workspacePath: "/tmp/dispatch",
+      workspace: "dispatch",
+      reviewDecision: "REVIEW_REQUIRED",
+    });
+    const seenPr = {
+      ...reReviewPr,
+      hasNewActivity: true,
+    };
+
+    const sections = categorizeHomePrs(
+      [seenPr],
+      new Set([getDashboardPrKey(reReviewPr.pr.pullRequestRepository, reReviewPr.pr.number)]),
+      "brayden",
+    );
+
+    expect(getSection(sections, "reReview")?.items).toHaveLength(1);
+    expect(getSection(sections, "attention")?.items).toHaveLength(0);
+  });
+
+  it("keeps unseen review requests in attention", () => {
+    const unseenPr = createDashboardItem({
+      number: 102,
+      workspacePath: "/tmp/dispatch",
+      workspace: "dispatch",
+      reviewDecision: "REVIEW_REQUIRED",
+    });
+
+    const sections = categorizeHomePrs(
+      [unseenPr],
+      new Set([getDashboardPrKey(unseenPr.pr.pullRequestRepository, unseenPr.pr.number)]),
+      "brayden",
+    );
+
+    expect(getSection(sections, "attention")?.items).toHaveLength(1);
+    expect(getSection(sections, "reReview")?.items).toHaveLength(0);
+  });
+}); 
 
 describe("preferWorkspacePrs", () => {
   it("prefers the active workspace when fork and upstream workspaces point at the same pull request repo", () => {
