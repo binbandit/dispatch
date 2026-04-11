@@ -1,5 +1,8 @@
 import { ipc } from "@/renderer/lib/app/ipc";
-import { DEFAULT_CODE_THEME_DARK, DEFAULT_CODE_THEME_LIGHT } from "@/renderer/lib/review/highlighter";
+import {
+  DEFAULT_CODE_THEME_DARK,
+  DEFAULT_CODE_THEME_LIGHT,
+} from "@/renderer/lib/review/highlighter";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
 type Theme = "dark" | "light" | "system";
@@ -50,19 +53,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(
     () => (localStorage.getItem("dispatch-theme") as Theme) ?? "dark",
   );
-  const [codeThemeDark, setCodeThemeDark] = useState<string>(
-    () =>
-      readCodeThemePreference(
-        "dispatch-code-theme-dark",
-        localStorage.getItem(LEGACY_SINGLE_CODE_THEME_STORAGE_KEY) ?? DEFAULT_CODE_THEME_DARK,
-      ),
+  const [codeThemeDark, setCodeThemeDark] = useState<string>(() =>
+    readCodeThemePreference(
+      "dispatch-code-theme-dark",
+      localStorage.getItem(LEGACY_SINGLE_CODE_THEME_STORAGE_KEY) ?? DEFAULT_CODE_THEME_DARK,
+    ),
   );
-  const [codeThemeLight, setCodeThemeLight] = useState<string>(
-    () =>
-      readCodeThemePreference(
-        "dispatch-code-theme-light",
-        localStorage.getItem(LEGACY_SINGLE_CODE_THEME_STORAGE_KEY) ?? DEFAULT_CODE_THEME_LIGHT,
-      ),
+  const [codeThemeLight, setCodeThemeLight] = useState<string>(() =>
+    readCodeThemePreference(
+      "dispatch-code-theme-light",
+      localStorage.getItem(LEGACY_SINGLE_CODE_THEME_STORAGE_KEY) ?? DEFAULT_CODE_THEME_LIGHT,
+    ),
   );
 
   const resolved = resolveTheme(theme);

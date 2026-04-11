@@ -4,12 +4,12 @@ import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";
 import { GitHubAvatar } from "@/renderer/components/shared/github-avatar";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
-import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { useRouter } from "@/renderer/lib/app/router";
+import { useWorkspace } from "@/renderer/lib/app/workspace-context";
+import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertCircle, Bell, CheckCircle2, GitMerge, GitPullRequest, Inbox, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { relativeTime } from "@/shared/format";
 
 /**
  * Notification center — bell icon in navbar with unread badge.
@@ -110,12 +110,7 @@ export function NotificationCenter() {
   });
 
   const openNotification = useCallback(
-    (notification: {
-      id: number;
-      prNumber: number;
-      workspace: string;
-      read: boolean;
-    }) => {
+    (notification: { id: number; prNumber: number; workspace: string; read: boolean }) => {
       if (notification.workspace) {
         const targetWorkspace = getWorkspace(notification.workspace);
 

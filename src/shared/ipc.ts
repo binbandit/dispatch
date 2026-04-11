@@ -228,7 +228,7 @@ export interface GhReviewComment {
   created_at: string;
   updated_at: string;
   in_reply_to_id?: number;
-  /** GraphQL node ID for thread resolution (only on root comments) */
+  /** GraphQL node ID for this review comment. Used for reactions. */
   node_id?: string;
 }
 
@@ -244,6 +244,7 @@ export interface GhReviewThread {
   isResolved: boolean;
   path: string;
   line: number | null;
+  rootCommentId: number | null;
   comments: Array<{
     author: { login: string };
     body: string;

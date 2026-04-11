@@ -686,3 +686,19 @@ button.bg-primary:hover {
     transform: none;
   }
 }
+
+/* Highlight pulse for scroll-to-comment navigation */
+.scroll-target-highlight {
+  animation: scrollTargetPulse 1.5s ease-out;
+}
+
+@keyframes scrollTargetPulse {
+  0% {
+    outline: 2px solid rgba(212, 136, 58, 0.6);
+    outline-offset: 0px;
+  }
+  100% {
+    outline: 2px solid transparent;
+    outline-offset: 4px;
+  }
+}

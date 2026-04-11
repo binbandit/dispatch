@@ -180,7 +180,7 @@ describe("categorizeHomePrs", () => {
     expect(getSection(sections, "attention")?.items).toHaveLength(1);
     expect(getSection(sections, "reReview")?.items).toHaveLength(0);
   });
-}); 
+});
 
 describe("preferWorkspacePrs", () => {
   it("prefers the active workspace when fork and upstream workspaces point at the same pull request repo", () => {

@@ -11,18 +11,19 @@ import { ReviewMarkdownComposer } from "@/renderer/components/review/comments/re
 import { GitHubAvatar } from "@/renderer/components/shared/github-avatar";
 import { MarkdownBody } from "@/renderer/components/shared/markdown-body";
 import { useBotSettings } from "@/renderer/hooks/preferences/use-bot-settings";
-import { useTheme } from "@/renderer/lib/app/theme-context";
 import { useMinimizedComments } from "@/renderer/hooks/review/use-minimized-comments";
 import { useSyntaxHighlighter } from "@/renderer/hooks/review/use-syntax-highlight";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { openExternal } from "@/renderer/lib/app/open-external";
 import { queryClient } from "@/renderer/lib/app/query-client";
+import { useTheme } from "@/renderer/lib/app/theme-context";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import {
   getShikiTokenColor,
   inferLanguage,
   type ShikiToken,
 } from "@/renderer/lib/review/highlighter";
+import type { ReviewThreadState } from "@/renderer/lib/review/review-comments";
 import { relativeTime } from "@/shared/format";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -57,6 +58,8 @@ export interface ReviewComment {
   body: string;
   path: string;
   line: number | null;
+  original_line: number | null;
+  side: "LEFT" | "RIGHT";
   user: { login: string; avatar_url?: string };
   created_at: string;
   in_reply_to_id?: number;
@@ -68,8 +71,8 @@ interface InlineCommentProps {
   prNumber?: number;
   repo?: string;
   reviewActionsEnabled?: boolean;
-  /** Set of thread node IDs that are resolved (from reviewThreads) */
-  resolvedThreadIds?: Set<string>;
+  /** Thread metadata keyed by root review comment databaseId */
+  reviewThreadStateByRootCommentId?: Map<number, ReviewThreadState>;
   /** Reaction data for review comments, keyed by databaseId (as string) */
   reviewCommentReactions?: Record<string, GhReactionGroup[]>;
 }
@@ -79,7 +82,7 @@ export function InlineComment({
   prNumber,
   repo,
   reviewActionsEnabled = true,
-  resolvedThreadIds,
+  reviewThreadStateByRootCommentId,
   reviewCommentReactions,
 }: InlineCommentProps) {
   const { nwo } = useWorkspace();
@@ -106,7 +109,7 @@ export function InlineComment({
             reviewActionsEnabled={reviewActionsEnabled}
             showBorder={i > 0}
             toggleMinimized={toggleMinimized}
-            resolvedThreadIds={resolvedThreadIds}
+            reviewThreadStateByRootCommentId={reviewThreadStateByRootCommentId}
             isBot={isBot}
             shouldAutoCollapseBot={shouldAutoCollapseBot}
             isCommentMinimized={isCommentMinimized}
@@ -167,7 +170,7 @@ function CommentThread({
   reviewActionsEnabled,
   showBorder,
   toggleMinimized,
-  resolvedThreadIds,
+  reviewThreadStateByRootCommentId,
   isBot,
   shouldAutoCollapseBot,
   isCommentMinimized,
@@ -179,18 +182,21 @@ function CommentThread({
   reviewActionsEnabled: boolean;
   showBorder: boolean;
   toggleMinimized: (commentId: string, autoMinimized?: boolean) => void;
-  resolvedThreadIds?: Set<string>;
+  reviewThreadStateByRootCommentId?: Map<number, ReviewThreadState>;
   isBot: (login: string) => boolean;
   shouldAutoCollapseBot: (login: string) => boolean;
   isCommentMinimized: (commentId: string, autoMinimized?: boolean) => boolean;
   reviewCommentReactions?: Record<string, GhReactionGroup[]>;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const threadState = reviewThreadStateByRootCommentId?.get(root.id);
+  const isResolvedThread = threadState?.isResolved ?? false;
+  const hasReplies = replies.length > 0;
+  const [collapsed, setCollapsed] = useState(() => isResolvedThread && hasReplies);
   const [showReply, setShowReply] = useState(false);
   const totalCount = 1 + replies.length;
   const canMutateThread = reviewActionsEnabled && Boolean(prNumber);
-  const isResolvedThread = root.node_id ? (resolvedThreadIds?.has(root.node_id) ?? false) : false;
   const preview = useMemo(() => buildCommentPreview(root.body, 160), [root.body]);
+  const rootAutoMinimized = shouldAutoCollapseBot(root.user.login) || (isResolvedThread && !hasReplies);
 
   return (
     <div
@@ -199,7 +205,7 @@ function CommentThread({
         isResolvedThread && "bg-bg-root/30",
       )}
     >
-      {replies.length > 0 &&
+      {hasReplies &&
         (collapsed ? (
           <button
             type="button"
@@ -263,11 +269,9 @@ function CommentThread({
             isRoot
             onReply={canMutateThread ? () => setShowReply(true) : undefined}
             prNumber={prNumber}
-            minimized={isCommentMinimized(String(root.id), shouldAutoCollapseBot(root.user.login))}
-            onToggleMinimized={() =>
-              toggleMinimized(String(root.id), shouldAutoCollapseBot(root.user.login))
-            }
-            resolvedThreadIds={resolvedThreadIds}
+            minimized={isCommentMinimized(String(root.id), rootAutoMinimized)}
+            onToggleMinimized={() => toggleMinimized(String(root.id), rootAutoMinimized)}
+            reviewThreadState={threadState}
             reviewActionsEnabled={reviewActionsEnabled}
             isBot={isBot}
             reactions={reviewCommentReactions?.[String(root.id)]}
@@ -503,36 +507,29 @@ function BotCommentGroup({
 // ---------------------------------------------------------------------------
 
 function ThreadResolveButton({
-  comment,
+  threadId,
   initialResolved = false,
 }: {
-  comment: ReviewComment;
+  threadId: string;
   initialResolved?: boolean;
 }) {
   const { repoTarget } = useWorkspace();
   const [resolved, setResolved] = useState(initialResolved);
 
   const resolveMutation = useMutation({
-    mutationFn: () => {
-      if (!comment.node_id) {
-        return Promise.reject(new Error("No thread ID"));
-      }
-      return resolved
-        ? ipc("pr.unresolveThread", { ...repoTarget, threadId: comment.node_id })
-        : ipc("pr.resolveThread", { ...repoTarget, threadId: comment.node_id });
-    },
+    mutationFn: () =>
+      resolved
+        ? ipc("pr.unresolveThread", { ...repoTarget, threadId })
+        : ipc("pr.resolveThread", { ...repoTarget, threadId }),
     onSuccess: () => {
-      setResolved(!resolved);
+      setResolved((currentResolved) => !currentResolved);
       queryClient.invalidateQueries({ queryKey: ["pr", "comments"] });
+      queryClient.invalidateQueries({ queryKey: ["pr", "reviewThreads"] });
     },
     onError: () => {
       toastManager.add({ title: "Failed to update thread", type: "error" });
     },
   });
-
-  if (!comment.node_id) {
-    return null;
-  }
 
   return (
     <Button
@@ -711,7 +708,7 @@ function CommentBody({
   prNumber,
   minimized,
   onToggleMinimized,
-  resolvedThreadIds,
+  reviewThreadState,
   reviewActionsEnabled = true,
   isBot,
   reactions,
@@ -722,7 +719,7 @@ function CommentBody({
   prNumber?: number;
   minimized: boolean;
   onToggleMinimized: () => void;
-  resolvedThreadIds?: Set<string>;
+  reviewThreadState?: ReviewThreadState;
   reviewActionsEnabled?: boolean;
   isBot: (login: string) => boolean;
   reactions?: GhReactionGroup[];
@@ -789,12 +786,10 @@ function CommentBody({
             {relativeTime(new Date(comment.created_at))}
           </span>
           <div className="ml-auto flex items-center gap-1">
-            {isRoot && reviewActionsEnabled && (
+            {isRoot && reviewActionsEnabled && reviewThreadState && (
               <ThreadResolveButton
-                comment={comment}
-                initialResolved={
-                  comment.node_id ? (resolvedThreadIds?.has(comment.node_id) ?? false) : false
-                }
+                threadId={reviewThreadState.threadId}
+                initialResolved={reviewThreadState.isResolved}
               />
             )}
             <Tooltip>

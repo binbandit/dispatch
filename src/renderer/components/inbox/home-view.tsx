@@ -69,18 +69,14 @@ export function HomeView() {
   const allQuery = useQuery({
     queryKey: ["pr", "listAll", "all", "all"],
     queryFn: () => ipc("pr.listAll", { filter: "all", state: "all" }),
-    refetchInterval: 60_000,
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
+    refetchInterval: 30_000,
   });
 
   // Review-requested PRs across workspaces.
   const reviewQuery = useQuery({
     queryKey: ["pr", "listAll", "reviewRequested", "open"],
     queryFn: () => ipc("pr.listAll", { filter: "reviewRequested", state: "open" }),
-    refetchInterval: 60_000,
-    staleTime: 60_000,
-    refetchOnWindowFocus: false,
+    refetchInterval: 30_000,
   });
 
   // PR activity (for new-activity dots)

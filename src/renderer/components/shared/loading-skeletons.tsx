@@ -43,8 +43,26 @@ export function PrDetailSkeleton() {
 
 // Deterministic line widths so the skeleton is stable across re-renders.
 const CODE_LINE_WIDTHS = [
-  "62%", "45%", "78%", "34%", "91%", "55%", "70%", "42%", "86%", "50%",
-  "67%", "38%", "74%", "58%", "82%", "46%", "60%", "72%", "40%", "88%",
+  "62%",
+  "45%",
+  "78%",
+  "34%",
+  "91%",
+  "55%",
+  "70%",
+  "42%",
+  "86%",
+  "50%",
+  "67%",
+  "38%",
+  "74%",
+  "58%",
+  "82%",
+  "46%",
+  "60%",
+  "72%",
+  "40%",
+  "88%",
 ];
 
 export function DiffSkeleton() {
@@ -82,7 +100,7 @@ export function DiffSkeleton() {
           {/* Diff marker */}
           <div className="w-5 shrink-0" />
           {/* Code content */}
-          <div className="min-w-0 flex-1 pl-1 pr-3">
+          <div className="min-w-0 flex-1 pr-3 pl-1">
             <Skeleton
               className="h-2.5 rounded-sm"
               style={{ width }}

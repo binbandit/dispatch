@@ -2,19 +2,19 @@
 import type { Highlighter } from "shiki";
 
 import { useSyntaxHighlighter } from "@/renderer/hooks/review/use-syntax-highlight";
-import { useTheme } from "@/renderer/lib/app/theme-context";
 import { openExternal } from "@/renderer/lib/app/open-external";
+import { useTheme } from "@/renderer/lib/app/theme-context";
 import {
   getShikiTokenColor,
   type ShikiToken,
   type ThemeMode,
 } from "@/renderer/lib/review/highlighter";
 import { AlertCircle, Info, Lightbulb, OctagonAlert, TriangleAlert } from "lucide-react";
+import { useMemo } from "react";
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGemoji from "remark-gemoji";
 import remarkGfm from "remark-gfm";
-import { useMemo } from "react";
 
 /**
  * Render GitHub-flavored markdown (PR body, comments).

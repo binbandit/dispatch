@@ -96,7 +96,7 @@ export function AuthorDossier({ login, author, createdAt }: AuthorDossierProps) 
             </span>
             {profile && (
               <span
-                className="shrink-0 rounded-xs px-1.5 py-px text-[8px] font-bold uppercase tracking-[0.04em]"
+                className="shrink-0 rounded-xs px-1.5 py-px text-[8px] font-bold tracking-[0.04em] uppercase"
                 style={{
                   background: `color-mix(in srgb, ${color} 12%, transparent)`,
                   color,
@@ -147,7 +147,7 @@ export function AuthorDossier({ login, author, createdAt }: AuthorDossierProps) 
           {/* Organizations */}
           {profile.organizations.length > 0 && (
             <div className="mt-2 flex items-center gap-1.5">
-              <span className="text-text-ghost text-[9px] font-semibold uppercase tracking-[0.06em]">
+              <span className="text-text-ghost text-[9px] font-semibold tracking-[0.06em] uppercase">
                 Orgs
               </span>
               <div className="flex -space-x-1">
@@ -182,10 +182,19 @@ export function AuthorDossier({ login, author, createdAt }: AuthorDossierProps) 
 // Helpers
 // ---------------------------------------------------------------------------
 
-function MetaItem({ icon: Icon, children }: { icon: React.ElementType; children: React.ReactNode }) {
+function MetaItem({
+  icon: Icon,
+  children,
+}: {
+  icon: React.ElementType;
+  children: React.ReactNode;
+}) {
   return (
     <span className="text-text-tertiary flex items-center gap-1 text-[10px]">
-      <Icon size={10} className="text-text-ghost shrink-0" />
+      <Icon
+        size={10}
+        className="text-text-ghost shrink-0"
+      />
       {children}
     </span>
   );

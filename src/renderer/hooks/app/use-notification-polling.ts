@@ -27,9 +27,6 @@ type NotificationInput = {
   authorLogin?: string;
 };
 
-const PR_POLL_INTERVAL_MS = 60_000;
-const PR_POLL_STALE_TIME_MS = 60_000;
-
 function getPrNotificationKey(pr: { pullRequestRepository: string; number: number }): string {
   return `${pr.pullRequestRepository}::${pr.number}`;
 }
@@ -102,9 +99,7 @@ export function useNotificationPolling(): void {
   const reviewQuery = useQuery({
     queryKey: ["pr", "listAll", "reviewRequested", "open"],
     queryFn: () => ipc("pr.listAll", { filter: "reviewRequested", state: "open" }),
-    refetchInterval: PR_POLL_INTERVAL_MS,
-    staleTime: PR_POLL_STALE_TIME_MS,
-    refetchOnWindowFocus: false,
+    refetchInterval: 30_000,
   });
 
   const reviewEnrichmentQuery = useQuery({
@@ -114,17 +109,13 @@ export function useNotificationPolling(): void {
         filter: "reviewRequested",
         state: "open",
       }),
-    refetchInterval: PR_POLL_INTERVAL_MS,
-    staleTime: PR_POLL_STALE_TIME_MS,
-    refetchOnWindowFocus: false,
+    refetchInterval: 30_000,
   });
 
   const authorQuery = useQuery({
     queryKey: ["pr", "listAll", "authored", "open"],
     queryFn: () => ipc("pr.listAll", { filter: "authored", state: "open" }),
-    refetchInterval: PR_POLL_INTERVAL_MS,
-    staleTime: PR_POLL_STALE_TIME_MS,
-    refetchOnWindowFocus: false,
+    refetchInterval: 30_000,
   });
 
   const authorEnrichmentQuery = useQuery({
@@ -134,9 +125,7 @@ export function useNotificationPolling(): void {
         filter: "authored",
         state: "open",
       }),
-    refetchInterval: PR_POLL_INTERVAL_MS,
-    staleTime: PR_POLL_STALE_TIME_MS,
-    refetchOnWindowFocus: false,
+    refetchInterval: 30_000,
   });
 
   useEffect(() => {

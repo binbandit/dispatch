@@ -124,10 +124,9 @@ export async function getUserProfile(login: string): Promise<GhUserProfile> {
     "}",
   ].join(" ");
 
-  const { stdout } = await ghExec(
-    ["api", `users/${encodeURIComponent(login)}`, "--jq", jq],
-    { timeout: 15_000 },
-  );
+  const { stdout } = await ghExec(["api", `users/${encodeURIComponent(login)}`, "--jq", jq], {
+    timeout: 15_000,
+  });
   const profile = parseJsonOutput<Omit<GhUserProfile, "organizations">>(stdout);
 
   // Fetch organizations separately (paginated endpoint)

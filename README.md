@@ -30,18 +30,18 @@ Key architectural details live in [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## Stack
 
-| Layer | Tool |
-| --- | --- |
-| Runtime | Electron 41 |
-| Bundler | Vite 8 |
-| UI | React 19 |
-| Component base | coss ui / Base UI |
-| Styling | Tailwind CSS 4 |
-| Language | TypeScript 5.9 |
-| Testing | Vitest 4 |
-| Linting | oxlint |
-| Formatting | oxfmt |
-| Package manager | Bun |
+| Layer           | Tool              |
+| --------------- | ----------------- |
+| Runtime         | Electron 41       |
+| Bundler         | Vite 8            |
+| UI              | React 19          |
+| Component base  | coss ui / Base UI |
+| Styling         | Tailwind CSS 4    |
+| Language        | TypeScript 5.9    |
+| Testing         | Vitest 4          |
+| Linting         | oxlint            |
+| Formatting      | oxfmt             |
+| Package manager | Bun               |
 
 ## Requirements
 
@@ -63,21 +63,21 @@ On first launch, Dispatch checks for `git`, `gh`, and GitHub CLI authentication.
 
 ## Scripts
 
-| Command | Purpose |
-| --- | --- |
-| `bun run dev` | Start the Vite dev server and launch Electron |
-| `bun run build` | Build the renderer and Electron bundles |
-| `bun run build:app` | Package the app for distribution |
-| `bun run build:app:dir` | Build an unpacked distribution directory |
-| `bun run build:app:dmg` | Build a macOS DMG and ZIP |
-| `bun run preview` | Preview the Vite build |
-| `bun run test` | Run tests once |
-| `bun run test:watch` | Run tests in watch mode |
-| `bun run lint` | Run oxlint |
-| `bun run lint:fix` | Run oxlint with fixes |
-| `bun run format` | Format the repo with oxfmt |
-| `bun run format:check` | Check formatting without writing |
-| `bun run typecheck` | Run TypeScript type checking |
+| Command                 | Purpose                                       |
+| ----------------------- | --------------------------------------------- |
+| `bun run dev`           | Start the Vite dev server and launch Electron |
+| `bun run build`         | Build the renderer and Electron bundles       |
+| `bun run build:app`     | Package the app for distribution              |
+| `bun run build:app:dir` | Build an unpacked distribution directory      |
+| `bun run build:app:dmg` | Build a macOS DMG and ZIP                     |
+| `bun run preview`       | Preview the Vite build                        |
+| `bun run test`          | Run tests once                                |
+| `bun run test:watch`    | Run tests in watch mode                       |
+| `bun run lint`          | Run oxlint                                    |
+| `bun run lint:fix`      | Run oxlint with fixes                         |
+| `bun run format`        | Format the repo with oxfmt                    |
+| `bun run format:check`  | Check formatting without writing              |
+| `bun run typecheck`     | Run TypeScript type checking                  |
 
 ## Packaging
 
@@ -121,4 +121,3 @@ Renderer feature areas currently include:
 - Keep renderer code in feature folders rather than flat shared buckets
 - Add cross-process features by defining the shared contract first, then main handler, preload exposure, and renderer usage
 - UI work should follow the design system in `DISPATCH-DESIGN-SYSTEM.md`
-

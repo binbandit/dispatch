@@ -61,8 +61,7 @@ export function CollapsibleDescription({
               left: 0,
               right: 0,
               height: "48px",
-              background:
-                "linear-gradient(to bottom, transparent, var(--bg-raised))",
+              background: "linear-gradient(to bottom, transparent, var(--bg-raised))",
               pointerEvents: "none",
             }}
           />

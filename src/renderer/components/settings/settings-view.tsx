@@ -9,12 +9,12 @@ import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useRouter } from "@/renderer/lib/app/router";
 import { useTheme } from "@/renderer/lib/app/theme-context";
-import { DEFAULT_CODE_THEME_DARK } from "@/renderer/lib/review/highlighter";
 import { useKeybindings } from "@/renderer/lib/keyboard/keybinding-context";
 import {
   DEFAULT_KEYBINDINGS,
   type ShortcutCategory,
 } from "@/renderer/lib/keyboard/keybinding-registry";
+import { DEFAULT_CODE_THEME_DARK } from "@/renderer/lib/review/highlighter";
 import {
   AI_MODEL_SLOT_SCOPED_PREFERENCE_KEYS,
   AI_PROVIDER_SCOPED_PREFERENCE_KEYS,

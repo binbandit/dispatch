@@ -412,10 +412,9 @@ export function PrSectionView({
 }) {
   const isPrioritySection = section.id === "attention" || section.id === "reReview";
   const sectionClass = isPrioritySection ? "rounded-lg -mx-0.5 px-0.5" : "";
-  const bodyClass =
-    isPrioritySection
-      ? "bg-[rgba(212,136,58,0.028)] rounded-b-lg border-t border-[rgba(212,136,58,0.08)]"
-      : "border-t border-border-subtle";
+  const bodyClass = isPrioritySection
+    ? "bg-[rgba(212,136,58,0.028)] rounded-b-lg border-t border-[rgba(212,136,58,0.08)]"
+    : "border-t border-border-subtle";
   const titleClass = isPrioritySection ? "text-accent-text" : "text-text-secondary";
 
   return (

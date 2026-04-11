@@ -38,6 +38,7 @@ interface SidePanelOverlayProps {
   repo: string;
   highlightedLogin: string | null;
   onReviewClick: (login: string) => void;
+  onThreadClick?: (path: string, line: number | null) => void;
   diffSnippet: string;
   activeTab: PanelTab;
   onTabChange: (tab: PanelTab) => void;
@@ -56,6 +57,7 @@ export function SidePanelOverlay({
   issueComments,
   repo,
   onReviewClick,
+  onThreadClick,
   diffSnippet,
   activeTab,
   onTabChange,
@@ -131,6 +133,7 @@ export function SidePanelOverlay({
           reviewThreads={reviewThreads}
           repo={repo}
           onReviewClick={onReviewClick}
+          onThreadClick={onThreadClick}
           issueCommentReactions={reactions?.issueComments}
         />
       ) : (

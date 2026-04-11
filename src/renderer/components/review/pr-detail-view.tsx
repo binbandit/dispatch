@@ -33,7 +33,11 @@ import {
 import { getDiffFilePath, parseDiff, type DiffFile } from "@/renderer/lib/review/diff-parser";
 import { useFileNav } from "@/renderer/lib/review/file-nav-context";
 import { ensureLanguage, ensureTheme, inferLanguage } from "@/renderer/lib/review/highlighter";
-import { getReviewPositionKey } from "@/renderer/lib/review/review-position";
+import {
+  buildReviewCommentsMap,
+  buildReviewThreadStateByRootCommentId,
+  type ReviewThreadState,
+} from "@/renderer/lib/review/review-comments";
 import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, GitCommitHorizontal, GitMerge, XCircle } from "lucide-react";
@@ -261,19 +265,10 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   });
 
   const emptyCommentsMap = useMemo(() => new Map<string, ReviewComment[]>(), []);
-  const commentsMap = useMemo(() => {
-    const map = new Map<string, ReviewComment[]>();
-    for (const c of commentsQuery.data ?? []) {
-      if (!c.line) {
-        continue;
-      }
-      const key = getReviewPositionKey(c.path, c.line, c.side);
-      const existing = map.get(key) ?? [];
-      existing.push(c);
-      map.set(key, existing);
-    }
-    return map;
-  }, [commentsQuery.data]);
+  const commentsMap = useMemo(
+    () => buildReviewCommentsMap<ReviewComment>(commentsQuery.data ?? []),
+    [commentsQuery.data],
+  );
 
   // CI annotations — empty when viewing a commit
   const annotationsQuery = useQuery({
@@ -505,6 +500,20 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     [commentsQuery.data, files, setCurrentFileState],
   );
 
+  // Navigate to a specific thread's file and scroll to the comment line
+  const [scrollToLine, setScrollToLine] = useState<number | null>(null);
+
+  const handleThreadClick = useCallback(
+    (path: string, line: number | null) => {
+      const fileIndex = files.findIndex((f) => getDiffFilePath(f) === path);
+      if (fileIndex !== -1) {
+        setCurrentFileState(fileIndex);
+        setScrollToLine(line);
+      }
+    },
+    [files, setCurrentFileState],
+  );
+
   // Clean up highlight timer on unmount
   useEffect(
     () => () => {
@@ -603,17 +612,14 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     },
   ]);
 
-  // Build set of resolved thread IDs for inline comment display
-  const resolvedThreadIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const thread of reviewThreadsQuery.data ?? []) {
-      if (thread.isResolved) {
-        ids.add(thread.id);
-      }
-    }
-    return ids;
-  }, [reviewThreadsQuery.data]);
-  const emptyResolvedIds = useMemo(() => new Set<string>(), []);
+  const reviewThreadStateByRootCommentId = useMemo(
+    () => buildReviewThreadStateByRootCommentId(reviewThreadsQuery.data ?? []),
+    [reviewThreadsQuery.data],
+  );
+  const emptyReviewThreadStateByRootCommentId = useMemo(
+    () => new Map<number, ReviewThreadState>(),
+    [],
+  );
 
   // Check if the current user has been re-requested for review (e.g. after new commits)
   const reviewRequestsQuery = useQuery({
@@ -779,7 +785,11 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               onCloseComposer={reviewControlsEnabled ? () => setActiveComposer(null) : undefined}
               fullFileContent={showFullFile ? (fullFileQuery.data ?? null) : null}
               diffMode={viewMode}
-              resolvedThreadIds={selectedCommit ? emptyResolvedIds : resolvedThreadIds}
+              reviewThreadStateByRootCommentId={
+                selectedCommit
+                  ? emptyReviewThreadStateByRootCommentId
+                  : reviewThreadStateByRootCommentId
+              }
               reviewCommentReactions={
                 selectedCommit ? undefined : reactionsQuery.data?.reviewComments
               }
@@ -788,6 +798,8 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               bottomOverlayInset={reviewControlsEnabled ? FLOATING_REVIEW_BAR_CLEARANCE : 0}
               onPostSuggestion={reviewControlsEnabled ? postSuggestion : undefined}
               onDismissSuggestion={dismissSuggestion}
+              scrollToLine={scrollToLine}
+              onScrollToLineComplete={() => setScrollToLine(null)}
             />
           ) : (
             <div className="flex flex-1 items-center justify-center">
@@ -812,6 +824,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
           repo={repoSlug}
           highlightedLogin={highlightedComment?.login ?? null}
           onReviewClick={handleReviewClick}
+          onThreadClick={handleThreadClick}
           diffSnippet={rawDiff ?? ""}
           activeTab={panelTab}
           onTabChange={setPanelTab}

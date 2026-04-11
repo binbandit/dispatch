@@ -1490,6 +1490,7 @@ export async function getPrReviewThreads(
             line
             comments(first: 3) {
               nodes {
+                databaseId
                 author { login }
                 body
               }
@@ -1513,7 +1514,9 @@ export async function getPrReviewThreads(
               isResolved: boolean;
               path: string;
               line: number | null;
-              comments: { nodes: Array<{ author: { login: string }; body: string }> };
+              comments: {
+                nodes: Array<{ databaseId: number | null; author: { login: string }; body: string }>;
+              };
             }>;
           };
         };
@@ -1526,6 +1529,7 @@ export async function getPrReviewThreads(
     isResolved: thread.isResolved,
     path: thread.path,
     line: thread.line,
+    rootCommentId: thread.comments.nodes[0]?.databaseId ?? null,
     comments: thread.comments.nodes,
   }));
 }

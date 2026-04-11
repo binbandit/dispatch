@@ -41,6 +41,8 @@ interface ConversationTabProps {
   reviewThreads?: GhReviewThread[];
   repo: string;
   onReviewClick: (login: string) => void;
+  /** Navigate to a thread's file and scroll to the comment */
+  onThreadClick?: (path: string, line: number | null) => void;
   /** Reaction data for issue comments, keyed by comment databaseId */
   issueCommentReactions?: Record<string, GhReactionGroup[]>;
 }
@@ -52,6 +54,7 @@ export function ConversationTab({
   reviewThreads,
   repo,
   onReviewClick,
+  onThreadClick,
   issueCommentReactions,
 }: ConversationTabProps) {
   const { isBot, shouldAutoCollapseBot } = useBotSettings();
@@ -120,9 +123,13 @@ export function ConversationTab({
                     key={event.key}
                     thread={event.thread}
                     onClick={() => {
-                      const first = event.thread.comments[0];
-                      if (first) {
-                        onReviewClick(first.author.login);
+                      if (onThreadClick) {
+                        onThreadClick(event.thread.path, event.thread.line);
+                      } else {
+                        const first = event.thread.comments[0];
+                        if (first) {
+                          onReviewClick(first.author.login);
+                        }
                       }
                     }}
                   />

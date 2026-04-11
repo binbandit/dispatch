@@ -26,6 +26,7 @@ import {
   type ShikiToken,
   type ThemeMode,
 } from "@/renderer/lib/review/highlighter";
+import type { ReviewThreadState } from "@/renderer/lib/review/review-comments";
 import { getReviewPositionKey } from "@/renderer/lib/review/review-position";
 import { ChevronDown, ChevronUp, Plus, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -66,8 +67,8 @@ interface DiffViewerProps {
   /** Full file content for "show full file" mode */
   fullFileContent?: string | null;
   diffMode?: DiffMode;
-  /** Set of thread node IDs that are resolved (from reviewThreads) */
-  resolvedThreadIds?: Set<string>;
+  /** Thread metadata keyed by root review comment databaseId */
+  reviewThreadStateByRootCommentId?: Map<number, ReviewThreadState>;
   /** Reaction data for review comments, keyed by databaseId (as string) */
   reviewCommentReactions?: Record<string, GhReactionGroup[]>;
   /** AI-generated suggestions, keyed by "path:line" */
@@ -76,6 +77,9 @@ interface DiffViewerProps {
   bottomOverlayInset?: number;
   onPostSuggestion?: (suggestion: AiSuggestion, body?: string) => Promise<void>;
   onDismissSuggestion?: (id: string) => void;
+  /** When set, scroll to the comment at this line number and highlight it */
+  scrollToLine?: number | null;
+  onScrollToLineComplete?: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -497,13 +501,15 @@ export function DiffViewer({
   onCloseComposer,
   fullFileContent,
   diffMode = "unified",
-  resolvedThreadIds,
+  reviewThreadStateByRootCommentId,
   reviewCommentReactions,
   aiSuggestions,
   reviewActionsEnabled = true,
   bottomOverlayInset = 0,
   onPostSuggestion,
   onDismissSuggestion,
+  scrollToLine,
+  onScrollToLineComplete,
 }: DiffViewerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { codeThemeDark, codeThemeLight, resolvedTheme } = useTheme();
@@ -529,6 +535,25 @@ export function DiffViewer({
       sessionStorage.setItem(scrollKey, String(el.scrollTop));
     };
   }, [scrollKey]);
+
+  // --- Scroll to a specific comment line (triggered by thread clicks) ---
+  useEffect(() => {
+    if (scrollToLine == null || !scrollRef.current) {
+      return;
+    }
+    // Wait for the DOM to render comment rows after file switch
+    const raf = requestAnimationFrame(() => {
+      const el = scrollRef.current?.querySelector(`[data-comment-line="${scrollToLine}"]`);
+      if (el) {
+        el.scrollIntoView({ block: "center", behavior: "smooth" });
+        // Brief highlight pulse
+        el.classList.add("scroll-target-highlight");
+        setTimeout(() => el.classList.remove("scroll-target-highlight"), 1500);
+      }
+      onScrollToLineComplete?.();
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [scrollToLine, onScrollToLineComplete]);
 
   // --- Search state ---
   const [searchOpen, setSearchOpen] = useState(false);
@@ -778,7 +803,7 @@ export function DiffViewer({
           filePath={filePath}
           prNumber={prNumber}
           reviewActionsEnabled={reviewActionsEnabled}
-          resolvedThreadIds={resolvedThreadIds}
+          reviewThreadStateByRootCommentId={reviewThreadStateByRootCommentId}
           reviewCommentReactions={reviewCommentReactions}
           onPostSuggestion={onPostSuggestion}
           onDismissSuggestion={onDismissSuggestion}
@@ -806,7 +831,7 @@ export function DiffViewer({
           onLineHover={handleLineHover}
           onGutterClick={handleGutterClick}
           onCloseComposer={onCloseComposer}
-          resolvedThreadIds={resolvedThreadIds}
+          reviewThreadStateByRootCommentId={reviewThreadStateByRootCommentId}
           reviewCommentReactions={reviewCommentReactions}
           onPostSuggestion={onPostSuggestion}
           onDismissSuggestion={onDismissSuggestion}
@@ -829,7 +854,7 @@ function SplitDiffView({
   filePath,
   prNumber,
   reviewActionsEnabled,
-  resolvedThreadIds,
+  reviewThreadStateByRootCommentId,
   reviewCommentReactions,
   onPostSuggestion,
   onDismissSuggestion,
@@ -843,7 +868,7 @@ function SplitDiffView({
   filePath: string;
   prNumber?: number;
   reviewActionsEnabled: boolean;
-  resolvedThreadIds?: Set<string>;
+  reviewThreadStateByRootCommentId?: Map<number, ReviewThreadState>;
   reviewCommentReactions?: Record<string, GhReactionGroup[]>;
   onPostSuggestion?: (suggestion: AiSuggestion, body?: string) => Promise<void>;
   onDismissSuggestion?: (id: string) => void;
@@ -868,7 +893,7 @@ function SplitDiffView({
               prNumber,
               filePath,
               reviewActionsEnabled,
-              resolvedThreadIds,
+              reviewThreadStateByRootCommentId,
               reviewCommentReactions,
               onPostSuggestion,
               onDismissSuggestion,
@@ -1057,7 +1082,7 @@ function UnifiedDiffView({
   onLineHover,
   onGutterClick,
   onCloseComposer,
-  resolvedThreadIds,
+  reviewThreadStateByRootCommentId,
   reviewCommentReactions,
   onPostSuggestion,
   onDismissSuggestion,
@@ -1081,7 +1106,7 @@ function UnifiedDiffView({
   onLineHover: (target: CommentTarget) => void;
   onGutterClick: (target: CommentTarget, shiftKey: boolean) => void;
   onCloseComposer?: () => void;
-  resolvedThreadIds?: Set<string>;
+  reviewThreadStateByRootCommentId?: Map<number, ReviewThreadState>;
   reviewCommentReactions?: Record<string, GhReactionGroup[]>;
   onPostSuggestion?: (suggestion: AiSuggestion, body?: string) => Promise<void>;
   onDismissSuggestion?: (id: string) => void;
@@ -1147,7 +1172,7 @@ function UnifiedDiffView({
           prNumber,
           filePath,
           reviewActionsEnabled,
-          resolvedThreadIds,
+          reviewThreadStateByRootCommentId,
           reviewCommentReactions,
           onPostSuggestion,
           onDismissSuggestion,
@@ -1163,7 +1188,7 @@ function renderSupportingRow({
   prNumber,
   filePath,
   reviewActionsEnabled,
-  resolvedThreadIds,
+  reviewThreadStateByRootCommentId,
   reviewCommentReactions,
   onPostSuggestion,
   onDismissSuggestion,
@@ -1173,22 +1198,27 @@ function renderSupportingRow({
   prNumber?: number;
   filePath: string;
   reviewActionsEnabled: boolean;
-  resolvedThreadIds?: Set<string>;
+  reviewThreadStateByRootCommentId?: Map<number, ReviewThreadState>;
   reviewCommentReactions?: Record<string, GhReactionGroup[]>;
   onPostSuggestion?: (suggestion: AiSuggestion, body?: string) => Promise<void>;
   onDismissSuggestion?: (id: string) => void;
   onCloseComposer?: () => void;
 }) {
   if (row.kind === "comment") {
+    const commentLine = row.comments[0]?.line ?? row.comments[0]?.original_line;
     return (
-      <InlineComment
+      <div
         key={row.key}
-        comments={row.comments}
-        prNumber={prNumber}
-        reviewActionsEnabled={reviewActionsEnabled}
-        resolvedThreadIds={resolvedThreadIds}
-        reviewCommentReactions={reviewCommentReactions}
-      />
+        data-comment-line={commentLine ?? undefined}
+      >
+        <InlineComment
+          comments={row.comments}
+          prNumber={prNumber}
+          reviewActionsEnabled={reviewActionsEnabled}
+          reviewThreadStateByRootCommentId={reviewThreadStateByRootCommentId}
+          reviewCommentReactions={reviewCommentReactions}
+        />
+      </div>
     );
   }
 

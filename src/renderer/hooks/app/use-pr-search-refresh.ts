@@ -5,15 +5,17 @@ import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useEffect, useEffectEvent, useRef } from "react";
 
-export type PrSearchRefreshRequest = {
-  method: "pr.list";
-  args: IpcApi["pr.list"]["args"];
-  queryKey: QueryKey;
-} | {
-  method: "pr.listAll";
-  args: IpcApi["pr.listAll"]["args"];
-  queryKey: QueryKey;
-};
+export type PrSearchRefreshRequest =
+  | {
+      method: "pr.list";
+      args: IpcApi["pr.list"]["args"];
+      queryKey: QueryKey;
+    }
+  | {
+      method: "pr.listAll";
+      args: IpcApi["pr.listAll"]["args"];
+      queryKey: QueryKey;
+    };
 
 interface UsePrSearchRefreshOnMissOptions {
   requests: PrSearchRefreshRequest[];

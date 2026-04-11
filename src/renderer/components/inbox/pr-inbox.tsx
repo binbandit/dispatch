@@ -377,7 +377,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
               }
             }}
           />
-              {hasSearch ? (
+          {hasSearch ? (
             <button
               type="button"
               onClick={() => {
