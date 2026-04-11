@@ -1,12 +1,15 @@
+import type { Workspace } from "@/shared/ipc";
+
 import { Popover, PopoverPopup, PopoverTrigger } from "@/components/ui/popover";
 import { GitHubAvatar } from "@/renderer/components/shared/github-avatar";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
+import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { useRouter } from "@/renderer/lib/app/router";
-import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { AlertCircle, Bell, CheckCircle2, GitMerge, GitPullRequest, Inbox, X } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { relativeTime } from "@/shared/format";
 
 /**
  * Notification center — bell icon in navbar with unread badge.
@@ -37,6 +40,7 @@ function resolveType(type: string) {
 
 export function NotificationCenter() {
   const { navigate } = useRouter();
+  const { cwd, nwo, switchWorkspace } = useWorkspace();
   const [tab, setTab] = useState<"unread" | "all">("unread");
 
   const notificationsQuery = useQuery({
@@ -49,6 +53,39 @@ export function NotificationCenter() {
   const unreadCount = notifications.filter((n) => !n.read).length;
   const visible = tab === "unread" ? notifications.filter((n) => !n.read) : notifications;
   const hasNotifications = notifications.length > 0;
+
+  const workspaceQuery = useQuery({
+    queryKey: ["workspace", "list"],
+    queryFn: () => ipc("workspace.list"),
+    staleTime: 60_000,
+  });
+
+  const getWorkspace = useCallback(
+    (workspace: string): Workspace | null => {
+      if (!workspace) {
+        return null;
+      }
+
+      const workspaces = workspaceQuery.data ?? [];
+
+      return (
+        workspaces.find((entry) => entry.path === workspace) ??
+        workspaces.find((entry) => `${entry.owner}/${entry.repo}` === workspace) ??
+        null
+      );
+    },
+    [workspaceQuery.data],
+  );
+
+  const workspaceNwo = useMemo(() => {
+    if (cwd) {
+      const current = getWorkspace(cwd);
+      if (current) {
+        return `${current.owner}/${current.repo}`;
+      }
+    }
+    return nwo;
+  }, [cwd, getWorkspace, nwo]);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["notifications"] });
 
@@ -71,6 +108,35 @@ export function NotificationCenter() {
     mutationFn: (id: number) => ipc("notifications.dismiss", { id }),
     onSuccess: invalidate,
   });
+
+  const openNotification = useCallback(
+    (notification: {
+      id: number;
+      prNumber: number;
+      workspace: string;
+      read: boolean;
+    }) => {
+      if (notification.workspace) {
+        const targetWorkspace = getWorkspace(notification.workspace);
+
+        if (
+          targetWorkspace &&
+          `${targetWorkspace.owner}/${targetWorkspace.repo}` !== workspaceNwo
+        ) {
+          switchWorkspace(targetWorkspace);
+        }
+      }
+
+      if (!notification.read) {
+        markReadMutation.mutate(notification.id);
+      }
+
+      if (notification.prNumber) {
+        navigate({ view: "review", prNumber: notification.prNumber });
+      }
+    },
+    [getWorkspace, markReadMutation, navigate, switchWorkspace, workspaceNwo],
+  );
 
   return (
     <Popover>
@@ -170,13 +236,7 @@ export function NotificationCenter() {
                     type="button"
                     className="flex min-w-0 flex-1 cursor-pointer items-start gap-2.5 text-left"
                     onClick={() => {
-                      if (!notification.read) {
-                        markReadMutation.mutate(notification.id);
-                      }
-                      // Notification workspace is display name — no workspace switching needed
-                      if (notification.prNumber) {
-                        navigate({ view: "review", prNumber: notification.prNumber });
-                      }
+                      openNotification(notification);
                     }}
                   >
                     {/* Avatar / icon */}
