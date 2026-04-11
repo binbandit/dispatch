@@ -30,7 +30,7 @@ export function PrDetailSkeleton() {
       </div>
       {/* Diff area skeleton */}
       <div className="flex flex-1">
-        <div className="flex-1 p-4">
+        <div className="flex-1 overflow-hidden">
           <DiffSkeleton />
         </div>
         <div className="border-border w-[320px] border-l p-4">
@@ -41,30 +41,53 @@ export function PrDetailSkeleton() {
   );
 }
 
+// Deterministic line widths so the skeleton is stable across re-renders.
+const CODE_LINE_WIDTHS = [
+  "62%", "45%", "78%", "34%", "91%", "55%", "70%", "42%", "86%", "50%",
+  "67%", "38%", "74%", "58%", "82%", "46%", "60%", "72%", "40%", "88%",
+];
+
 export function DiffSkeleton() {
   return (
-    <div className="flex flex-col gap-0">
-      {/* Toolbar skeleton */}
-      <div className="flex items-center gap-2 pb-3">
-        <Skeleton className="h-6 w-6 rounded-sm" />
-        <Skeleton className="h-6 w-6 rounded-sm" />
-        <Skeleton className="h-3 w-48" />
+    <div className="flex flex-col">
+      {/* Toolbar skeleton — mirrors DiffToolbar h-8 bar */}
+      <div className="border-border-subtle bg-bg-surface flex h-8 shrink-0 items-center gap-2 border-b px-3">
+        <Skeleton className="h-3 w-36" />
+        <Skeleton className="h-3 w-20 opacity-60" />
         <div className="flex-1" />
-        <Skeleton className="h-6 w-20 rounded-md" />
+        <Skeleton className="h-5 w-16 rounded-md" />
+        <Skeleton className="h-5 w-16 rounded-md" />
+        <Skeleton className="h-5 w-[54px] rounded-md" />
+        <div className="bg-border mx-0.5 h-3.5 w-px" />
+        <Skeleton className="h-4 w-4 rounded-sm" />
+        <Skeleton className="h-3 w-8" />
+        <Skeleton className="h-4 w-4 rounded-sm" />
       </div>
       {/* Hunk header */}
-      <Skeleton className="h-5 w-full rounded-sm" />
-      {/* Code lines */}
-      {Array.from({ length: 20 }, (_, i) => (
+      <div className="border-border-subtle bg-bg-raised flex h-5 items-center border-b px-3">
+        <Skeleton className="h-2.5 w-48 rounded-sm" />
+      </div>
+      {/* Code lines — mirrors DiffLineRow structure */}
+      {CODE_LINE_WIDTHS.map((width, i) => (
         <div
           key={i}
-          className="flex items-center gap-2 py-[2px]"
+          className="flex h-5 items-center"
         >
-          <Skeleton className="h-3 w-8" />
-          <Skeleton
-            className="h-3"
-            style={{ width: `${30 + Math.random() * 60}%` }}
-          />
+          {/* Color bar */}
+          <div className="w-[3px] shrink-0" />
+          {/* Line number gutter */}
+          <div className="border-border/40 flex w-14 shrink-0 items-center justify-end border-r pr-2">
+            <Skeleton className="h-2.5 w-5 rounded-sm" />
+          </div>
+          {/* Diff marker */}
+          <div className="w-5 shrink-0" />
+          {/* Code content */}
+          <div className="min-w-0 flex-1 pl-1 pr-3">
+            <Skeleton
+              className="h-2.5 rounded-sm"
+              style={{ width }}
+            />
+          </div>
         </div>
       ))}
     </div>
