@@ -9,7 +9,7 @@ import { usePreference } from "@/renderer/hooks/preferences/use-preference";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { isCompletedPullRequest } from "@/renderer/lib/review/completed-pr-state";
-import { parseDiff, type DiffFile } from "@/renderer/lib/review/diff-parser";
+import { getDiffFilePath, parseDiff, type DiffFile } from "@/renderer/lib/review/diff-parser";
 import { useFileNav } from "@/renderer/lib/review/file-nav-context";
 import { summarizePrChecks } from "@/renderer/lib/review/pr-check-status";
 import { classifyFiles } from "@/renderer/lib/review/triage-classifier";
@@ -32,7 +32,13 @@ interface ReviewSidebarProps {
 
 export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarProps) {
   const { repoTarget, nwo, cwd } = useWorkspace();
-  const { currentFileIndex, setCurrentFileIndex, selectedCommit, setSelectedCommit } = useFileNav();
+  const {
+    currentFileIndex,
+    setCurrentFileIndex,
+    setCurrentFilePath,
+    selectedCommit,
+    setSelectedCommit,
+  } = useFileNav();
 
   // Diff data (shared query key with PrDetailView — React Query dedupes)
   const diffQuery = useQuery({
@@ -68,6 +74,15 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
     }
     return parseDiff(rawDiff);
   }, [rawDiff]);
+
+  const handleSelectFile = useCallback(
+    (index: number) => {
+      setCurrentFileIndex(index);
+      const file = files[index];
+      setCurrentFilePath(file ? getDiffFilePath(file) : null);
+    },
+    [files, setCurrentFileIndex, setCurrentFilePath],
+  );
 
   // View mode — user toggle overrides the saved preference (or auto default)
   // Force tree mode when viewing a specific commit
@@ -288,7 +303,7 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
             <TriageView
               sections={triageSections}
               currentFileIndex={currentFileIndex}
-              onSelectFile={setCurrentFileIndex}
+              onSelectFile={handleSelectFile}
               viewedFiles={viewedFiles}
               commentCounts={fileCommentCounts}
               meta={triageMeta}
@@ -298,7 +313,7 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
               <FileTree
                 files={files}
                 currentFileIndex={currentFileIndex}
-                onSelectFile={setCurrentFileIndex}
+                onSelectFile={handleSelectFile}
                 viewedFiles={selectedCommit ? new Set() : viewedFiles}
                 commentCounts={selectedCommit ? new Map() : fileCommentCounts}
                 nwo={nwo}

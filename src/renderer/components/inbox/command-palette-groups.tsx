@@ -338,6 +338,7 @@ export function FileGroup({ onSelect }: { onSelect: () => void }) {
             onSelect={() => {
               if (fileNav) {
                 fileNav.setCurrentFileIndex(originalIndex);
+                fileNav.setCurrentFilePath(filePath);
               }
               onSelect();
             }}

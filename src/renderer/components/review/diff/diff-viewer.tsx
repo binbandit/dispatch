@@ -84,6 +84,12 @@ type FlatRow =
   | { kind: "composer"; key: string; startLine: number; endLine: number; side: CommentSide }
   | { kind: "ai-suggestion"; key: string; suggestions: AiSuggestion[] };
 
+type NonLineFlatRow = Exclude<FlatRow, { kind: "line" }>;
+
+type SplitRow =
+  | { kind: "pair"; key: string; left: FlatLine | null; right: FlatLine | null }
+  | NonLineFlatRow;
+
 interface FlatLineEntry {
   key: string;
   line: FlatLine;
@@ -214,6 +220,70 @@ function buildRows(
   }
 
   return rows;
+}
+
+function buildSplitRows(rows: FlatRow[]): SplitRow[] {
+  const splitRows: SplitRow[] = [];
+  let pendingDeleted: Extract<FlatRow, { kind: "line" }> | null = null;
+  let pendingAuxiliaryRows: NonLineFlatRow[] = [];
+
+  const flushPendingDeleted = () => {
+    if (!pendingDeleted) {
+      return;
+    }
+
+    splitRows.push({
+      kind: "pair",
+      key: pendingDeleted.key,
+      left: pendingDeleted.line,
+      right: null,
+    });
+    splitRows.push(...pendingAuxiliaryRows);
+    pendingDeleted = null;
+    pendingAuxiliaryRows = [];
+  };
+
+  for (const row of rows) {
+    if (row.kind !== "line") {
+      if (pendingDeleted) {
+        pendingAuxiliaryRows.push(row);
+      } else {
+        splitRows.push(row);
+      }
+    } else if (row.line.type === "hunk-header") {
+      flushPendingDeleted();
+      splitRows.push({ kind: "pair", key: row.key, left: row.line, right: null });
+    } else if (pendingDeleted && row.line.type === "add") {
+      splitRows.push({
+        kind: "pair",
+        key: `${pendingDeleted.key}-${row.key}`,
+        left: pendingDeleted.line,
+        right: row.line,
+      });
+      splitRows.push(...pendingAuxiliaryRows);
+      pendingDeleted = null;
+      pendingAuxiliaryRows = [];
+    } else {
+      if (pendingDeleted) {
+        flushPendingDeleted();
+      }
+
+      if (row.line.type === "del") {
+        pendingDeleted = row;
+      } else {
+        splitRows.push({
+          kind: "pair",
+          key: row.key,
+          left: row.line.type === "add" ? null : row.line,
+          right: row.line,
+        });
+      }
+    }
+  }
+
+  flushPendingDeleted();
+
+  return splitRows;
 }
 
 function splitFileContentLines(content: string): string[] {
@@ -634,6 +704,14 @@ export function DiffViewer({
           highlighter={highlighter ?? null}
           language={language ?? "text"}
           shikiTheme={shikiTheme}
+          filePath={filePath}
+          prNumber={prNumber}
+          reviewActionsEnabled={reviewActionsEnabled}
+          resolvedThreadIds={resolvedThreadIds}
+          reviewCommentReactions={reviewCommentReactions}
+          onPostSuggestion={onPostSuggestion}
+          onDismissSuggestion={onDismissSuggestion}
+          onCloseComposer={onCloseComposer}
         />
       ) : (
         /* Unified diff mode — plain DOM (like Better Hub, one file at a time) */
@@ -675,47 +753,29 @@ function SplitDiffView({
   highlighter,
   language,
   shikiTheme,
+  filePath,
+  prNumber,
+  reviewActionsEnabled,
+  resolvedThreadIds,
+  reviewCommentReactions,
+  onPostSuggestion,
+  onDismissSuggestion,
+  onCloseComposer,
 }: {
   rows: FlatRow[];
   highlighter: Highlighter | null;
   language: string;
   shikiTheme: string;
+  filePath: string;
+  prNumber?: number;
+  reviewActionsEnabled: boolean;
+  resolvedThreadIds?: Set<string>;
+  reviewCommentReactions?: Record<string, GhReactionGroup[]>;
+  onPostSuggestion?: (suggestion: AiSuggestion, body?: string) => Promise<void>;
+  onDismissSuggestion?: (id: string) => void;
+  onCloseComposer?: () => void;
 }) {
-  // Pair del+add lines for side-by-side display
-  const splitRows = useMemo(() => {
-    const result: Array<{ left: FlatLine | null; right: FlatLine | null }> = [];
-    const lineRows = rows.filter((r): r is FlatRow & { kind: "line" } => r.kind === "line");
-
-    let i = 0;
-    while (i < lineRows.length) {
-      const currentRow = lineRows[i];
-      if (!currentRow) {
-        break;
-      }
-
-      const { line } = currentRow;
-      if (line.type === "hunk-header") {
-        result.push({ left: line, right: null });
-        i++;
-      } else if (line.type === "del") {
-        const next = lineRows[i + 1]?.line;
-        if (next?.type === "add") {
-          result.push({ left: line, right: next });
-          i += 2;
-        } else {
-          result.push({ left: line, right: null });
-          i++;
-        }
-      } else if (line.type === "add") {
-        result.push({ left: null, right: line });
-        i++;
-      } else {
-        result.push({ left: line, right: line });
-        i++;
-      }
-    }
-    return result;
-  }, [rows]);
+  const splitRows = useMemo(() => buildSplitRows(rows), [rows]);
 
   return (
     <table className="w-full border-collapse font-mono text-[12.5px] leading-5">
@@ -727,15 +787,43 @@ function SplitDiffView({
         <col />
       </colgroup>
       <tbody>
-        {splitRows.map((pair, i) => {
-          if (pair.left?.type === "hunk-header") {
+        {splitRows.map((row) => {
+          if (row.kind !== "pair") {
+            const inlineRow = renderSupportingRow({
+              row,
+              prNumber,
+              filePath,
+              reviewActionsEnabled,
+              resolvedThreadIds,
+              reviewCommentReactions,
+              onPostSuggestion,
+              onDismissSuggestion,
+              onCloseComposer,
+            });
+            if (!inlineRow) {
+              return null;
+            }
+
             return (
-              <tr key={`split-${i}`}>
+              <tr key={row.key}>
+                <td
+                  colSpan={5}
+                  className="bg-bg-root p-0"
+                >
+                  {inlineRow}
+                </td>
+              </tr>
+            );
+          }
+
+          if (row.left?.type === "hunk-header") {
+            return (
+              <tr key={row.key}>
                 <td
                   colSpan={5}
                   className="border-border-subtle bg-diff-hunk-bg text-info h-5 border-y px-3 text-[11px]"
                 >
-                  {pair.left.content}
+                  {row.left.content}
                 </td>
               </tr>
             );
@@ -743,35 +831,33 @@ function SplitDiffView({
 
           return (
             <tr
-              key={`split-${i}`}
+              key={row.key}
               className="hover:brightness-110"
             >
               {/* Left side (old) */}
               <td
                 className={`text-text-ghost border-r-border/40 border-r p-0 pr-2 text-right text-[11px] select-none ${
-                  pair.left?.type === "del" ? "bg-[rgba(239,100,97,0.04)]" : "bg-bg-root"
+                  row.left?.type === "del" ? "bg-[rgba(239,100,97,0.04)]" : "bg-bg-root"
                 }`}
               >
                 <span className="flex h-5 items-center justify-end leading-5">
-                  {pair.left?.oldLineNumber ?? ""}
+                  {row.left?.oldLineNumber ?? ""}
                 </span>
               </td>
-              <td className={`p-0 ${pair.left?.type === "del" ? "bg-diff-del-bg" : ""}`}>
+              <td className={`p-0 ${row.left?.type === "del" ? "bg-diff-del-bg" : ""}`}>
                 <div className="flex h-5 items-center">
                   <span
                     className={`inline-flex w-5 shrink-0 items-center justify-center text-[11px] font-semibold select-none ${
-                      pair.left?.type === "del" ? "text-destructive/50" : "text-transparent"
+                      row.left?.type === "del" ? "text-destructive/50" : "text-transparent"
                     }`}
                   >
-                    {pair.left?.type === "del" ? "-" : " "}
+                    {row.left?.type === "del" ? "-" : " "}
                   </span>
                   <span
                     className="text-text-primary flex-1 overflow-x-auto pr-2 pl-1 whitespace-pre"
                     style={{ tabSize: 4 }}
                   >
-                    {pair.left
-                      ? renderLineContent(pair.left, highlighter, language, shikiTheme)
-                      : ""}
+                    {row.left ? renderLineContent(row.left, highlighter, language, shikiTheme) : ""}
                   </span>
                 </div>
               </td>
@@ -782,28 +868,28 @@ function SplitDiffView({
               {/* Right side (new) */}
               <td
                 className={`text-text-ghost border-r-border/40 border-r p-0 pr-2 text-right text-[11px] select-none ${
-                  pair.right?.type === "add" ? "bg-[rgba(61,214,140,0.04)]" : "bg-bg-root"
+                  row.right?.type === "add" ? "bg-[rgba(61,214,140,0.04)]" : "bg-bg-root"
                 }`}
               >
                 <span className="flex h-5 items-center justify-end leading-5">
-                  {pair.right?.newLineNumber ?? ""}
+                  {row.right?.newLineNumber ?? ""}
                 </span>
               </td>
-              <td className={`p-0 ${pair.right?.type === "add" ? "bg-diff-add-bg" : ""}`}>
+              <td className={`p-0 ${row.right?.type === "add" ? "bg-diff-add-bg" : ""}`}>
                 <div className="flex h-5 items-center">
                   <span
                     className={`inline-flex w-5 shrink-0 items-center justify-center text-[11px] font-semibold select-none ${
-                      pair.right?.type === "add" ? "text-success/50" : "text-transparent"
+                      row.right?.type === "add" ? "text-success/50" : "text-transparent"
                     }`}
                   >
-                    {pair.right?.type === "add" ? "+" : " "}
+                    {row.right?.type === "add" ? "+" : " "}
                   </span>
                   <span
                     className="text-text-primary flex-1 overflow-x-auto pr-2 pl-1 whitespace-pre"
                     style={{ tabSize: 4 }}
                   >
-                    {pair.right
-                      ? renderLineContent(pair.right, highlighter, language, shikiTheme)
+                    {row.right
+                      ? renderLineContent(row.right, highlighter, language, shikiTheme)
                       : ""}
                   </span>
                 </div>
@@ -957,57 +1043,91 @@ function UnifiedDiffView({
           );
         }
 
-        if (row.kind === "comment") {
-          return (
-            <InlineComment
-              key={row.key}
-              comments={row.comments}
-              prNumber={prNumber}
-              reviewActionsEnabled={reviewActionsEnabled}
-              resolvedThreadIds={resolvedThreadIds}
-              reviewCommentReactions={reviewCommentReactions}
-            />
-          );
-        }
-
-        if (row.kind === "annotation") {
-          return (
-            <CiAnnotation
-              key={row.key}
-              annotations={row.annotations}
-            />
-          );
-        }
-
-        if (row.kind === "ai-suggestion" && onPostSuggestion && onDismissSuggestion) {
-          return (
-            <AiSuggestionGroup
-              key={row.key}
-              suggestions={row.suggestions}
-              onPost={onPostSuggestion}
-              onDismiss={onDismissSuggestion}
-            />
-          );
-        }
-
-        if (row.kind === "composer" && prNumber && onCloseComposer) {
-          return (
-            <CommentComposer
-              key={row.key}
-              prNumber={prNumber}
-              filePath={filePath}
-              line={row.endLine}
-              side={row.side}
-              startLine={row.startLine === row.endLine ? undefined : row.startLine}
-              onClose={onCloseComposer}
-            />
-          );
-        }
-
-        return null;
+        return renderSupportingRow({
+          row,
+          prNumber,
+          filePath,
+          reviewActionsEnabled,
+          resolvedThreadIds,
+          reviewCommentReactions,
+          onPostSuggestion,
+          onDismissSuggestion,
+          onCloseComposer,
+        });
       })}
     </div>
   );
+}
+
+function renderSupportingRow({
+  row,
+  prNumber,
+  filePath,
+  reviewActionsEnabled,
+  resolvedThreadIds,
+  reviewCommentReactions,
+  onPostSuggestion,
+  onDismissSuggestion,
+  onCloseComposer,
+}: {
+  row: NonLineFlatRow;
+  prNumber?: number;
+  filePath: string;
+  reviewActionsEnabled: boolean;
+  resolvedThreadIds?: Set<string>;
+  reviewCommentReactions?: Record<string, GhReactionGroup[]>;
+  onPostSuggestion?: (suggestion: AiSuggestion, body?: string) => Promise<void>;
+  onDismissSuggestion?: (id: string) => void;
+  onCloseComposer?: () => void;
+}) {
+  if (row.kind === "comment") {
+    return (
+      <InlineComment
+        key={row.key}
+        comments={row.comments}
+        prNumber={prNumber}
+        reviewActionsEnabled={reviewActionsEnabled}
+        resolvedThreadIds={resolvedThreadIds}
+        reviewCommentReactions={reviewCommentReactions}
+      />
+    );
+  }
+
+  if (row.kind === "annotation") {
+    return (
+      <CiAnnotation
+        key={row.key}
+        annotations={row.annotations}
+      />
+    );
+  }
+
+  if (row.kind === "ai-suggestion" && onPostSuggestion && onDismissSuggestion) {
+    return (
+      <AiSuggestionGroup
+        key={row.key}
+        suggestions={row.suggestions}
+        onPost={onPostSuggestion}
+        onDismiss={onDismissSuggestion}
+      />
+    );
+  }
+
+  if (row.kind === "composer" && prNumber && onCloseComposer) {
+    return (
+      <CommentComposer
+        key={row.key}
+        prNumber={prNumber}
+        filePath={filePath}
+        line={row.endLine}
+        side={row.side}
+        startLine={row.startLine === row.endLine ? undefined : row.startLine}
+        onClose={onCloseComposer}
+      />
+    );
+  }
+
+  return null;
 }
 
 function DiffLineRow({

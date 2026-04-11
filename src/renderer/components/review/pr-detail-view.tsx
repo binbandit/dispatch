@@ -307,7 +307,9 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     }
 
     if (storedCurrentFilePath !== null) {
-      const storedPathIndex = files.findIndex((file) => getDiffFilePath(file) === storedCurrentFilePath);
+      const storedPathIndex = files.findIndex(
+        (file) => getDiffFilePath(file) === storedCurrentFilePath,
+      );
       if (storedPathIndex !== -1) {
         return storedPathIndex;
       }
@@ -331,9 +333,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   );
 
   useEffect(() => {
-    if (currentFilePath) {
-      autoTriggerFile(currentFilePath);
-    }
+    const cancelAutoTrigger = currentFilePath ? autoTriggerFile(currentFilePath) : undefined;
 
     if (files.length === 0) {
       if (currentFileIndex !== 0) {
@@ -342,7 +342,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       if (storedCurrentFilePath !== null) {
         setCurrentFilePath(null);
       }
-      return;
+      return cancelAutoTrigger;
     }
 
     if (currentFileIndex !== resolvedCurrentFileIndex) {
@@ -352,6 +352,8 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     if (storedCurrentFilePath !== currentFilePath) {
       setCurrentFilePath(currentFilePath);
     }
+
+    return cancelAutoTrigger;
   }, [
     autoTriggerFile,
     currentFilePath,
@@ -434,7 +436,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     [activeFilePath, fetchFullFileContent, fullFileQueryKey, fullFileRef, showFullFile],
   );
 
-  const togglePanel = useCallback(() => setPanelOpen((v) => !v), []);
+  const togglePanel = useCallback(() => setPanelOpen(!panelOpen), [panelOpen, setPanelOpen]);
 
   // State for visually highlighting a comment after navigation
   const [highlightedComment, setHighlightedComment] = useState<{

@@ -126,7 +126,7 @@ function AppShell({ resumeState, resumeReady, initialFileNavState }: AppShellPro
     initialFileNavState ?? DEFAULT_FILE_NAV_STATE,
   );
   const reviewSeedRef = useRef<string | null>(null);
-  const saveStateTimerRef = useRef<number | null>(null);
+  const saveStateTimerRef = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
   const lastSavedStateRef = useRef<string | null>(null);
 
   const toggleSidebar = useCallback(() => {
@@ -233,7 +233,7 @@ function AppShell({ resumeState, resumeReady, initialFileNavState }: AppShellPro
         globalThis.clearTimeout(saveStateTimerRef.current);
       }
     };
-  }, [fileNavState, nwo, route.view, route.prNumber, resumeReady]);
+  }, [fileNavState, nwo, route.view, resumeReady, selectedPr]);
 
   return (
     <div className="bg-bg-root text-text-primary relative flex h-screen flex-col overflow-hidden">

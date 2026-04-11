@@ -1,4 +1,6 @@
 import "@testing-library/jest-dom/vitest";
+import type { AiSuggestion } from "@/renderer/lib/review/ai-suggestions";
+
 import { DiffViewer } from "@/renderer/components/review/diff/diff-viewer";
 import { parseDiff } from "@/renderer/lib/review/diff-parser";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -157,5 +159,37 @@ describe("DiffViewer", () => {
 
     expect(scrollContainer).not.toBeNull();
     expect(scrollContainer).toHaveStyle("padding-bottom: 96px; scroll-padding-bottom: 96px;");
+  });
+
+  it("renders AI suggestion rows in split mode", () => {
+    const file = parseDiff(MULTI_HUNK_DIFF)[0]!;
+    const suggestions = new Map<string, AiSuggestion[]>([
+      [
+        "src/example.ts:2",
+        [
+          {
+            id: "suggestion-1",
+            path: "src/example.ts",
+            line: 2,
+            severity: "warning",
+            title: "Handle the renamed return path",
+            body: "Consider guarding the new branch before returning it.",
+            status: "pending",
+          },
+        ],
+      ],
+    ]);
+
+    render(
+      <DiffViewer
+        file={file}
+        diffMode="split"
+        aiSuggestions={suggestions}
+        onPostSuggestion={vi.fn()}
+        onDismissSuggestion={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText("Handle the renamed return path")).toBeInTheDocument();
   });
 });
