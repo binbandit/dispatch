@@ -161,26 +161,57 @@ export function initDatabase(): Database.Database {
     db.exec("ALTER TABLE ai_review_summaries ADD COLUMN confidence_score INTEGER");
   }
 
-  // Migration: add owner/repo columns to workspaces (remote-only workspace support)
-  const workspaceCols = db.prepare("PRAGMA table_info(workspaces)").all() as Array<{
+  // Migration: normalize legacy workspaces schema for nullable path support and
+  // remote-only workspace workflows.
+  const workspaceColumns = db.prepare("PRAGMA table_info(workspaces)").all() as Array<{
     name: string;
+    notnull: number;
   }>;
-  if (!workspaceCols.some((c) => c.name === "owner")) {
-    db.exec("ALTER TABLE workspaces ADD COLUMN owner TEXT");
-    db.exec("ALTER TABLE workspaces ADD COLUMN repo TEXT");
+  const hadOwnerColumn = workspaceColumns.some((column) => column.name === "owner");
+  const hadRepoColumn = workspaceColumns.some((column) => column.name === "repo");
+  const pathColumn = workspaceColumns.find((column) => column.name === "path");
+  const hasLegacyPathConstraint = pathColumn?.notnull === 1;
+  const shouldMigrateWorkspaces =
+    !hadOwnerColumn || !hadRepoColumn || hasLegacyPathConstraint;
 
-    // Populate owner/repo for existing workspaces from path (best-effort).
-    // Path is like "/Users/x/code/owner/repo" — use last two segments as owner/repo.
-    // This is a heuristic; actual owner/repo will be resolved via git remote on first use.
-    const existingRows = db
-      .prepare("SELECT id, path, name FROM workspaces WHERE owner IS NULL AND path IS NOT NULL")
-      .all() as Array<{ id: number; path: string; name: string }>;
-    const updateStmt = db.prepare("UPDATE workspaces SET owner = ?, repo = ? WHERE id = ?");
-    for (const row of existingRows) {
-      const segments = row.path.split("/").filter(Boolean);
-      const repoName = segments.pop() ?? row.name;
-      const ownerName = segments.pop() ?? "unknown";
-      updateStmt.run(ownerName, repoName, row.id);
+  if (shouldMigrateWorkspaces) {
+    const selectOwner = hadOwnerColumn ? "owner" : "NULL AS owner";
+    const selectRepo = hadRepoColumn ? "repo" : "NULL AS repo";
+
+    db.exec(`
+      CREATE TABLE workspaces_migrated (
+        id            INTEGER PRIMARY KEY,
+        owner         TEXT,
+        repo          TEXT,
+        path          TEXT    UNIQUE,
+        name          TEXT    NOT NULL,
+        added_at      TEXT    NOT NULL DEFAULT (datetime('now')),
+        UNIQUE(owner, repo)
+      );
+
+      INSERT INTO workspaces_migrated (id, owner, repo, path, name, added_at)
+      SELECT id, ${selectOwner}, ${selectRepo}, path, name, added_at FROM workspaces;
+
+      DROP TABLE workspaces;
+      ALTER TABLE workspaces_migrated RENAME TO workspaces;
+    `);
+
+    if (!hadOwnerColumn || !hadRepoColumn) {
+      // Populate owner/repo for existing workspaces from path (best-effort).
+      // Path is like "/Users/x/code/owner/repo" — use last two segments as owner/repo.
+      // This is a heuristic; actual owner/repo will be resolved via git remote on first use.
+      const existingRows = db
+        .prepare(
+          "SELECT id, path, name FROM workspaces WHERE owner IS NULL AND path IS NOT NULL",
+        )
+        .all() as Array<{ id: number; path: string; name: string }>;
+      const updateStmt = db.prepare("UPDATE workspaces SET owner = ?, repo = ? WHERE id = ?");
+      for (const row of existingRows) {
+        const segments = row.path.split("/").filter(Boolean);
+        const repoName = segments.pop() ?? row.name;
+        const ownerName = segments.pop() ?? "unknown";
+        updateStmt.run(ownerName, repoName, row.id);
+      }
     }
   }
 
