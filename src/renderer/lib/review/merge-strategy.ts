@@ -1,3 +1,5 @@
+import type { MergeStrategy } from "@/shared/ipc";
+
 /**
  * Merge strategy resolution logic
  *
@@ -9,8 +11,6 @@
  *
  * Key invariant: `admin` and `auto` are mutually exclusive.
  */
-
-export type MergeStrategy = "merge" | "squash" | "rebase";
 
 export interface MergeStrategyInput {
   hasMergeQueue: boolean;

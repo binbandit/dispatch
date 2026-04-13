@@ -2,20 +2,13 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
+import { normalizeValue } from "./normalize-value";
+
 type EnvMap = Record<string, string | undefined>;
 
 interface ClaudeSettingsFile {
   model?: unknown;
   availableModels?: unknown;
-}
-
-function normalizeValue(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 function pushUniqueModel(models: string[], value: unknown): void {

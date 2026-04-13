@@ -10,7 +10,6 @@ export const workflowHandlers: Pick<
   | "workflows.trigger"
   | "workflows.cancel"
   | "workflows.rerunAll"
-  | "workflows.yaml"
   | "workflows.jobGraph"
 > = {
   "workflows.list": (args) => ghCli.listWorkflows(args),
@@ -25,6 +24,5 @@ export const workflowHandlers: Pick<
   "workflows.rerunAll": async (args) => {
     await ghCli.rerunWorkflowRun(args, args.runId);
   },
-  "workflows.yaml": (args) => ghCli.getWorkflowYaml(args, args.workflowId),
   "workflows.jobGraph": (args) => ghCli.getWorkflowJobGraph(args, args.workflowId),
 };

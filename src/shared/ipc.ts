@@ -242,6 +242,7 @@ export interface GhReviewRequest {
 export interface GhReviewThread {
   id: string;
   isResolved: boolean;
+  isOutdated: boolean;
   path: string;
   line: number | null;
   rootCommentId: number | null;
@@ -348,6 +349,8 @@ export interface LogEntry {
   date: string;
   message: string;
 }
+
+export type MergeStrategy = "merge" | "squash" | "rebase";
 
 export interface RepoTarget {
   cwd: string | null;

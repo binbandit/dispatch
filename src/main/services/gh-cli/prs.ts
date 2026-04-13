@@ -9,6 +9,7 @@ import type {
   GhReactionGroup,
   GhReviewComment,
   GhReviewThread,
+  MergeStrategy,
   RepoTarget,
 } from "../../../shared/ipc";
 
@@ -1229,8 +1230,6 @@ export async function removePrLabel(
   invalidatePrCaches(resolved.nwo, prNumber);
 }
 
-export type MergeStrategy = "merge" | "squash" | "rebase";
-
 export async function mergePr(
   cwdOrTarget: string | RepoTarget,
   prNumber: number,
@@ -1693,6 +1692,7 @@ export async function getPrReviewThreads(
           nodes {
             id
             isResolved
+            isOutdated
             path
             line
             startLine
@@ -1721,6 +1721,7 @@ export async function getPrReviewThreads(
             nodes: Array<{
               id: string;
               isResolved: boolean;
+              isOutdated: boolean;
               path: string;
               line: number | null;
               startLine: number | null;
@@ -1742,6 +1743,7 @@ export async function getPrReviewThreads(
   return threads.map((thread) => ({
     id: thread.id,
     isResolved: thread.isResolved,
+    isOutdated: thread.isOutdated,
     path: thread.path,
     line: thread.line,
     startLine: thread.startLine,

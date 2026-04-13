@@ -19,7 +19,6 @@ export interface WorkflowIpcApi {
   };
   "workflows.cancel": { args: RepoTarget & { runId: number }; result: void };
   "workflows.rerunAll": { args: RepoTarget & { runId: number }; result: void };
-  "workflows.yaml": { args: RepoTarget & { workflowId: string }; result: string };
   "workflows.jobGraph": {
     args: RepoTarget & { workflowId: string };
     result: GhWorkflowJobGraph;

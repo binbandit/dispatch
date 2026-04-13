@@ -1,4 +1,10 @@
-import type { GhPrDetail, GhPrListItem } from "../../shared/ipc";
+import type {
+  AiReviewSummaryCacheEntry,
+  AiTriageCacheEntry,
+  GhPrDetail,
+  GhPrListItem,
+  PrActivityState,
+} from "../../shared/ipc";
 import type {
   ReviewResumeSelectedCommit,
   ReviewResumeState,
@@ -187,13 +193,6 @@ export function setFilesViewed(args: {
 // ---------------------------------------------------------------------------
 // PR Activity State
 // ---------------------------------------------------------------------------
-
-export interface PrActivityState {
-  repo: string;
-  prNumber: number;
-  lastSeenUpdatedAt: string;
-  seenAt: string;
-}
 
 export function getPrActivityStates(): PrActivityState[] {
   const db = getDatabase();
@@ -428,19 +427,6 @@ export function invalidatePersistedPrCaches(repo: string, prNumber?: number): vo
 // ---------------------------------------------------------------------------
 // AI Review Summary Cache
 // ---------------------------------------------------------------------------
-
-export interface AiReviewSummaryCacheEntry {
-  summary: string;
-  confidenceScore: number | null;
-  snapshotKey: string;
-  generatedAt: string;
-}
-
-export interface AiTriageCacheEntry {
-  payload: string;
-  snapshotKey: string;
-  generatedAt: string;
-}
 
 export function getAiReviewSummary(
   workspace: string,

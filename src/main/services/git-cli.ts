@@ -1,4 +1,4 @@
-import type { DevRepoStatus } from "../../shared/ipc";
+import type { BlameLine, DevRepoStatus } from "../../shared/ipc";
 
 import { execFile } from "./shell";
 
@@ -12,13 +12,6 @@ import { execFile } from "./shell";
 // ---------------------------------------------------------------------------
 // Blame
 // ---------------------------------------------------------------------------
-
-export interface BlameLine {
-  sha: string;
-  author: string;
-  date: string;
-  summary: string;
-}
 
 export async function blame(args: {
   cwd: string;
@@ -62,13 +55,6 @@ export async function blame(args: {
 // ---------------------------------------------------------------------------
 // File history
 // ---------------------------------------------------------------------------
-
-export interface LogEntry {
-  sha: string;
-  author: string;
-  date: string;
-  message: string;
-}
 
 const GIT_STATUS_TIMEOUT = 5000;
 const GIT_FETCH_TIMEOUT = 15_000;
@@ -186,26 +172,6 @@ export async function getDevRepoStatus(cwd: string): Promise<DevRepoStatus> {
   }
 }
 
-export async function fileHistory(cwd: string, filePath: string, limit = 20): Promise<LogEntry[]> {
-  const separator = "---DISPATCH_LOG_SEP---";
-  const format = `%H${separator}%an${separator}%aI${separator}%s`;
-
-  const { stdout } = await execFile(
-    "git",
-    ["log", "--follow", "-n", String(limit), `--format=${format}`, "--", filePath],
-    { cwd },
-  );
-
-  if (!stdout) {
-    return [];
-  }
-
-  return stdout.split("\n").map((line: string) => {
-    const [sha = "", author = "", date = "", message = ""] = line.split(separator);
-    return { sha, author, date, message };
-  });
-}
-
 // ---------------------------------------------------------------------------
 // Diff
 // ---------------------------------------------------------------------------
@@ -227,15 +193,6 @@ export async function commitDiff(cwd: string, sha: string): Promise<string> {
 // ---------------------------------------------------------------------------
 // Repository info
 // ---------------------------------------------------------------------------
-
-export async function showFile(cwd: string, ref: string, filePath: string): Promise<string | null> {
-  try {
-    const { stdout } = await execFile("git", ["show", `${ref}:${filePath}`], { cwd });
-    return stdout;
-  } catch {
-    return null;
-  }
-}
 
 export async function getRepoRoot(cwd: string): Promise<string | null> {
   try {

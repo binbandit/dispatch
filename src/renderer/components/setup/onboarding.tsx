@@ -1,4 +1,5 @@
 import type { Workspace } from "@/shared/ipc";
+import type { GhRepoSearchResult } from "@/shared/ipc/contracts/environment";
 
 import { Button } from "@/components/ui/button";
 import { DispatchLogo } from "@/renderer/components/shared/dispatch-logo";
@@ -205,14 +206,6 @@ function WorkspaceCard({ workspace, onRemove }: { workspace: Workspace; onRemove
 // ---------------------------------------------------------------------------
 // GitHub repo search
 // ---------------------------------------------------------------------------
-
-interface GhRepoSearchResult {
-  owner: string;
-  repo: string;
-  fullName: string;
-  description: string | null;
-  isPrivate: boolean;
-}
 
 function GitHubRepoSearch({
   onSelect,

@@ -10,6 +10,7 @@ import type {
   RepoInfo,
   RepoTarget,
 } from "../../../shared/ipc";
+import type { GhRepoSearchResult } from "../../../shared/ipc/contracts/environment";
 
 import {
   PR_FETCH_LIMIT_PREFERENCE_KEY,
@@ -754,14 +755,6 @@ export async function mapWithConcurrency<T, R>(
 
 export function cacheAuthorDisplayNames(prs: GhPrListItemCore[]): void {
   cacheDisplayNames(prs.map((pr) => ({ login: pr.author.login, name: pr.author.name ?? null })));
-}
-
-export interface GhRepoSearchResult {
-  owner: string;
-  repo: string;
-  fullName: string;
-  description: string | null;
-  isPrivate: boolean;
 }
 
 export async function searchRepos(query: string, limit = 30): Promise<GhRepoSearchResult[]> {

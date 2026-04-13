@@ -1,3 +1,5 @@
+import { normalizeValue } from "./normalize-value";
+
 interface OllamaTagsResponse {
   models?: Array<{
     name?: unknown;
@@ -6,15 +8,6 @@ interface OllamaTagsResponse {
 }
 
 let cachedModels: string[] | null = null;
-
-function normalizeModelName(value: unknown): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
 
 export function parseOllamaTagsOutput(output: string): string[] {
   if (output.trim().length === 0) {
@@ -30,7 +23,7 @@ export function parseOllamaTagsOutput(output: string): string[] {
     const models: string[] = [];
 
     for (const entry of parsed.models) {
-      const normalizedModel = normalizeModelName(entry?.name) ?? normalizeModelName(entry?.model);
+      const normalizedModel = normalizeValue(entry?.name) ?? normalizeValue(entry?.model);
 
       if (normalizedModel && !models.includes(normalizedModel)) {
         models.push(normalizedModel);

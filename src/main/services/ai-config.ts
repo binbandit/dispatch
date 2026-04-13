@@ -26,6 +26,7 @@ import {
 } from "../../shared/ai-provider-settings";
 import * as repo from "../db/repository";
 import { resolveClaudeSuggestedModels } from "./claude-models";
+import { normalizeValue } from "./normalize-value";
 import { resolveOllamaSuggestedModels } from "./ollama-models";
 import { resolveOpencodeSuggestedModels } from "./opencode-models";
 
@@ -152,15 +153,6 @@ const PROVIDER_ENV_KEYS: Record<AiProvider, ProviderEnvKeys> = {
     baseUrl: [],
   },
 };
-
-function normalizeValue(value: string | null | undefined): string | null {
-  if (typeof value !== "string") {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
 
 function normalizeProvider(value: string | null | undefined): AiProvider | "none" | null {
   const normalizedValue = normalizeValue(value);
