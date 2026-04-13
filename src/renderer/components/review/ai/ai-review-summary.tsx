@@ -14,9 +14,188 @@ import {
   parseAiReviewConfidencePayload,
   parseAiReviewSummaryPayload,
 } from "@/shared/ai-review-summary";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Sparkles, X } from "lucide-react";
-import { startTransition, type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
+
+type AiReviewSummaryRunStatus = "idle" | "running" | "error";
+
+type AiReviewSummaryRunState = {
+  status: AiReviewSummaryRunStatus;
+  runId: number;
+  startedAt: number;
+  snapshotKey: string;
+  errorMessage?: string;
+};
+
+function reviewSummaryRunStateQueryKey(nwo: string, prNumber: number) {
+  return ["ai", "reviewSummary", "runState", nwo, prNumber] as const;
+}
+
+function summarizeInBackground({
+  cwd,
+  author,
+  confidenceEnabled,
+  diffSnippet,
+  files,
+  nwo,
+  prBody,
+  prNumber,
+  prTitle,
+  queryClient,
+  runStateQueryKey,
+  snapshotKey,
+  summaryCacheQueryKey,
+}: {
+  cwd?: string;
+  author: string;
+  confidenceEnabled: boolean;
+  diffSnippet: string;
+  files: ReadonlyArray<{ path: string; additions: number; deletions: number }>;
+  nwo: string;
+  prBody: string;
+  prNumber: number;
+  prTitle: string;
+  queryClient: ReturnType<typeof useQueryClient>;
+  runStateQueryKey: readonly ["ai", "reviewSummary", "runState", string, number];
+  snapshotKey: string;
+  summaryCacheQueryKey: readonly ["ai", "reviewSummary", string, number];
+}) {
+  const previousState = queryClient.getQueryData<AiReviewSummaryRunState>(
+    runStateQueryKey,
+  );
+  if (
+    previousState?.status === "running" &&
+    previousState.snapshotKey === snapshotKey
+  ) {
+    return Promise.resolve();
+  }
+  const runId = (previousState?.runId ?? 0) + 1;
+
+  const runState: AiReviewSummaryRunState = {
+    status: "running",
+    runId,
+    startedAt: Date.now(),
+    snapshotKey,
+  };
+  queryClient.setQueryData(runStateQueryKey, runState);
+
+  const task = (async () => {
+    try {
+      const summaryPrompt = buildAiReviewSummaryPrompt({
+        prNumber,
+        prTitle,
+        prBody,
+        author,
+        files,
+        diffSnippet,
+      });
+      const summaryRequest = ipc("ai.complete", {
+        cwd,
+        task: "reviewSummary",
+        messages: [
+          {
+            role: "system",
+            content: summaryPrompt.systemPrompt,
+          },
+          {
+            role: "user",
+            content: summaryPrompt.userPrompt,
+          },
+        ],
+        maxTokens: 192,
+      });
+
+      const confidenceRequest = confidenceEnabled
+        ? (() => {
+            const confidencePrompt = buildAiReviewConfidencePrompt({
+              prNumber,
+              prTitle,
+              prBody,
+              author,
+              files,
+              diffSnippet,
+            });
+
+            return ipc("ai.complete", {
+              cwd,
+              task: "reviewConfidence",
+              messages: [
+                {
+                  role: "system",
+                  content: confidencePrompt.systemPrompt,
+                },
+                {
+                  role: "user",
+                  content: confidencePrompt.userPrompt,
+                },
+              ],
+              maxTokens: 96,
+            });
+          })()
+        : Promise.resolve<string | null>(null);
+
+      const [summaryResponse, confidenceResponse] = await Promise.all([
+        summaryRequest,
+        confidenceRequest,
+      ]);
+
+      const parsedSummary = parseAiReviewSummaryPayload(summaryResponse);
+      const fencedSummaryMatch = summaryResponse.match(
+        /```(?:json|markdown|md|text)?\s*([\s\S]*?)```/iu,
+      );
+      const fallbackSummary =
+        parsedSummary?.summary ??
+        (fencedSummaryMatch?.[1] ?? summaryResponse).trim().split("\n").slice(0, 5).join("\n").trim();
+      const confidencePayload = confidenceResponse
+        ? parseAiReviewConfidencePayload(confidenceResponse)
+        : null;
+
+      if (!fallbackSummary) {
+        throw new Error("AI summary returned an empty response.");
+      }
+
+      const entry = await ipc("ai.reviewSummary.set", {
+        nwo,
+        prNumber,
+        snapshotKey,
+        summary: fallbackSummary,
+        confidenceScore: confidencePayload?.confidenceScore ?? null,
+      });
+
+      const currentState = queryClient.getQueryData<AiReviewSummaryRunState>(runStateQueryKey);
+      if (
+        currentState?.status === "running" &&
+        currentState.runId === runId &&
+        currentState.snapshotKey === snapshotKey
+      ) {
+        queryClient.setQueryData(summaryCacheQueryKey, entry);
+        queryClient.setQueryData(runStateQueryKey, {
+          ...runState,
+          status: "idle",
+          errorMessage: undefined,
+          startedAt: Date.now(),
+        });
+      }
+    } catch (error) {
+      const currentState = queryClient.getQueryData<AiReviewSummaryRunState>(runStateQueryKey);
+      if (
+        currentState?.status === "running" &&
+        currentState.runId === runId &&
+        currentState.snapshotKey === snapshotKey
+      ) {
+        queryClient.setQueryData(runStateQueryKey, {
+          ...runState,
+          status: "error",
+          errorMessage: error instanceof Error ? error.message : "Failed to generate AI summary.",
+          startedAt: Date.now(),
+        });
+      }
+    }
+  })();
+
+  return task;
+}
 
 /**
  * AI review summary — Phase 3 §3.3.3
@@ -51,6 +230,7 @@ export function AiReviewSummary({
   const [dismissed, setDismissed] = useState(false);
   const isCard = variant === "card";
   const summaryCacheQueryKey = ["ai", "reviewSummary", nwo, prNumber] as const;
+  const runStateQueryKey = reviewSummaryRunStateQueryKey(nwo, prNumber);
   const reviewContext = useMemo(
     () =>
       buildAiReviewContext({
@@ -82,92 +262,54 @@ export function AiReviewSummary({
     enabled: summaryConfig.isConfigured,
     staleTime: 30_000,
   });
-
-  const summarizeMutation = useMutation({
-    mutationFn: async () => {
-      const summaryPrompt = buildAiReviewSummaryPrompt({
-        prNumber,
-        prTitle,
-        prBody,
-        author,
-        files,
-        diffSnippet,
-      });
-      const summaryRequest = ipc("ai.complete", {
-        cwd: cwd ?? undefined,
-        task: "reviewSummary",
-        messages: [
-          {
-            role: "system",
-            content: summaryPrompt.systemPrompt,
-          },
-          {
-            role: "user",
-            content: summaryPrompt.userPrompt,
-          },
-        ],
-        maxTokens: 192,
-      });
-      const confidenceRequest = confidenceConfig.isConfigured
-        ? (() => {
-            const confidencePrompt = buildAiReviewConfidencePrompt({
-              prNumber,
-              prTitle,
-              prBody,
-              author,
-              files,
-              diffSnippet,
-            });
-
-            return ipc("ai.complete", {
-              cwd: cwd ?? undefined,
-              task: "reviewConfidence",
-              messages: [
-                {
-                  role: "system",
-                  content: confidencePrompt.systemPrompt,
-                },
-                {
-                  role: "user",
-                  content: confidencePrompt.userPrompt,
-                },
-              ],
-              maxTokens: 96,
-            });
-          })()
-        : Promise.resolve<string | null>(null);
-
-      const [summaryResponse, confidenceResponse] = await Promise.all([
-        summaryRequest,
-        confidenceRequest,
-      ]);
-
-      const summaryPayload = parseAiReviewSummaryPayload(summaryResponse);
-      const confidencePayload = confidenceResponse
-        ? parseAiReviewConfidencePayload(confidenceResponse)
-        : null;
-      if (!summaryPayload) {
-        throw new Error("AI summary returned invalid JSON.");
-      }
-      if (confidenceResponse && !confidencePayload) {
-        throw new Error("AI confidence returned invalid JSON.");
-      }
-
-      return ipc("ai.reviewSummary.set", {
-        nwo,
-        prNumber,
+  const runState = useQuery({
+    queryKey: runStateQueryKey,
+    queryFn: () =>
+      queryClient.getQueryData<AiReviewSummaryRunState>(runStateQueryKey) ?? {
+        status: "idle",
+        runId: 0,
+        startedAt: Date.now(),
         snapshotKey: summarySnapshotKey,
-        summary: summaryPayload.summary,
-        confidenceScore: confidencePayload?.confidenceScore ?? null,
-      });
+      },
+    initialData: {
+      status: "idle",
+      runId: 0,
+      startedAt: Date.now(),
+      snapshotKey: summarySnapshotKey,
     },
-    onSuccess: (entry) => {
-      startTransition(() => {
-        queryClient.setQueryData(summaryCacheQueryKey, entry);
-        setDismissed(false);
-      });
-    },
+    enabled: summaryConfig.isConfigured,
+    gcTime: Number.POSITIVE_INFINITY,
+    staleTime: Number.POSITIVE_INFINITY,
   });
+
+  const activeRunState =
+    runState.data.snapshotKey === summarySnapshotKey ? runState.data : null;
+  const isGeneratingSummary = activeRunState?.status === "running";
+  const shouldShowSummaryError =
+    activeRunState?.status === "error";
+  const summaryErrorMessage = activeRunState?.errorMessage;
+
+  const startSummaryGeneration = () => {
+    if (isGeneratingSummary) {
+      return;
+    }
+    setDismissed(false);
+    void summarizeInBackground({
+      cwd: cwd ?? undefined,
+      author,
+      confidenceEnabled: confidenceConfig.isConfigured,
+      diffSnippet,
+      files,
+      nwo,
+      prBody,
+      prNumber,
+      prTitle,
+      queryClient,
+      runStateQueryKey,
+      snapshotKey: summarySnapshotKey,
+      summaryCacheQueryKey,
+    });
+  };
 
   if (!summaryConfig.isConfigured) {
     return null;
@@ -192,15 +334,15 @@ export function AiReviewSummary({
     isCard &&
     !dismissed &&
     !summaryText &&
-    !summarizeMutation.isPending &&
-    !summarizeMutation.isError;
+    !isGeneratingSummary &&
+    !shouldShowSummaryError;
 
   if (showCompactCardTrigger) {
     return (
       <div className={containerClassName}>
         <button
           type="button"
-          onClick={() => summarizeMutation.mutate()}
+          onClick={startSummaryGeneration}
           className={cardTriggerClassName}
         >
           <Sparkles
@@ -276,8 +418,8 @@ export function AiReviewSummary({
           {isCard && summaryText && (
             <button
               type="button"
-              onClick={() => summarizeMutation.mutate()}
-              disabled={summarizeMutation.isPending}
+              onClick={startSummaryGeneration}
+              disabled={isGeneratingSummary}
               className="text-text-tertiary hover:text-accent-text cursor-pointer font-mono text-[9px] font-medium tracking-[0.04em] uppercase transition-colors disabled:cursor-default disabled:opacity-50"
             >
               Refresh
@@ -292,7 +434,7 @@ export function AiReviewSummary({
           </button>
         </div>
 
-        {summarizeMutation.isPending ? (
+        {isGeneratingSummary ? (
           <div className="mt-2 flex flex-col gap-2.5">
             <ReviewScopeSummary
               reviewContext={reviewContext}
@@ -324,11 +466,11 @@ export function AiReviewSummary({
                   </span>
                   <button
                     type="button"
-                    onClick={() => summarizeMutation.mutate()}
-                    disabled={summarizeMutation.isPending}
+                    onClick={startSummaryGeneration}
+                    disabled={isGeneratingSummary}
                     className="text-warning hover:text-accent-text ml-auto cursor-pointer font-mono text-[9px] font-medium tracking-[0.04em] uppercase transition-colors disabled:cursor-default disabled:opacity-50"
                   >
-                    {summarizeMutation.isPending ? "Refreshing" : "Refresh"}
+                    {isGeneratingSummary ? "Refreshing" : "Refresh"}
                   </button>
                 </div>
                 <p className="text-text-secondary mt-1 text-xs">
@@ -336,9 +478,9 @@ export function AiReviewSummary({
                 </p>
               </div>
             )}
-            {summarizeMutation.isError && (
+            {shouldShowSummaryError && (
               <p className="text-destructive mb-2 text-xs">
-                {String((summarizeMutation.error as Error)?.message ?? "Failed")}
+                {String(summaryErrorMessage ?? "Failed")}
               </p>
             )}
             <MarkdownBody
@@ -346,9 +488,9 @@ export function AiReviewSummary({
               className="text-xs"
             />
           </div>
-        ) : summarizeMutation.isError ? (
+        ) : shouldShowSummaryError ? (
           <p className="text-destructive mt-2 text-xs">
-            {String((summarizeMutation.error as Error)?.message ?? "Failed")}
+            {String(summaryErrorMessage ?? "Failed")}
           </p>
         ) : (
           <div className="mt-2">
@@ -364,7 +506,7 @@ export function AiReviewSummary({
                 <button
                   type="button"
                   className="border-primary/30 text-primary hover:bg-primary/10 inline-flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors"
-                  onClick={() => summarizeMutation.mutate()}
+                  onClick={startSummaryGeneration}
                 >
                   <Sparkles size={12} />
                   Generate summary

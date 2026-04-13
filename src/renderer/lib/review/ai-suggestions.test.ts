@@ -183,6 +183,18 @@ describe("parseSuggestionsResponse — additional cases", () => {
     expect(parseSuggestionsResponse(raw, "f.ts", validLines)).toHaveLength(1);
   });
 
+  it("parses JSON arrays wrapped with extra commentary", () => {
+    const raw = [
+      "Here is the result:",
+      "```json",
+      JSON.stringify([{ line: 1, severity: "warning", title: "Perf", body: "Optimize" }]),
+      "```",
+      "Done.",
+    ].join("\n");
+
+    expect(parseSuggestionsResponse(raw, "f.ts", validLines)).toHaveLength(1);
+  });
+
   it("returns empty for invalid JSON", () => {
     expect(parseSuggestionsResponse("not json", "f.ts", validLines)).toEqual([]);
   });

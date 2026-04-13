@@ -165,13 +165,16 @@ export function parseSuggestionsResponse(
   validLines: Set<number>,
   existingComments: ReadonlyArray<ExistingReviewComment> = [],
 ): AiSuggestion[] {
-  let cleaned = raw.trim();
-  if (cleaned.startsWith("```")) {
-    const firstNewline = cleaned.indexOf("\n");
-    cleaned = cleaned.slice(firstNewline + 1);
-  }
-  if (cleaned.endsWith("```")) {
-    cleaned = cleaned.slice(0, cleaned.lastIndexOf("```"));
+  const fencedMatch = raw.match(/```(?:json|markdown|md|text)?\s*([\s\S]*?)```/iu);
+  let cleaned = (fencedMatch?.[1] ?? raw).trim();
+
+  if (!cleaned.startsWith("[")) {
+    const arrayStart = cleaned.indexOf("[");
+    const arrayEnd = cleaned.lastIndexOf("]");
+
+    if (arrayStart !== -1 && arrayEnd > arrayStart) {
+      cleaned = cleaned.slice(arrayStart, arrayEnd + 1);
+    }
   }
   cleaned = cleaned.trim();
 

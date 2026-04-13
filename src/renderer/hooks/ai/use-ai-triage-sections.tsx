@@ -149,7 +149,7 @@ export function useAiTriageSections({
       });
       const parsed = parseAiTriagePayload(response);
       if (!parsed) {
-        throw new Error("AI triage returned invalid JSON.");
+        return null;
       }
 
       return ipc("ai.triage.set", {

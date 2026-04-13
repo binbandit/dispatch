@@ -193,20 +193,38 @@ export function buildCodexCommandArgs(model: string, outputPath: string): string
   ];
 }
 
-export function buildClaudeCommandArgs(model: string, systemPrompt?: string | null): string[] {
-  return [
+export function buildClaudeCommandArgs(
+  model: string,
+  systemPrompt?: string | null,
+  includeTools = true,
+): string[] {
+  const args = [
     "-p",
     "--output-format",
     "text",
     "--input-format",
     "text",
     "--no-session-persistence",
-    "--tools",
-    "",
-    "--model",
-    model,
-    ...(systemPrompt ? ["--system-prompt", systemPrompt] : []),
   ];
+
+  if (includeTools) {
+    args.push("--tools", "");
+  }
+
+  args.push("--model", model, ...(systemPrompt ? ["--system-prompt", systemPrompt] : []));
+
+  return args;
+}
+
+function isClaudeToolArgError(detail: string): boolean {
+  const normalized = detail.toLowerCase();
+  const hasToolsReference =
+    normalized.includes("--tools") || normalized.includes("tools flag") || normalized.includes("tool flag");
+
+  return (
+    hasToolsReference &&
+    (normalized.includes("json") || normalized.includes("parse") || normalized.includes("syntax"))
+  );
 }
 
 export function buildCopilotCommandArgs(
@@ -750,22 +768,50 @@ async function completeWithClaude(args: ResolvedAiCompletionArgs): Promise<strin
   const { systemPrompt, prompt } = buildCompletionPrompt(args.messages);
 
   try {
-    const result = await runProcess(binaryPath, buildClaudeCommandArgs(args.model, systemPrompt), {
-      cwd: args.cwd,
-      env: process.env,
-      input: prompt,
-      timeoutMs: AI_COMPLETION_TIMEOUT_MS,
-    });
+    const variants = [true, false] as const;
+    let lastError: Error | null = null;
 
-    if (result.exitCode !== 0) {
-      const detail = result.stderr.length > 0 ? result.stderr : result.stdout;
-      throw createCliError(
-        "claude",
-        detail.length > 0 ? detail : `Command failed with code ${result.exitCode}.`,
-      );
+    for (const includeTools of variants) {
+      try {
+        const result = await runProcess(
+          binaryPath,
+          buildClaudeCommandArgs(args.model, systemPrompt, includeTools),
+          {
+            cwd: args.cwd,
+            env: process.env,
+            input: prompt,
+            timeoutMs: AI_COMPLETION_TIMEOUT_MS,
+          },
+        );
+
+        if (result.exitCode !== 0) {
+          const detail = result.stderr.length > 0 ? result.stderr : result.stdout;
+          const message = detail.length > 0 ? detail : `Command failed with code ${result.exitCode}.`;
+          const error = createCliError("claude", message);
+          if (includeTools && isClaudeToolArgError(message)) {
+            lastError = error;
+            continue;
+          }
+          throw error;
+        }
+
+        return result.stdout;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        lastError = error instanceof Error ? error : new Error(message);
+
+        if (includeTools && isClaudeToolArgError(message)) {
+          continue;
+        }
+        throw error;
+      }
     }
 
-    return result.stdout;
+    if (lastError) {
+      throw lastError;
+    }
+
+    throw new Error("Claude completion failed.");
   } catch (error) {
     if (error instanceof Error && !error.message.startsWith("Claude CLI error:")) {
       throw createCliError("claude", error.message);
