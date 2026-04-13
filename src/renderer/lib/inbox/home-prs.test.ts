@@ -227,4 +227,95 @@ describe("filterHomePrSections", () => {
     expect(filteredSections).toHaveLength(1);
     expect(filteredSections[0]?.items.map((item) => item.pr.number)).toEqual([42]);
   });
+
+  it("returns all non-empty sections for empty query", () => {
+    const item = createDashboardItem({ number: 1 });
+    const sections = categorizeHomePrs([item], new Set(), "someone-else");
+    const result = filterHomePrSections(sections, "");
+    expect(result.every((s) => s.items.length > 0)).toBe(true);
+  });
+
+  it("returns empty when no matches", () => {
+    const item = createDashboardItem({ number: 1, title: "Fix auth" });
+    const sections = categorizeHomePrs([item], new Set(), "someone-else");
+    const result = filterHomePrSections(sections, "nonexistent-query-xyz");
+    expect(result).toHaveLength(0);
+  });
+});
+
+describe("categorizeHomePrs — additional", () => {
+  it("puts author's changes-requested PRs into attention", () => {
+    const item = createDashboardItem({
+      number: 10,
+      author: { login: "me" },
+      reviewDecision: "CHANGES_REQUESTED",
+    });
+    const sections = categorizeHomePrs([item], new Set(), "me");
+    const attention = sections.find((s) => s.id === "attention");
+    expect(attention?.items).toHaveLength(1);
+  });
+
+  it("puts approved non-draft PRs into ship when user can merge", () => {
+    const item = createDashboardItem({
+      number: 20,
+      author: { login: "other" },
+      reviewDecision: "APPROVED",
+      isDraft: false,
+    });
+    const sections = categorizeHomePrs([item], new Set(), "me", true);
+    const ship = sections.find((s) => s.id === "ship");
+    expect(ship?.items).toHaveLength(1);
+  });
+
+  it("does not put draft PRs into ship even if approved", () => {
+    const item = createDashboardItem({
+      number: 30,
+      author: { login: "other" },
+      reviewDecision: "APPROVED",
+      isDraft: true,
+    });
+    const sections = categorizeHomePrs([item], new Set(), "me", true);
+    const ship = sections.find((s) => s.id === "ship");
+    expect(ship?.items).toHaveLength(0);
+  });
+
+  it("puts unmatched open PRs into progress", () => {
+    const item = createDashboardItem({ number: 40, author: { login: "other" } });
+    const sections = categorizeHomePrs([item], new Set(), "me");
+    const progress = sections.find((s) => s.id === "progress");
+    expect(progress?.items).toHaveLength(1);
+  });
+
+  it("returns all 5 sections even when empty", () => {
+    const sections = categorizeHomePrs([], new Set(), "me");
+    expect(sections).toHaveLength(5);
+    expect(sections.map((s) => s.id)).toEqual([
+      "attention", "reReview", "ship", "progress", "completed",
+    ]);
+  });
+});
+
+describe("preferWorkspacePrs — additional", () => {
+  it("deduplicates by pullRequestRepository + number", () => {
+    const pr1 = createDashboardItem({
+      number: 1,
+      pullRequestRepository: "owner/repo",
+      workspacePath: "/a",
+    });
+    const pr2 = createDashboardItem({
+      number: 1,
+      pullRequestRepository: "owner/repo",
+      workspacePath: "/b",
+    });
+    const result = preferWorkspacePrs([pr1, pr2], "/b");
+    expect(result).toHaveLength(1);
+    expect(result[0]?.pr.workspacePath).toBe("/b");
+  });
+
+  it("keeps both when different PR numbers", () => {
+    const pr1 = createDashboardItem({ number: 1, workspacePath: "/a" });
+    const pr2 = createDashboardItem({ number: 2, workspacePath: "/a" });
+    const result = preferWorkspacePrs([pr1, pr2], "/a");
+    expect(result).toHaveLength(2);
+  });
 });
