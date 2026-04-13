@@ -733,7 +733,12 @@ function UnresolvedThreadItem({
       type="button"
       onClick={onClick}
       className="w-full cursor-pointer overflow-hidden rounded-lg text-left"
-      style={{ border: "1px solid rgba(37, 35, 31, 0.6)" }}
+      style={{
+        border: thread.isResolved
+          ? "1px solid rgba(61, 214, 140, 0.15)"
+          : "1px solid rgba(37, 35, 31, 0.6)",
+        opacity: thread.isResolved ? 0.6 : 1,
+      }}
     >
       {/* Header — same bg-card/50 pattern as ContentEvent */}
       <div
@@ -761,12 +766,8 @@ function UnresolvedThreadItem({
             padding: "0 5px",
             lineHeight: "16px",
             color: thread.isResolved ? "var(--success)" : "var(--warning)",
-            borderColor: thread.isResolved
-              ? "rgba(61, 214, 140, 0.2)"
-              : "rgba(240, 180, 73, 0.2)",
-            background: thread.isResolved
-              ? "rgba(61, 214, 140, 0.05)"
-              : "rgba(240, 180, 73, 0.05)",
+            borderColor: thread.isResolved ? "rgba(61, 214, 140, 0.2)" : "rgba(240, 180, 73, 0.2)",
+            background: thread.isResolved ? "rgba(61, 214, 140, 0.05)" : "rgba(240, 180, 73, 0.05)",
           }}
         >
           {thread.isResolved ? "resolved" : "unresolved"}

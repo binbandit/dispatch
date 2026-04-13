@@ -5,7 +5,6 @@ import type { GhReactionGroup } from "@/shared/ipc";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { ReactionBar } from "@/renderer/components/review/comments/reaction-bar";
 import { ReviewMarkdownComposer } from "@/renderer/components/review/comments/review-markdown-composer";
@@ -196,20 +195,27 @@ function CommentThread({
 }) {
   const threadState = reviewThreadStateByRootCommentId?.get(root.id);
   const isResolvedThread = threadState?.isResolved ?? false;
+  const isOutdatedThread = threadState?.isOutdated ?? false;
+  const isDismissed = isResolvedThread || isOutdatedThread;
   const hasReplies = replies.length > 0;
-  const [collapsed, setCollapsed] = useState(() => isResolvedThread && hasReplies);
+  const [collapsed, setCollapsed] = useState(() => isDismissed && hasReplies);
   const [showReply, setShowReply] = useState(false);
   const totalCount = 1 + replies.length;
   const canMutateThread = reviewActionsEnabled && Boolean(prNumber);
   const preview = useMemo(() => buildCommentPreview(root.body, 160), [root.body]);
   const rootAutoMinimized =
-    shouldAutoCollapseBot(root.user.login) || (isResolvedThread && !hasReplies);
+    shouldAutoCollapseBot(root.user.login) || (isDismissed && !hasReplies);
 
   return (
     <div
       className={cn(
+        "relative",
         showBorder && "border-border-subtle border-t",
-        isResolvedThread && "bg-bg-root/30",
+        isResolvedThread &&
+          "bg-bg-root/30 before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:bg-[rgba(61,214,140,0.35)]",
+        isOutdatedThread &&
+          !isResolvedThread &&
+          "bg-bg-root/30 before:absolute before:inset-y-0 before:left-0 before:w-[2px] before:bg-[rgba(94,89,84,0.35)]",
       )}
     >
       {hasReplies &&
@@ -245,6 +251,11 @@ function CommentThread({
                     Resolved
                   </InlineMetaBadge>
                 )}
+                {isOutdatedThread && !isResolvedThread && (
+                  <InlineMetaBadge className="text-text-tertiary border-border-subtle bg-bg-root/70">
+                    Outdated
+                  </InlineMetaBadge>
+                )}
               </div>
               <p className="text-text-secondary mt-1 text-[12px] leading-[1.45]">{preview}</p>
             </div>
@@ -266,11 +277,16 @@ function CommentThread({
                 Resolved
               </InlineMetaBadge>
             )}
+            {isOutdatedThread && !isResolvedThread && (
+              <InlineMetaBadge className="text-text-tertiary border-border-subtle bg-bg-root/70 ml-auto">
+                Outdated
+              </InlineMetaBadge>
+            )}
           </button>
         ))}
 
       {!collapsed && (
-        <div className={cn(isResolvedThread && "opacity-80")}>
+        <div className={cn(isDismissed && "opacity-60")}>
           <CommentBody
             comment={root}
             isRoot
@@ -321,7 +337,12 @@ function CommentThread({
 
       {/* Quick reply button (when not already replying) */}
       {!showReply && !collapsed && canMutateThread && (
-        <div className="border-border-subtle flex items-center justify-between gap-2 border-t px-3 py-2.5">
+        <div
+          className={cn(
+            "border-border-subtle flex items-center justify-between gap-2 border-t px-3 py-2.5",
+            isDismissed && "opacity-50",
+          )}
+        >
           <span className="text-text-ghost font-mono text-[10px]">
             {totalCount} {totalCount === 1 ? "message" : "messages"}
           </span>
@@ -767,7 +788,11 @@ function CommentBody({
       </div>
 
       <div className="min-w-0">
-        <div className="flex min-w-0 items-center gap-1.5">
+        {/* biome-ignore lint: header row toggles minimize on click */}
+        <div
+          className="flex min-w-0 cursor-pointer items-center gap-1.5"
+          onClick={onToggleMinimized}
+        >
           <span
             className={cn(
               "truncate text-[12px] font-medium",
@@ -789,30 +814,42 @@ function CommentBody({
               {severity.label}
             </span>
           )}
+          {isRoot && reviewThreadState?.isResolved && (
+            <InlineMetaBadge className="text-success border-[rgba(61,214,140,0.22)] bg-[rgba(61,214,140,0.08)]">
+              <CheckCircle2 size={9} />
+              Resolved
+            </InlineMetaBadge>
+          )}
+          {isRoot && reviewThreadState?.isOutdated && !reviewThreadState?.isResolved && (
+            <InlineMetaBadge className="text-text-tertiary border-border-subtle bg-bg-root/70">
+              Outdated
+            </InlineMetaBadge>
+          )}
           <span className="text-text-tertiary font-mono text-[10px]">
             {relativeTime(new Date(comment.created_at))}
           </span>
-          <div className="ml-auto flex items-center gap-1">
+          {/* Stop propagation on interactive children so they don't trigger minimize */}
+          <div
+            className="ml-auto flex items-center gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
             {isRoot && reviewActionsEnabled && reviewThreadState && (
               <ThreadResolveButton
                 threadId={reviewThreadState.threadId}
                 initialResolved={reviewThreadState.isResolved}
               />
             )}
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    type="button"
-                    onClick={onToggleMinimized}
-                    className="text-text-ghost hover:text-text-primary cursor-pointer rounded-sm p-0.5 transition-colors"
-                  >
-                    {minimized ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
-                  </button>
-                }
+            {minimized ? (
+              <ChevronRight
+                size={12}
+                className="text-text-ghost"
               />
-              <TooltipPopup>{minimized ? "Expand comment" : "Minimize comment"}</TooltipPopup>
-            </Tooltip>
+            ) : (
+              <ChevronDown
+                size={12}
+                className="text-text-ghost"
+              />
+            )}
           </div>
         </div>
 
