@@ -12,11 +12,13 @@ interface PositionedReviewComment {
 interface ReviewThreadWithRootComment {
   id: string;
   isResolved: boolean;
+  isOutdated: boolean;
   rootCommentId: number | null;
 }
 
 export interface ReviewThreadState {
   isResolved: boolean;
+  isOutdated: boolean;
   threadId: string;
 }
 
@@ -56,6 +58,7 @@ export function buildReviewThreadStateByRootCommentId<T extends ReviewThreadWith
 
     map.set(thread.rootCommentId, {
       isResolved: thread.isResolved,
+      isOutdated: thread.isOutdated,
       threadId: thread.id,
     });
   }

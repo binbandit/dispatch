@@ -1,9 +1,8 @@
-import { describe, expect, it } from "vite-plus/test";
-
 import {
   buildReviewCommentsMap,
   buildReviewThreadStateByRootCommentId,
 } from "@/renderer/lib/review/review-comments";
+import { describe, expect, it } from "vite-plus/test";
 
 describe("buildReviewCommentsMap", () => {
   it("falls back to original_line when the current line is unavailable", () => {
@@ -49,21 +48,25 @@ describe("buildReviewThreadStateByRootCommentId", () => {
       {
         id: "thread-1",
         isResolved: true,
+        isOutdated: false,
         rootCommentId: 501,
       },
       {
         id: "thread-2",
         isResolved: false,
+        isOutdated: true,
         rootCommentId: 502,
       },
     ]);
 
     expect(reviewThreadStateByRootCommentId.get(501)).toEqual({
       isResolved: true,
+      isOutdated: false,
       threadId: "thread-1",
     });
     expect(reviewThreadStateByRootCommentId.get(502)).toEqual({
       isResolved: false,
+      isOutdated: true,
       threadId: "thread-2",
     });
   });
