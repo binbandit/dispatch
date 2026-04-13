@@ -55,11 +55,7 @@ interface ProcessResult {
   exitCode: number;
 }
 
-const CODEX_TIMEOUT_MS = 180_000;
-const CLAUDE_TIMEOUT_MS = 180_000;
-const COPILOT_TIMEOUT_MS = 180_000;
-const OLLAMA_TIMEOUT_MS = 180_000;
-const OPENCODE_TIMEOUT_MS = 180_000;
+const AI_COMPLETION_TIMEOUT_MS = 180_000;
 const PROVIDER_STATUS_TIMEOUT_MS = 5000;
 const COPILOT_READ_ONLY_TOOLS = "view,grep,glob";
 
@@ -131,7 +127,7 @@ export function parseCodexAuthStatus(output: string): boolean {
 export function parseClaudeAuthStatus(output: string): boolean {
   try {
     const parsed = JSON.parse(output) as { loggedIn?: boolean };
-    return parsed.loggedIn === true;
+    return !!parsed.loggedIn;
   } catch {
     return false;
   }
@@ -717,7 +713,7 @@ async function completeWithCodex(args: ResolvedAiCompletionArgs): Promise<string
         ...(args.homePath ? { CODEX_HOME: args.homePath } : {}),
       },
       input,
-      timeoutMs: CODEX_TIMEOUT_MS,
+      timeoutMs: AI_COMPLETION_TIMEOUT_MS,
     });
 
     if (result.exitCode !== 0) {
@@ -758,7 +754,7 @@ async function completeWithClaude(args: ResolvedAiCompletionArgs): Promise<strin
       cwd: args.cwd,
       env: process.env,
       input: prompt,
-      timeoutMs: CLAUDE_TIMEOUT_MS,
+      timeoutMs: AI_COMPLETION_TIMEOUT_MS,
     });
 
     if (result.exitCode !== 0) {
@@ -791,7 +787,7 @@ async function completeWithCopilot(args: ResolvedAiCompletionArgs): Promise<stri
         cwd: args.cwd,
         env: process.env,
         input: "",
-        timeoutMs: COPILOT_TIMEOUT_MS,
+        timeoutMs: AI_COMPLETION_TIMEOUT_MS,
       },
     );
 
@@ -814,7 +810,7 @@ async function completeWithCopilot(args: ResolvedAiCompletionArgs): Promise<stri
 
 async function completeWithOllama(args: ResolvedAiCompletionArgs): Promise<string> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS);
+  const timeout = setTimeout(() => controller.abort(), AI_COMPLETION_TIMEOUT_MS);
 
   try {
     const response = await fetch(resolveOllamaEndpointUrl(args.baseUrl ?? undefined), {
@@ -857,7 +853,7 @@ async function completeWithOpencode(args: ResolvedAiCompletionArgs): Promise<str
       cwd: args.cwd,
       env: process.env,
       input,
-      timeoutMs: OPENCODE_TIMEOUT_MS,
+      timeoutMs: AI_COMPLETION_TIMEOUT_MS,
     });
 
     if (result.exitCode !== 0) {

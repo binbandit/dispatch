@@ -315,31 +315,6 @@ export function getPrCache(repo: string, prNumber: number): PrCacheEntry | null 
   };
 }
 
-export function savePrListItems(repo: string, items: GhPrListItem[]): void {
-  if (items.length === 0) {
-    return;
-  }
-
-  const db = getDatabase();
-  const writePrListItem = db.prepare(`
-    INSERT INTO pr_cache (repo, number, data, state, updated_at, fetched_at)
-    VALUES (?, ?, ?, ?, ?, datetime('now'))
-    ON CONFLICT(repo, number) DO UPDATE SET
-      data = excluded.data,
-      state = excluded.state,
-      updated_at = excluded.updated_at,
-      fetched_at = excluded.fetched_at
-  `);
-
-  const writePrListItems = db.transaction((entries: GhPrListItem[]) => {
-    for (const item of entries) {
-      writePrListItem.run(repo, item.number, JSON.stringify(item), item.state, item.updatedAt);
-    }
-  });
-
-  writePrListItems(items);
-}
-
 export function savePrDetail(repo: string, detail: GhPrDetail): void {
   const db = getDatabase();
   const listItem = toCachedPrListItem(detail);

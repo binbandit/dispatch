@@ -53,7 +53,6 @@ vi.mock("../db/repository", () => ({
   invalidatePersistedPrCaches: vi.fn(),
   savePrDetail: vi.fn(),
   savePrListCache: vi.fn(),
-  savePrListItems: vi.fn(),
   setRepoAccount: vi.fn(),
 }));
 
