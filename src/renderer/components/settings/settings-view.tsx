@@ -28,6 +28,7 @@ import {
   getAiTaskSlotPreferenceKey,
   normalizeAiTaskSlot,
 } from "@/shared/ai-provider-settings";
+import { EXPERIMENTAL_FEATURE_PREFERENCE_KEYS } from "@/shared/experimental-features";
 import {
   DEFAULT_PR_FETCH_LIMIT,
   PR_FETCH_LIMIT_OPTIONS,
@@ -40,6 +41,7 @@ import {
   ArrowLeft,
   Bot,
   Check,
+  FlaskConical,
   GitMerge,
   Info,
   Keyboard,
@@ -79,6 +81,7 @@ import {
   CodeThemePreview,
   THEME_OPTIONS,
 } from "./settings-code-theme";
+import { ExperimentalSettingsSection } from "./settings-experimental";
 
 /**
  * Settings panel — persists all values via preferences IPC.
@@ -110,12 +113,14 @@ const PREF_KEYS = [
   "defaultFileNav",
   "displayNameFormat",
   "aiAutoSuggest",
+  ...EXPERIMENTAL_FEATURE_PREFERENCE_KEYS,
 ];
 
 const NAV_SECTIONS_BASE = [
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "keybindings", label: "Keybindings", icon: Keyboard },
   { id: "general", label: "General", icon: GitMerge },
+  { id: "experimental", label: "Experimental", icon: FlaskConical },
   { id: "bots", label: "Bots", icon: Bot },
   { id: "ai", label: "AI Models", icon: Sparkles },
   { id: "privacy", label: "Privacy", icon: Shield },
@@ -742,6 +747,13 @@ export function SettingsView() {
                 )}
               </section>
             </>
+          )}
+
+          {activeSection === "experimental" && (
+            <ExperimentalSettingsSection
+              prefs={prefs}
+              savePref={savePref}
+            />
           )}
 
           {activeSection === "bots" && (

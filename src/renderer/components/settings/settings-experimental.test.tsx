@@ -1,0 +1,29 @@
+import "@testing-library/jest-dom/vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { describe, expect, it, vi } from "vite-plus/test";
+
+import { ExperimentalSettingsSection } from "./settings-experimental";
+
+describe("ExperimentalSettingsSection", () => {
+  it("renders the experimental disclaimer and saves toggled flags", async () => {
+    const user = userEvent.setup();
+    const savePref = vi.fn();
+
+    render(
+      <ExperimentalSettingsSection
+        prefs={{ experimentalWorkflowGraph: "false" }}
+        savePref={savePref}
+      />,
+    );
+
+    expect(
+      screen.getByText(/they may change substantially or disappear between releases/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Workflow graph preview")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("switch", { name: /workflow graph preview/i }));
+
+    expect(savePref).toHaveBeenCalledWith("experimentalWorkflowGraph", "true");
+  });
+});
