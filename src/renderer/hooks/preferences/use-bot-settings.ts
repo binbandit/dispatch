@@ -18,6 +18,7 @@ export const DEFAULT_BOT_USERNAMES = [
   "github-actions",
   "copilot",
   "coderabbit",
+  "macroscopeapp",
 ];
 
 export function parseJsonArray(value: string | null | undefined): string[] {

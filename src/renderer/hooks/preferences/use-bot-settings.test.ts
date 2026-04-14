@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseJsonArray } from "./use-bot-settings";
+import { DEFAULT_BOT_USERNAMES, parseJsonArray } from "./use-bot-settings";
 
 describe("parseJsonArray", () => {
   it("parses valid JSON array of strings", () => {
@@ -33,5 +33,11 @@ describe("parseJsonArray", () => {
 
   it("returns empty for JSON number", () => {
     expect(parseJsonArray("42")).toEqual([]);
+  });
+});
+
+describe("DEFAULT_BOT_USERNAMES", () => {
+  it("includes macroscopeapp as a built-in bot username", () => {
+    expect(DEFAULT_BOT_USERNAMES).toContain("macroscopeapp");
   });
 });
