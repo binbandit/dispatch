@@ -2,7 +2,6 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { ReviewMarkdownComposer } from "@/renderer/components/review/comments/review-markdown-composer";
-import { getErrorMessage } from "@/renderer/lib/app/error-message";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
@@ -111,7 +110,7 @@ export function CommentComposer({
         className="rounded-none border-0 bg-transparent shadow-none"
         onChange={setBody}
         onKeyDown={handleKeyDown}
-        placeholder="Leave a comment..."
+        placeholder="Leave a comment…"
         prNumber={prNumber}
         rows={4}
         value={body}
@@ -151,7 +150,11 @@ export function CommentComposer({
       </div>
       {createMutation.isError && (
         <div className="border-border-subtle border-t px-3 py-2">
-          <p className="text-destructive text-[11px]">{getErrorMessage(createMutation.error)}</p>
+          <p className="text-destructive text-[11px]">
+            {createMutation.error instanceof Error
+              ? createMutation.error.message
+              : "Could not add the comment."}
+          </p>
         </div>
       )}
     </div>

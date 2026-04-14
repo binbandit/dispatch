@@ -399,7 +399,11 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
           />
           <input
             ref={searchRef}
-            type="text"
+            aria-label="Search pull requests"
+            autoComplete="off"
+            name="pull-request-filter"
+            spellCheck={false}
+            type="search"
             value={searchQuery}
             onChange={(e) => {
               updateSearchQuery(e.target.value);
@@ -408,7 +412,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
             }}
             onFocus={() => setAutocompleteOpen(true)}
             onBlur={() => setAutocompleteOpen(false)}
-            placeholder="Search @me, repo:current, updated:7d, (review:changes OR state:merged)"
+            placeholder="Search @me, repo:current, updated:7d, (review:changes OR state:merged)…"
             className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
             onKeyDown={(event) => {
               // Let autocomplete handle navigation keys first

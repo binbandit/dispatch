@@ -102,13 +102,13 @@ export function KeyRecorder({
         ref={buttonRef}
         type="button"
         onClick={startRecording}
-        className={`border-border-strong bg-bg-raised text-text-secondary min-w-[48px] cursor-pointer rounded-md border px-2 py-1 font-mono text-[11px] font-medium transition-all ${
+        className={`border-border-strong bg-bg-raised text-text-secondary min-w-[48px] cursor-pointer rounded-md border px-2 py-1 font-mono text-[11px] font-medium transition-[background-color,border-color,color,box-shadow] ${
           recording
             ? "animate-pulse border-[--border-accent] text-[--accent-text] shadow-[0_0_0_1px_var(--border-accent)]"
             : "shadow-[0_1px_0_var(--border)] hover:border-[--border-strong] hover:bg-[--bg-elevated]"
         }`}
       >
-        {recording ? "..." : display}
+        {recording ? "…" : display}
       </button>
     </div>
   );

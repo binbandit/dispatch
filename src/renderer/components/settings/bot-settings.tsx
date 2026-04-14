@@ -120,6 +120,7 @@ function TagInput({
           {tag}
           <button
             type="button"
+            aria-label={`Remove ${tag}`}
             onClick={() => removeTag(index)}
             className="text-text-tertiary hover:text-text-primary cursor-pointer"
           >
@@ -128,6 +129,10 @@ function TagInput({
         </span>
       ))}
       <input
+        aria-label="Add ignored bot"
+        autoComplete="off"
+        name="ignored-bot"
+        spellCheck={false}
         type="text"
         value={input}
         onChange={(event) => setInput(event.target.value)}

@@ -139,7 +139,10 @@ export function AiSuggestionCard({ suggestion, onPost, onDismiss }: AiSuggestion
           {editing ? (
             <div className="flex flex-col gap-2">
               <textarea
+                aria-label="Edit AI suggestion"
+                autoComplete="off"
                 value={editBody}
+                name="ai-suggestion"
                 onChange={(e) => setEditBody(e.target.value)}
                 onKeyDown={handleKeyDown}
                 className="border-border bg-bg-root/80 text-text-primary min-h-[96px] w-full rounded-md border p-2.5 font-mono text-xs leading-relaxed focus:outline-none"

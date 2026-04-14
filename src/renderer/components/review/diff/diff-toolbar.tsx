@@ -15,6 +15,7 @@ import {
   Rows2,
   Sparkles,
 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 /**
  * Diff toolbar — PR-REVIEW-REDESIGN.md § Diff Toolbar (32px)
@@ -73,6 +74,19 @@ export function DiffToolbar({
       ? getCondensedDirPath(dirPath)
       : dirPath;
   const showIconOnlyControls = compactToolbar;
+
+  // Brief tick when AI review finishes — confirms it ran even if no comments added
+  const [aiJustFinished, setAiJustFinished] = useState(false);
+  const prevAiSuggesting = useRef(false);
+  useEffect(() => {
+    if (prevAiSuggesting.current && !isAiSuggesting) {
+      setAiJustFinished(true);
+      const timer = setTimeout(() => setAiJustFinished(false), 2000);
+      return () => clearTimeout(timer);
+    }
+    prevAiSuggesting.current = Boolean(isAiSuggesting);
+  }, [isAiSuggesting]);
+
   const viewedButton = (
     <button
       type="button"
@@ -181,9 +195,17 @@ export function DiffToolbar({
                 onClick={onAiSuggest}
                 disabled={controlsLocked || isAiSuggesting}
                 aria-label="AI review"
-                className="text-primary hover:bg-primary/10 flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium whitespace-nowrap transition-colors disabled:cursor-default disabled:opacity-50"
+                className={`flex shrink-0 cursor-pointer items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-medium whitespace-nowrap transition-colors disabled:cursor-default disabled:opacity-50 ${
+                  aiJustFinished ? "text-success" : "text-primary hover:bg-primary/10"
+                }`}
               >
-                {isAiSuggesting ? <Spinner className="h-3 w-3" /> : <Sparkles size={11} />}
+                {isAiSuggesting ? (
+                  <Spinner className="h-3 w-3" />
+                ) : aiJustFinished ? (
+                  <Check size={11} />
+                ) : (
+                  <Sparkles size={11} />
+                )}
                 {!showIconOnlyControls && "AI Review"}
               </button>
             }

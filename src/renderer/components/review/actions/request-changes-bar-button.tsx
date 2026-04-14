@@ -124,7 +124,7 @@ export function RequestChangesBarButton({
                 reviewMutation.mutate(body.trim());
               }
             }}
-            placeholder="Describe what needs to change..."
+            placeholder="Describe what needs to change…"
             prNumber={prNumber}
             rows={4}
             value={body}

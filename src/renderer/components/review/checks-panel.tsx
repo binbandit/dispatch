@@ -3,6 +3,7 @@ import type { RepoTarget } from "@/shared/ipc";
 
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
 import { AiFailureExplainer } from "@/renderer/components/review/ai/ai-failure-explainer";
 import { LogViewer } from "@/renderer/components/workflows/log-viewer";
 import { getErrorMessage } from "@/renderer/lib/app/error-message";
@@ -91,9 +92,9 @@ export function ChecksPanel({ prNumber }: ChecksPanelProps) {
   }
 
   return (
-    <div className="flex flex-col gap-0.5 p-2">
+    <div>
       {/* Summary */}
-      <div className="mb-1 flex items-center gap-2 px-2 pb-1.5">
+      <div className="flex items-center gap-2 px-5 py-2.5">
         <span className="text-success font-mono text-[10px]">{passCount} passed</span>
         {failCount > 0 && (
           <span className="text-destructive font-mono text-[10px]">{failCount} failed</span>
@@ -101,66 +102,75 @@ export function ChecksPanel({ prNumber }: ChecksPanelProps) {
       </div>
 
       {/* Check items */}
-      {checks.map((check) => {
-        const checkStatus = resolveCheckStatus(check.status, check.conclusion);
-        const { icon: Icon, color, spin } = STATUS_ICON[checkStatus];
-        const isExpanded = expandedCheck === check.name;
+      <div className="divide-border divide-y">
+        {checks.map((check) => {
+          const checkStatus = resolveCheckStatus(check.status, check.conclusion);
+          const { icon: Icon, color, spin } = STATUS_ICON[checkStatus];
+          const isExpanded = expandedCheck === check.name;
 
-        // Extract run ID from detailsUrl for re-run
-        const runIdMatch = check.detailsUrl?.match(/\/runs\/(\d+)/);
-        const runId = runIdMatch ? Number(runIdMatch[1]) : null;
+          // Extract run ID from detailsUrl for re-run
+          const runIdMatch = check.detailsUrl?.match(/\/runs\/(\d+)/);
+          const runId = runIdMatch ? Number(runIdMatch[1]) : null;
 
-        return (
-          <div key={check.name}>
-            <button
-              type="button"
-              onClick={() => setExpandedCheck(isExpanded ? null : check.name)}
-              className="hover:bg-bg-raised flex w-full cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 text-left"
-            >
-              <span className={`flex h-4 w-4 shrink-0 items-center justify-center ${color}`}>
+          return (
+            <div key={check.name}>
+              <button
+                type="button"
+                onClick={() => setExpandedCheck(isExpanded ? null : check.name)}
+                className={`flex w-full cursor-pointer items-center gap-3 px-5 py-2.5 text-left transition-colors ${
+                  isExpanded ? "bg-accent-muted" : "hover:bg-bg-raised"
+                }`}
+              >
                 <Icon
-                  size={14}
-                  className={spin ? "animate-spin" : ""}
+                  size={16}
+                  className={`shrink-0 ${color} ${spin ? "animate-spin" : ""}`}
                 />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-text-primary truncate text-xs font-[450]">{check.name}</p>
-                <p className="text-text-tertiary font-mono text-[10px]">
-                  {check.completedAt
-                    ? formatDuration(check.startedAt, check.completedAt)
-                    : check.startedAt
-                      ? "Running..."
-                      : check.status}
-                </p>
-              </div>
-              {checkStatus === "failure" && runId && (
-                <RerunButton
-                  repoTarget={repoTarget}
-                  runId={runId}
-                />
-              )}
-            </button>
+                <div className="min-w-0 flex-1">
+                  <p className="text-text-primary truncate text-xs font-medium">{check.name}</p>
+                  <p className="text-text-tertiary mt-0.5 flex items-center gap-1.5 font-mono text-[10px]">
+                    <span>
+                      {check.completedAt
+                        ? formatDuration(check.startedAt, check.completedAt)
+                        : check.startedAt
+                          ? "Running…"
+                          : check.status}
+                    </span>
+                    <span className="text-text-ghost">·</span>
+                    <span>{checkStatus}</span>
+                  </p>
+                </div>
 
-            {/* Expanded log viewer */}
-            {isExpanded && runId && (
-              <div className="mt-1 mb-1 ml-6">
-                <LogViewer
-                  repoTarget={repoTarget}
-                  runId={runId}
-                />
-                {/* AI explain failure button for failed checks */}
-                {checkStatus === "failure" && (
-                  <AiFailureExplainer
-                    checkName={check.name}
+                {/* Actions */}
+                <div className="flex shrink-0 items-center gap-1">
+                  {checkStatus === "failure" && runId && (
+                    <RerunButton
+                      repoTarget={repoTarget}
+                      runId={runId}
+                    />
+                  )}
+                </div>
+              </button>
+
+              {/* Expanded log viewer */}
+              {isExpanded && runId && (
+                <div className="border-border border-b px-5 py-3 pl-12">
+                  <LogViewer
                     repoTarget={repoTarget}
                     runId={runId}
                   />
-                )}
-              </div>
-            )}
-          </div>
-        );
-      })}
+                  {checkStatus === "failure" && (
+                    <AiFailureExplainer
+                      checkName={check.name}
+                      repoTarget={repoTarget}
+                      runId={runId}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -186,21 +196,27 @@ function RerunButton({ repoTarget, runId }: { repoTarget: RepoTarget; runId: num
   });
 
   return (
-    <button
-      type="button"
-      className="text-destructive hover:text-destructive inline-flex h-6 cursor-pointer items-center gap-1 px-1.5"
-      onClick={(e) => {
-        e.stopPropagation();
-        rerunMutation.mutate();
-      }}
-      disabled={rerunMutation.isPending}
-    >
-      <RotateCcw
-        size={11}
-        className={rerunMutation.isPending ? "animate-spin" : ""}
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              rerunMutation.mutate();
+            }}
+            disabled={rerunMutation.isPending}
+            className="text-text-tertiary hover:bg-bg-raised hover:text-text-primary cursor-pointer rounded-sm p-1"
+          >
+            <RotateCcw
+              size={13}
+              className={rerunMutation.isPending ? "animate-spin" : ""}
+            />
+          </button>
+        }
       />
-      <span className="text-[10px]">Re-run</span>
-    </button>
+      <TooltipPopup>Re-run</TooltipPopup>
+    </Tooltip>
   );
 }
 

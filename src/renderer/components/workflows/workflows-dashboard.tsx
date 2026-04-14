@@ -161,11 +161,11 @@ export function WorkflowsDashboard() {
           {workflowMenuOpen && (
             <>
               {/* Click-outside backdrop */}
-              <div
-                className="fixed inset-0 z-10"
+              <button
+                type="button"
+                aria-label="Close workflow menu"
+                className="fixed inset-0 z-10 cursor-default"
                 onClick={closeWorkflowMenu}
-                onKeyDown={() => {}}
-                role="presentation"
               />
               <div className="border-border bg-bg-elevated absolute top-full left-0 z-20 mt-1 w-56 rounded-md border shadow-lg">
                 {/* Search input */}
@@ -181,7 +181,11 @@ export function WorkflowsDashboard() {
                           node.focus();
                         }
                       }}
-                      type="text"
+                      aria-label="Search workflows"
+                      autoComplete="off"
+                      name="workflow-search"
+                      spellCheck={false}
+                      type="search"
                       value={workflowSearch}
                       onChange={(e) => setWorkflowSearch(e.target.value)}
                       placeholder="Search workflows…"
@@ -253,10 +257,14 @@ export function WorkflowsDashboard() {
             className="text-text-tertiary shrink-0"
           />
           <input
-            type="text"
+            aria-label="Search workflow runs"
+            autoComplete="off"
+            name="workflow-run-search"
+            spellCheck={false}
+            type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search runs..."
+            placeholder="Search runs…"
             className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
             onKeyDown={(e) => {
               if (e.key === "Escape") {
@@ -268,6 +276,7 @@ export function WorkflowsDashboard() {
           {searchQuery && (
             <button
               type="button"
+              aria-label="Clear workflow run search"
               onClick={() => setSearchQuery("")}
               className="text-text-tertiary hover:text-text-primary cursor-pointer text-[10px]"
             >

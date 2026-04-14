@@ -144,7 +144,7 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
   );
 
   // Reuse the cross-workspace PR list that HomeView already fetches,
-  // filtered to open PRs in the current repo.
+  // Filtered to open PRs in the current repo.
   const allPrsQuery = useQuery({
     queryKey: ["pr", "listAll", "all", "all"],
     queryFn: () => ipc("pr.listAll", { filter: "all", state: "all" }),
@@ -292,10 +292,14 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
           />
           <input
             ref={searchRef}
-            type="text"
+            aria-label="Filter files"
+            autoComplete="off"
+            name="file-filter"
+            spellCheck={false}
+            type="search"
             value={fileSearch}
             onChange={(e) => setFileSearch(e.target.value)}
-            placeholder="Filter files..."
+            placeholder="Filter files…"
             className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-[11px] focus:outline-none"
           />
         </div>

@@ -62,8 +62,10 @@ export function GitHubAvatar({
       <AvatarImage
         src={src}
         alt={login}
+        height={size}
         loading="eager"
         referrerPolicy="no-referrer"
+        width={size}
       />
       <AvatarFallback className="text-accent-text bg-[linear-gradient(135deg,rgba(212,136,58,0.18),rgba(124,90,42,0.72))]">
         <UserRound

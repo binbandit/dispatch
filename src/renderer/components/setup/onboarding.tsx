@@ -133,7 +133,7 @@ export function Onboarding({ onComplete }: OnboardingProps) {
             disabled={pickFolderMutation.isPending || addFromFolderMutation.isPending}
           >
             <FolderOpen size={14} />
-            {pickFolderMutation.isPending ? "Opening..." : "Link local folder"}
+            {pickFolderMutation.isPending ? "Opening…" : "Link local folder"}
           </Button>
         </div>
 
@@ -247,7 +247,11 @@ function GitHubRepoSearch({
           className="text-text-tertiary shrink-0"
         />
         <input
-          type="text"
+          aria-label="Search GitHub repositories"
+          autoComplete="off"
+          name="github-repository-search"
+          spellCheck={false}
+          type="search"
           value={query}
           onChange={(e) => handleInputChange(e.target.value)}
           onFocus={() => setShowResults(true)}
@@ -255,7 +259,7 @@ function GitHubRepoSearch({
             // Delay to allow click on results
             setTimeout(() => setShowResults(false), 200);
           }}
-          placeholder="Search your GitHub repositories..."
+          placeholder="Search your GitHub repositories…"
           className="text-text-primary placeholder:text-text-ghost min-w-0 flex-1 bg-transparent text-sm outline-none"
           disabled={isPending}
         />
@@ -265,7 +269,7 @@ function GitHubRepoSearch({
       {showResults && (
         <div className="border-border bg-bg-surface absolute top-full right-0 left-0 z-50 mt-1 max-h-[280px] overflow-y-auto rounded-lg border shadow-lg">
           {searchQuery.isLoading && (
-            <div className="text-text-tertiary px-3 py-4 text-center text-xs">Searching...</div>
+            <div className="text-text-tertiary px-3 py-4 text-center text-xs">Searching…</div>
           )}
           {!searchQuery.isLoading && results.length === 0 && (
             <div className="text-text-tertiary px-3 py-4 text-center text-xs">

@@ -1,5 +1,5 @@
 /* eslint-disable import/max-dependencies -- This screen composes workflow detail controls, log inspection, and AI failure analysis. */
-import type { GhWorkflowRunDetail, GhWorkflowRunJob } from "@/shared/ipc";
+import type { GhWorkflowRunDetail, GhWorkflowRunJob, RepoTarget } from "@/shared/ipc";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -35,7 +35,7 @@ import { LogViewer } from "./log-viewer";
 type DetailViewMode = "list" | "graph";
 
 interface RunDetailProps {
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
   runId: number;
 }
 
@@ -207,10 +207,14 @@ export function RunDetail({ repoTarget, runId }: RunDetailProps) {
         />
         <input
           ref={searchInputRef}
-          type="text"
+          aria-label="Search logs"
+          autoComplete="off"
+          name="log-search"
+          spellCheck={false}
+          type="search"
           value={logSearch}
           onChange={(e) => setLogSearch(e.target.value)}
-          placeholder="Search logs..."
+          placeholder="Search logs…"
           className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
           onKeyDown={(e) => {
             if (e.key === "Escape") {
@@ -372,7 +376,7 @@ function JobRow({
   onMatchCountChange,
 }: {
   job: GhWorkflowRunJob;
-  repoTarget: import("@/shared/ipc").RepoTarget;
+  repoTarget: RepoTarget;
   runId: number;
   searchQuery: string;
   activeMatchIndex: number;

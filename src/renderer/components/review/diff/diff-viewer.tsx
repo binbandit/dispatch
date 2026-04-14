@@ -353,13 +353,17 @@ export function DiffViewer({
           />
           <input
             ref={searchInputRef}
-            type="text"
+            aria-label="Find in diff"
+            autoComplete="off"
+            name="diff-search"
+            spellCheck={false}
+            type="search"
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setSearchMatchIndex(0);
             }}
-            placeholder="Find in diff..."
+            placeholder="Find in diff…"
             className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
             onKeyDown={(e) => {
               if (e.key === "Escape") {

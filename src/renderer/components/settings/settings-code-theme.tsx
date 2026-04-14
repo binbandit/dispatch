@@ -2,11 +2,11 @@
 import type { Highlighter } from "shiki";
 
 import { Spinner } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils";
+import { useTheme, type ColorMode, type ThemeStyle } from "@/renderer/lib/app/theme-context";
 import { ensureTheme, getHighlighter } from "@/renderer/lib/review/highlighter";
 import { Check, Eclipse, Monitor, Moon, Sun } from "lucide-react";
 import { memo, useEffect, useState } from "react";
-
-import type { ColorMode, ThemeStyle } from "@/renderer/lib/app/theme-context";
 
 /* ---------------------------------------------------------------------------
  * Theme style options (card picker)
@@ -16,7 +16,7 @@ export interface ThemeStyleOption {
   value: ThemeStyle;
   label: string;
   description: string;
-  /** Representative dark-mode colors: [bg, accent, text, border] */
+  /** Representative colors: [bg, accent, text, border] */
   colors: [string, string, string, string];
   experimental?: boolean;
 }
@@ -31,15 +31,17 @@ export const THEME_STYLE_OPTIONS: ThemeStyleOption[] = [
   {
     value: "neo-brutalism",
     label: "Neo-Brutalism",
-    description: "Bold borders and hard shadows",
-    colors: ["#1a1a1a", "#e8943e", "#f5f0e8", "#5c564e"],
+    description: "Cream paper, orange accents, and hard shadows",
+    colors: ["#f5f0e8", "#ff6b35", "#ffffff", "#1a1a1a"],
     experimental: true,
   },
 ];
 
 export function getThemeStyleOptions(includeNeoBrutalism: boolean): ThemeStyleOption[] {
   return THEME_STYLE_OPTIONS.filter((option) => {
-    if (option.value === "neo-brutalism") return includeNeoBrutalism;
+    if (option.value === "neo-brutalism") {
+      return includeNeoBrutalism;
+    }
     return true;
   });
 }
@@ -53,21 +55,33 @@ export function ThemeStyleCard({
   isActive: boolean;
   onSelect: () => void;
 }) {
+  const { themeStyle } = useTheme();
+  const isNeoBrutalTheme = themeStyle === "neo-brutalism";
+
   return (
     <button
       type="button"
       onClick={onSelect}
-      className={`group relative flex cursor-pointer items-center gap-2.5 border px-3 py-2 text-left transition-all duration-[--duration-fast] ${
+      className={cn(
+        "group relative flex cursor-pointer items-center gap-2.5 px-3 py-2 text-left transition-[background-color,border-color,color,box-shadow,transform] duration-[--duration-fast]",
+        isNeoBrutalTheme ? "rounded-[4px] border-2 bg-[--bg-surface]" : "rounded-md border",
         isActive
-          ? "border-[--border-accent] bg-[--accent-muted]"
-          : "border-[--border] hover:border-[--border-strong] hover:bg-[--bg-raised]"
-      } rounded-md`}
+          ? isNeoBrutalTheme
+            ? "border-[--primary] bg-[--accent-muted] shadow-[3px_3px_0_var(--primary)] hover:translate-x-px hover:translate-y-px hover:shadow-[1px_1px_0_var(--primary)]"
+            : "border-[--border-accent] bg-[--accent-muted]"
+          : isNeoBrutalTheme
+            ? "border-[--border] shadow-[var(--shadow-sm)] hover:translate-x-px hover:translate-y-px hover:bg-[--bg-raised] hover:shadow-[1px_1px_0_var(--border)]"
+            : "border-[--border] hover:border-[--border-strong] hover:bg-[--bg-raised]",
+      )}
     >
       <div className="flex shrink-0 items-center gap-1">
         {option.colors.map((color) => (
           <span
             key={color}
-            className="h-3 w-3 rounded-full border border-[--border-subtle]"
+            className={cn(
+              "h-3 w-3 border border-[--border-subtle]",
+              isNeoBrutalTheme ? "rounded-[2px]" : "rounded-full",
+            )}
             style={{ backgroundColor: color }}
           />
         ))}
@@ -102,7 +116,9 @@ const LIGHT_OPTION: ColorModeOption = { value: "light", label: "Light", icon: Su
 const SYSTEM_OPTION: ColorModeOption = { value: "system", label: "System", icon: Monitor };
 
 export function getColorModeOptions(includeOled: boolean): ColorModeOption[] {
-  if (includeOled) return [DARK_OPTION, OLED_OPTION, LIGHT_OPTION, SYSTEM_OPTION];
+  if (includeOled) {
+    return [DARK_OPTION, OLED_OPTION, LIGHT_OPTION, SYSTEM_OPTION];
+  }
   return [DARK_OPTION, LIGHT_OPTION, SYSTEM_OPTION];
 }
 
@@ -218,7 +234,9 @@ export function CodeThemeCard({
   isActive: boolean;
   onSelect: () => void;
 }) {
+  const { themeStyle } = useTheme();
   const [colors, setColors] = useState<string[] | null>(null);
+  const isNeoBrutalTheme = themeStyle === "neo-brutalism";
 
   useEffect(() => {
     let cancelled = false;
@@ -256,25 +274,37 @@ export function CodeThemeCard({
     <button
       type="button"
       onClick={onSelect}
-      className={`group relative flex cursor-pointer items-center gap-2.5 border px-3 py-2 text-left transition-all duration-[--duration-fast] ${
+      className={cn(
+        "group relative flex cursor-pointer items-center gap-2.5 px-3 py-2 text-left transition-[background-color,border-color,color,box-shadow,transform] duration-[--duration-fast]",
+        isNeoBrutalTheme ? "rounded-[4px] border-2 bg-[--bg-surface]" : "rounded-md border",
         isActive
-          ? "border-[--border-accent] bg-[--accent-muted]"
-          : "border-[--border] hover:border-[--border-strong] hover:bg-[--bg-raised]"
-      } rounded-md`}
+          ? isNeoBrutalTheme
+            ? "border-[--primary] bg-[--accent-muted] shadow-[3px_3px_0_var(--primary)] hover:translate-x-px hover:translate-y-px hover:shadow-[1px_1px_0_var(--primary)]"
+            : "border-[--border-accent] bg-[--accent-muted]"
+          : isNeoBrutalTheme
+            ? "border-[--border] shadow-[var(--shadow-sm)] hover:translate-x-px hover:translate-y-px hover:bg-[--bg-raised] hover:shadow-[1px_1px_0_var(--border)]"
+            : "border-[--border] hover:border-[--border-strong] hover:bg-[--bg-raised]",
+      )}
     >
       <div className="flex shrink-0 items-center gap-1">
         {colors
           ? colors.map((color) => (
               <span
                 key={color}
-                className="h-3 w-3 rounded-full border border-[--border-subtle]"
+                className={cn(
+                  "h-3 w-3 border border-[--border-subtle]",
+                  isNeoBrutalTheme ? "rounded-[2px]" : "rounded-full",
+                )}
                 style={{ backgroundColor: color }}
               />
             ))
           : Array.from({ length: 4 }).map((_, index) => (
               <span
                 key={index}
-                className="bg-bg-elevated h-3 w-3 animate-pulse rounded-full"
+                className={cn(
+                  "bg-bg-elevated h-3 w-3 animate-pulse",
+                  isNeoBrutalTheme ? "rounded-[2px]" : "rounded-full",
+                )}
               />
             ))}
       </div>

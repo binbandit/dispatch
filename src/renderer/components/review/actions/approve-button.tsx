@@ -171,7 +171,7 @@ export function ApproveButton({
               className="text-text-tertiary hover:text-text-primary mt-1.5 flex cursor-pointer items-center gap-1 text-[11px] disabled:opacity-40"
             >
               {lgtmQuery.isLoading ? <Spinner className="h-3 w-3" /> : <Dices size={13} />}
-              {lgtmQuery.isLoading ? "Loading gifs..." : "Insert random LGTM gif"}
+              {lgtmQuery.isLoading ? "Loading gifs…" : "Insert random LGTM gif"}
             </button>
           </div>
           <DialogFooter variant="bare">

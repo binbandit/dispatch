@@ -149,7 +149,11 @@ export function AddRepoDialog({ open, onOpenChange, onAdded }: AddRepoDialogProp
               />
             )}
             <input
-              type="text"
+              aria-label="Search repositories"
+              autoComplete="off"
+              name="repository-search"
+              spellCheck={false}
+              type="search"
               value={query}
               onChange={(e) => handleInputChange(e.target.value)}
               placeholder="Search your repositories…"
@@ -238,7 +242,7 @@ export function AddRepoDialog({ open, onOpenChange, onAdded }: AddRepoDialogProp
                     key={result.fullName}
                     type="button"
                     disabled={isPending}
-                    className="group hover:bg-bg-raised flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-left transition-all disabled:cursor-not-allowed disabled:opacity-40"
+                    className="group hover:bg-bg-raised flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-left transition-[background-color,color,box-shadow,opacity] disabled:cursor-not-allowed disabled:opacity-40"
                     onClick={() => {
                       addMutation.mutate({ owner: result.owner, repo: result.repo });
                     }}
@@ -314,7 +318,7 @@ export function AddRepoDialog({ open, onOpenChange, onAdded }: AddRepoDialogProp
             >
               <FolderOpen size={13} />
               {pickFolderMutation.isPending || addFromFolderMutation.isPending
-                ? "Linking..."
+                ? "Linking…"
                 : "Link local folder instead"}
             </button>
 

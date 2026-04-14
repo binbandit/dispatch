@@ -305,7 +305,10 @@ function PanelOverviewContent({
             <textarea
               ref={textareaRef}
               autoFocus
+              aria-label="Pull request description"
+              autoComplete="off"
               value={bodyValue}
+              name="pull-request-description"
               onChange={(e) => setBodyValue(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "Escape") {
@@ -320,7 +323,7 @@ function PanelOverviewContent({
               disabled={bodyMutation.isPending}
               rows={8}
               className="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-primary w-full resize-y rounded-md border px-3 py-2 text-xs leading-relaxed focus:outline-none"
-              placeholder="Add a description..."
+              placeholder="Add a description…"
             />
             <div
               className="flex items-center justify-between"
@@ -362,15 +365,18 @@ function PanelOverviewContent({
                 />
               </CollapsibleDescription>
             ) : (
-              <span
+              <button
+                type="button"
                 onClick={canEdit ? startEditingBody : undefined}
                 className={
-                  canEdit ? "hover:text-text-secondary cursor-pointer transition-colors" : ""
+                  canEdit
+                    ? "text-text-secondary hover:text-text-secondary cursor-pointer italic transition-colors"
+                    : "cursor-default italic"
                 }
-                style={{ fontStyle: "italic" }}
+                disabled={!canEdit}
               >
-                {canEdit ? "Click to add a description..." : "No description provided."}
-              </span>
+                {canEdit ? "Click to add a description…" : "No description provided."}
+              </button>
             )}
           </div>
         )}
@@ -737,8 +743,10 @@ function LabelPicker({
 
   return (
     <>
-      <div
-        className="fixed inset-0 z-[9]"
+      <button
+        type="button"
+        aria-label="Close label picker"
+        className="fixed inset-0 z-[9] cursor-default"
         onClick={handleBackdropClick}
       />
       <div
@@ -761,10 +769,14 @@ function LabelPicker({
           <input
             ref={inputRef}
             autoFocus
-            type="text"
+            aria-label="Filter labels"
+            autoComplete="off"
+            name="label-filter"
+            spellCheck={false}
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter labels..."
+            placeholder="Filter labels…"
             style={{
               width: "100%",
               padding: "4px 8px",

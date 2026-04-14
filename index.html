@@ -9,6 +9,10 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0"
     />
+    <meta
+      name="theme-color"
+      content="#08080a"
+    />
     <title>Dispatch</title>
     <link
       rel="preconnect"
@@ -19,6 +23,10 @@
       href="https://fonts.gstatic.com"
       crossorigin
     />
+    <script
+      crossorigin="anonymous"
+      src="//unpkg.com/react-scan/dist/auto.global.js"
+    ></script>
     <link
       href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
@@ -64,9 +72,32 @@
               ? "oled"
               : r;
         var d = document.documentElement;
-        d.classList.remove("dark", "light", "oled", "neo-brutal-dark", "neo-brutal-light", "neo-brutal-oled");
+        d.classList.remove(
+          "dark",
+          "light",
+          "oled",
+          "neo-brutal-dark",
+          "neo-brutal-light",
+          "neo-brutal-oled",
+        );
         d.classList.add(cls);
         d.style.colorScheme = r;
+        var themeMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeMeta) {
+          var themeColor =
+            cls === "light"
+              ? "#f5f1eb"
+              : cls === "oled"
+                ? "#000000"
+                : cls === "neo-brutal-dark" || cls === "neo-brutal-oled"
+                  ? cls === "neo-brutal-oled"
+                    ? "#000000"
+                    : "#111111"
+                  : cls === "neo-brutal-light"
+                    ? "#f5f0e8"
+                    : "#08080a";
+          themeMeta.setAttribute("content", themeColor);
+        }
       })();
     </script>
     <div

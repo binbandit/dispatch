@@ -142,7 +142,15 @@ interface AiProviderTestState {
 }
 
 export function SettingsView() {
-  const { themeStyle, setThemeStyle, colorMode, setColorMode, resolvedTheme, codeTheme, setCodeTheme } = useTheme();
+  const {
+    themeStyle,
+    setThemeStyle,
+    colorMode,
+    setColorMode,
+    resolvedTheme,
+    codeTheme,
+    setCodeTheme,
+  } = useTheme();
   const { toggleSettings } = useRouter();
   const { getBinding, setBinding, resetBinding, resetAll, overrides } = useKeybindings();
   const [activeSection, setActiveSection] = useState<SectionId>("appearance");
@@ -172,10 +180,7 @@ export function SettingsView() {
     () => getThemeStyleOptions(neoBrutalismEnabled),
     [neoBrutalismEnabled],
   );
-  const colorModeOptions = useMemo(
-    () => getColorModeOptions(oledThemeEnabled),
-    [oledThemeEnabled],
-  );
+  const colorModeOptions = useMemo(() => getColorModeOptions(oledThemeEnabled), [oledThemeEnabled]);
 
   // Reset to defaults when current selection is no longer available
   if (!themeStyleOptions.some((o) => o.value === themeStyle)) {
@@ -377,7 +382,7 @@ export function SettingsView() {
               key={id}
               type="button"
               onClick={() => setActiveSection(id)}
-              className={`flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs transition-all duration-[--duration-fast] ${
+              className={`flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs transition-[background-color,border-color,color,box-shadow,transform] duration-[--duration-fast] ${
                 activeSection === id
                   ? "border border-[--border-strong] bg-[--bg-elevated] font-medium text-[--text-primary] shadow-sm"
                   : "border border-transparent text-[--text-secondary] hover:bg-[--bg-raised] hover:text-[--text-primary]"
@@ -735,6 +740,10 @@ export function SettingsView() {
                   <div className="flex items-center justify-between">
                     <span className="text-text-secondary text-xs">PR list</span>
                     <input
+                      aria-label="Pull request poll interval"
+                      autoComplete="off"
+                      inputMode="numeric"
+                      name="pull-request-poll-interval"
                       type="number"
                       min="5"
                       max="300"
@@ -746,6 +755,10 @@ export function SettingsView() {
                   <div className="flex items-center justify-between">
                     <span className="text-text-secondary text-xs">CI checks</span>
                     <input
+                      aria-label="CI checks poll interval"
+                      autoComplete="off"
+                      inputMode="numeric"
+                      name="checks-poll-interval"
                       type="number"
                       min="5"
                       max="300"
@@ -1000,7 +1013,11 @@ export function SettingsView() {
                                   Base URL
                                 </span>
                                 <input
-                                  type="text"
+                                  aria-label="Ollama base URL"
+                                  autoComplete="off"
+                                  name="ollama-base-url"
+                                  spellCheck={false}
+                                  type="url"
                                   value={providerBaseUrlValue}
                                   onChange={(e) => {
                                     if (baseUrlPreferenceKey) {
@@ -1020,6 +1037,10 @@ export function SettingsView() {
                                   Binary Path
                                 </span>
                                 <input
+                                  aria-label={`${provider.label} binary path`}
+                                  autoComplete="off"
+                                  name={`${provider.id}-binary-path`}
+                                  spellCheck={false}
                                   type="text"
                                   value={providerBinaryPathValue}
                                   onChange={(e) => {
@@ -1045,6 +1066,10 @@ export function SettingsView() {
                                   Codex Home
                                 </span>
                                 <input
+                                  aria-label="Codex home path"
+                                  autoComplete="off"
+                                  name="codex-home-path"
+                                  spellCheck={false}
                                   type="text"
                                   value={providerHomePathValue}
                                   onChange={(e) => {
@@ -1141,6 +1166,7 @@ export function SettingsView() {
               <div className="mt-4 flex flex-col gap-3">
                 <label className="flex cursor-pointer items-start gap-3">
                   <input
+                    name="analytics-opted-in"
                     type="checkbox"
                     checked={prefs["analytics-opted-in"] === "true"}
                     onChange={(e) =>
@@ -1158,6 +1184,7 @@ export function SettingsView() {
                 </label>
                 <label className="flex cursor-pointer items-start gap-3">
                   <input
+                    name="crash-reports-opted-in"
                     type="checkbox"
                     checked={prefs["crash-reports-opted-in"] === "true"}
                     onChange={(e) =>
@@ -1222,14 +1249,11 @@ export function SettingsView() {
               {/* Nuke confirmation modal */}
               {showNukeConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center">
-                  <div
+                  <button
+                    type="button"
+                    aria-label="Close reset confirmation"
                     className="absolute inset-0 bg-black/60"
                     onClick={() => setShowNukeConfirm(false)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Escape") {
-                        setShowNukeConfirm(false);
-                      }
-                    }}
                   />
                   <div className="bg-bg-root border-border relative z-10 w-full max-w-sm rounded-lg border p-6 shadow-xl">
                     <div className="flex items-center gap-2.5">
@@ -1266,6 +1290,10 @@ export function SettingsView() {
                         to confirm
                       </label>
                       <input
+                        aria-label="Reset confirmation"
+                        autoComplete="off"
+                        name="reset-confirmation"
+                        spellCheck={false}
                         type="text"
                         value={nukeConfirmText}
                         onChange={(e) => setNukeConfirmText(e.target.value)}

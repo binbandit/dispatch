@@ -386,6 +386,10 @@ export function AiModelSlotCard({
             Model
           </span>
           <input
+            aria-label="Model name"
+            autoComplete="off"
+            name="model-name"
+            spellCheck={false}
             type="text"
             value={provider === null ? "" : model}
             onChange={(event) => onChangeModel(event.target.value)}

@@ -206,6 +206,10 @@ function CreateReleaseDialog({ latestTag }: { latestTag?: string }) {
         <div className="flex flex-col gap-3 px-6 pb-4">
           <div className="flex gap-2">
             <input
+              aria-label="Release tag name"
+              autoComplete="off"
+              name="release-tag-name"
+              spellCheck={false}
               type="text"
               value={tagName}
               onChange={(e) => setTagName(e.target.value)}
@@ -213,6 +217,10 @@ function CreateReleaseDialog({ latestTag }: { latestTag?: string }) {
               className="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-primary flex-1 rounded-md border px-3 py-2 font-mono text-xs focus:outline-none"
             />
             <input
+              aria-label="Release target branch"
+              autoComplete="off"
+              name="release-target-branch"
+              spellCheck={false}
               type="text"
               value={target}
               onChange={(e) => setTarget(e.target.value)}
@@ -221,6 +229,9 @@ function CreateReleaseDialog({ latestTag }: { latestTag?: string }) {
             />
           </div>
           <input
+            aria-label="Release name"
+            autoComplete="off"
+            name="release-name"
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -237,21 +248,25 @@ function CreateReleaseDialog({ latestTag }: { latestTag?: string }) {
                   disabled={changelogMutation.isPending}
                   className="text-primary hover:text-accent-hover cursor-pointer text-[11px]"
                 >
-                  {changelogMutation.isPending ? "Generating..." : "Generate changelog"}
+                  {changelogMutation.isPending ? "Generating…" : "Generate changelog"}
                 </button>
               )}
             </div>
             <textarea
+              aria-label="Release notes"
+              autoComplete="off"
               value={body}
+              name="release-notes"
               onChange={(e) => setBody(e.target.value)}
               rows={8}
-              placeholder="Describe this release..."
+              placeholder="Describe this release…"
               className="border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-primary mt-1 w-full resize-none rounded-md border px-3 py-2 font-mono text-xs leading-relaxed focus:outline-none"
             />
           </div>
           <div className="flex gap-4">
             <label className="text-text-secondary flex cursor-pointer items-center gap-1.5 text-xs">
               <input
+                name="release-draft"
                 type="checkbox"
                 checked={isDraft}
                 onChange={(e) => setIsDraft(e.target.checked)}
@@ -261,6 +276,7 @@ function CreateReleaseDialog({ latestTag }: { latestTag?: string }) {
             </label>
             <label className="text-text-secondary flex cursor-pointer items-center gap-1.5 text-xs">
               <input
+                name="release-prerelease"
                 type="checkbox"
                 checked={isPrerelease}
                 onChange={(e) => setIsPrerelease(e.target.checked)}

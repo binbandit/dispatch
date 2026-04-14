@@ -126,7 +126,7 @@ export function ConversationTab({
                       if (onThreadClick) {
                         onThreadClick(event.thread.path, event.thread.line);
                       } else {
-                        const first = event.thread.comments[0];
+                        const [first] = event.thread.comments;
                         if (first) {
                           onReviewClick(first.author.login);
                         }
@@ -134,6 +134,9 @@ export function ConversationTab({
                     }}
                   />
                 );
+              }
+              default: {
+                return null;
               }
             }
           })}
@@ -277,7 +280,31 @@ function buildTimeline({
 // Status event config — mirrors better-hub's reviewStateBadge / StateChangeEvent
 // ---------------------------------------------------------------------------
 
-const STATUS_CONFIG: Record<string, { icon: typeof Check; label: string; className: string }> = {
+interface StatusConfig {
+  icon: typeof Check;
+  label: string;
+  className: string;
+}
+
+interface StatusStyle {
+  bg: string;
+  border: string;
+  color: string;
+}
+
+const FALLBACK_STATUS_CONFIG: StatusConfig = {
+  icon: MessageCircle,
+  label: "commented",
+  className: "status-muted",
+};
+
+const FALLBACK_STATUS_STYLE: StatusStyle = {
+  bg: "var(--bg-surface)",
+  border: "var(--border-subtle)",
+  color: "var(--text-tertiary)",
+};
+
+const STATUS_CONFIG: Record<string, StatusConfig> = {
   APPROVED: {
     icon: Check,
     label: "approved",
@@ -288,11 +315,7 @@ const STATUS_CONFIG: Record<string, { icon: typeof Check; label: string; classNa
     label: "requested changes",
     className: "status-danger",
   },
-  COMMENTED: {
-    icon: MessageCircle,
-    label: "commented",
-    className: "status-muted",
-  },
+  COMMENTED: FALLBACK_STATUS_CONFIG,
   DISMISSED: {
     icon: MessageCircle,
     label: "dismissed review",
@@ -300,7 +323,7 @@ const STATUS_CONFIG: Record<string, { icon: typeof Check; label: string; classNa
   },
 };
 
-const STATUS_STYLES: Record<string, { bg: string; border: string; color: string }> = {
+const STATUS_STYLES: Record<string, StatusStyle> = {
   "status-success": {
     bg: "var(--success-muted)",
     border: "color-mix(in srgb, var(--success) 20%, transparent)",
@@ -311,11 +334,7 @@ const STATUS_STYLES: Record<string, { bg: string; border: string; color: string 
     border: "color-mix(in srgb, var(--danger) 20%, transparent)",
     color: "var(--danger)",
   },
-  "status-muted": {
-    bg: "var(--bg-surface)",
-    border: "var(--border-subtle)",
-    color: "var(--text-tertiary)",
-  },
+  "status-muted": FALLBACK_STATUS_STYLE,
 };
 
 // ---------------------------------------------------------------------------
@@ -333,8 +352,8 @@ function StatusEvent({
   time: Date;
   state: string;
 }) {
-  const config = STATUS_CONFIG[state] ?? STATUS_CONFIG.COMMENTED!;
-  const styles = STATUS_STYLES[config.className] ?? STATUS_STYLES["status-muted"]!;
+  const config = STATUS_CONFIG[state] ?? FALLBACK_STATUS_CONFIG;
+  const styles = STATUS_STYLES[config.className] ?? FALLBACK_STATUS_STYLE;
   const Icon = config.icon;
 
   return (
@@ -438,13 +457,12 @@ export function ContentEvent({
         }}
       >
         {/* Header — bg-card/50 equivalent */}
-        <div
-          role="button"
-          tabIndex={0}
+        <button
+          type="button"
           aria-expanded={!minimized}
           aria-label={minimized ? `Expand comment from ${login}` : `Minimize comment from ${login}`}
           data-action={action}
-          className="flex cursor-pointer items-center gap-2 transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)] focus-visible:outline-none"
+          className="flex w-full cursor-pointer items-center gap-2 text-left transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)] focus-visible:outline-none"
           style={{
             padding: "6px 12px",
             background: isBotUser ? "var(--accent-muted)" : "var(--bg-surface)",
@@ -455,12 +473,6 @@ export function ContentEvent({
                 : "1px solid var(--border)",
           }}
           onClick={onToggleMinimized}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" || event.key === " ") {
-              event.preventDefault();
-              onToggleMinimized();
-            }
-          }}
         >
           <UserProfileTooltip login={login}>
             <GitHubAvatar
@@ -518,20 +530,21 @@ export function ContentEvent({
               transform: minimized ? "rotate(-90deg)" : undefined,
             }}
           />
-        </div>
+        </button>
 
         {/* Body */}
         {!minimized && (
           <>
             <div style={{ padding: "8px 12px 10px" }}>
               {filePath && (
-                <div
+                <button
+                  type="button"
                   className="cursor-pointer font-mono text-[10px] transition-colors hover:underline"
                   style={{ color: "var(--info)", marginBottom: "6px" }}
                   onClick={onClick}
                 >
                   {filePath}
-                </div>
+                </button>
               )}
               <div
                 className="text-xs leading-relaxed"
@@ -876,7 +889,7 @@ function PanelComposer({ prNumber }: { prNumber: number }) {
             commentMutation.mutate({ body: body.trim() });
           }
         }}
-        placeholder="Leave a comment..."
+        placeholder="Leave a comment…"
         prNumber={prNumber}
         rows={3}
         value={body}

@@ -256,6 +256,13 @@ function AppShell({ resumeState, resumeReady, initialFileNavState }: AppShellPro
         className="bg-bg-root text-text-primary relative flex h-screen flex-col overflow-hidden"
         style={{ background: "var(--app-shell-background, var(--bg-root))" }}
       >
+        <a
+          href="#app-main"
+          className="bg-bg-elevated text-text-primary border-border-strong absolute top-3 left-3 z-50 -translate-y-2 rounded-md border px-3 py-2 text-xs font-medium opacity-0 shadow-[var(--shadow-md)] transition-[opacity,transform] duration-[120ms] ease-out focus-visible:translate-y-0 focus-visible:opacity-100 focus-visible:outline-none"
+        >
+          Skip to main content
+        </a>
+
         {/* Background noise texture (§ 4.4) */}
         <div
           className="pointer-events-none fixed inset-0 z-0"
@@ -275,9 +282,11 @@ function AppShell({ resumeState, resumeReady, initialFileNavState }: AppShellPro
 
         {/* Accent bar */}
         <div
-          className="h-[2px] w-full shrink-0"
+          className="w-full shrink-0"
           style={{
-            background: "linear-gradient(90deg, transparent, var(--primary), transparent)",
+            height: "var(--accent-bar-height, 2px)",
+            background:
+              "var(--accent-bar-background, linear-gradient(90deg, transparent, var(--primary), transparent))",
             opacity: "var(--accent-bar-opacity, 0.4)",
           }}
         />
@@ -288,51 +297,59 @@ function AppShell({ resumeState, resumeReady, initialFileNavState }: AppShellPro
           isFullscreen={isFullscreen}
         />
 
-        {/* View content */}
-        {route.view === "review" && !selectedPr && <HomeView />}
+        <main
+          id="app-main"
+          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
+          {/* View content */}
+          {route.view === "review" && !selectedPr && <HomeView />}
 
-        {route.view === "review" && selectedPr && (
-          <FileNavProvider
-            key={selectedPr}
-            initialState={fileNavState}
-            onStateChange={setFileNavState}
-          >
-            <ResizablePanelGroup
-              orientation="horizontal"
-              className="flex-1"
+          {route.view === "review" && selectedPr && (
+            <FileNavProvider
+              key={selectedPr}
+              initialState={fileNavState}
+              onStateChange={setFileNavState}
             >
-              {!sidebarCollapsed && (
-                <>
-                  <ResizablePanel
-                    defaultSize="20%"
-                    minSize="12%"
-                    maxSize="35%"
+              <ResizablePanelGroup
+                orientation="horizontal"
+                className="flex-1"
+              >
+                {!sidebarCollapsed && (
+                  <>
+                    <ResizablePanel
+                      defaultSize="20%"
+                      minSize="12%"
+                      maxSize="35%"
+                    >
+                      <ReviewSidebar
+                        prNumber={selectedPr}
+                        onBack={() => navigate({ view: "review", prNumber: null })}
+                        onSelectPr={(pr) => navigate({ view: "review", prNumber: pr })}
+                      />
+                    </ResizablePanel>
+                    <ResizableHandle />
+                  </>
+                )}
+                <ResizablePanel>
+                  <section
+                    aria-label="Pull request detail"
+                    className="flex h-full flex-col overflow-hidden"
                   >
-                    <ReviewSidebar
-                      prNumber={selectedPr}
-                      onBack={() => navigate({ view: "review", prNumber: null })}
-                      onSelectPr={(pr) => navigate({ view: "review", prNumber: pr })}
-                    />
-                  </ResizablePanel>
-                  <ResizableHandle />
-                </>
-              )}
-              <ResizablePanel>
-                <main className="flex h-full flex-col overflow-hidden">
-                  <PrDetailView prNumber={selectedPr} />
-                </main>
-              </ResizablePanel>
-            </ResizablePanelGroup>
-          </FileNavProvider>
-        )}
+                    <PrDetailView prNumber={selectedPr} />
+                  </section>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            </FileNavProvider>
+          )}
 
-        {route.view === "workflows" && <WorkflowsDashboard />}
+          {route.view === "workflows" && <WorkflowsDashboard />}
 
-        {route.view === "metrics" && <MetricsView />}
+          {route.view === "metrics" && <MetricsView />}
 
-        {route.view === "releases" && <ReleasesView />}
+          {route.view === "releases" && <ReleasesView />}
 
-        {route.view === "settings" && <SettingsView />}
+          {route.view === "settings" && <SettingsView />}
+        </main>
 
         {/* Keyboard shortcuts dialog */}
         <KeyboardShortcutsDialog

@@ -61,7 +61,7 @@ export function ReplyComposer({
             onClose();
           }
         }}
-        placeholder="Write a reply..."
+        placeholder="Write a reply…"
         prNumber={prNumber}
         rows={3}
         value={body}

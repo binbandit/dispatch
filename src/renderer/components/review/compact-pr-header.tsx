@@ -135,6 +135,9 @@ export function CompactPrHeader({
           <input
             ref={inputRef}
             autoFocus
+            aria-label={`Edit title for pull request #${pr.number}`}
+            autoComplete="off"
+            name="pull-request-title"
             type="text"
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
@@ -152,14 +155,17 @@ export function CompactPrHeader({
             style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "-0.02em", height: "22px" }}
           />
         ) : (
-          <span
+          <button
+            type="button"
+            aria-label={`Edit title for pull request #${pr.number}`}
             onClick={startEditing}
-            className={`text-text-primary min-w-0 flex-1 truncate ${canEdit ? "hover:bg-bg-raised -mx-1.5 cursor-pointer rounded-sm px-1.5 transition-colors" : ""}`}
+            className={`text-text-primary min-w-0 flex-1 truncate text-left ${canEdit ? "hover:bg-bg-raised -mx-1.5 cursor-pointer rounded-sm px-1.5 transition-colors" : ""}`}
             style={{ fontSize: "14px", fontWeight: 700, letterSpacing: "-0.02em" }}
+            disabled={!canEdit}
             title={canEdit ? "Click to edit title" : undefined}
           >
             {pr.title}
-          </span>
+          </button>
         )}
 
         {/* Refresh PR data */}

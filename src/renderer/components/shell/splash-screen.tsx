@@ -49,7 +49,7 @@ export function SplashScreen({ onComplete, visible }: SplashScreenProps) {
     >
       {/* Logo mark */}
       <div
-        className={`transition-all duration-[600ms] ${
+        className={`transition-[transform,opacity] duration-[600ms] ${
           showText ? "scale-100 opacity-100" : "scale-90 opacity-0"
         }`}
         style={{
@@ -62,7 +62,7 @@ export function SplashScreen({ onComplete, visible }: SplashScreenProps) {
 
       {/* App name */}
       <div
-        className={`mt-5 transition-all duration-500 ${
+        className={`mt-5 transition-[transform,opacity] duration-500 ${
           showText ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
         }`}
       >

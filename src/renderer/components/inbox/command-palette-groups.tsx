@@ -120,7 +120,7 @@ export function PullRequestGroup({ onSelect }: { onSelect: () => void }) {
   const visible = useMemo(() => {
     let filtered = prs;
 
-    if (filters.pr != null) {
+    if (filters.pr !== null && filters.pr !== undefined) {
       filtered = filtered.filter((pr) => pr.number === filters.pr);
     }
 
@@ -650,7 +650,7 @@ export function ActionsGroup({ onSelect }: { onSelect: () => void }) {
       icon: <RefreshCw size={14} />,
       action: () => {
         queryClient.invalidateQueries();
-        toastManager.add({ title: "Refreshing...", type: "success" });
+        toastManager.add({ title: "Refreshing…", type: "success" });
         onSelect();
       },
     },

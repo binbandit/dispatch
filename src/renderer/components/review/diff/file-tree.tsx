@@ -445,7 +445,7 @@ export function FileTree({
         <div className="flex items-center gap-2 px-3 pt-1 pb-2">
           <div className="bg-border h-[3px] flex-1 overflow-hidden rounded-full">
             <div
-              className="bg-primary h-full rounded-full transition-all"
+              className="bg-primary h-full rounded-full transition-[width]"
               style={{ width: files.length > 0 ? `${(viewedCount / files.length) * 100}%` : "0%" }}
             />
           </div>
@@ -901,7 +901,8 @@ function ViewedCheckbox({
   const isMixed = checkedState === "mixed";
 
   return (
-    <span
+    <button
+      type="button"
       role="checkbox"
       aria-checked={isMixed ? "mixed" : isChecked}
       aria-label={ariaLabel}
@@ -935,7 +936,7 @@ function ViewedCheckbox({
       ) : (
         <span className="h-[5px] w-[5px] opacity-0" />
       )}
-    </span>
+    </button>
   );
 }
 

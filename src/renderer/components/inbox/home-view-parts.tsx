@@ -249,7 +249,7 @@ export function RepoSelector({
         aria-expanded={open}
         aria-haspopup="listbox"
         aria-label={`Active repository: ${repoName}. ${activeWorkspaceCount} pull requests in this repository`}
-        className={`border-border bg-bg-surface hover:border-border-strong hover:bg-bg-raised flex cursor-pointer items-center gap-[7px] rounded-md border px-2.5 py-1.5 transition-all ${open ? "border-border-strong bg-bg-raised" : ""}`}
+        className={`border-border bg-bg-surface hover:border-border-strong hover:bg-bg-raised flex cursor-pointer items-center gap-[7px] rounded-md border px-2.5 py-1.5 transition-[background-color,border-color,color,box-shadow] ${open ? "border-border-strong bg-bg-raised" : ""}`}
       >
         <svg
           viewBox="0 0 24 24"
@@ -296,11 +296,14 @@ export function RepoSelector({
             />
             <input
               ref={searchInputRef}
-              type="text"
+              autoComplete="off"
+              name="repository-filter"
+              spellCheck={false}
+              type="search"
               value={repoSearch}
               aria-label="Filter repositories"
               onChange={(event) => setRepoSearch(event.target.value)}
-              placeholder="Find a repository..."
+              placeholder="Find a repository…"
               className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
               onKeyDown={(event) => {
                 if (event.key === "Escape") {
@@ -382,7 +385,7 @@ export function RepoSelector({
             <button
               type="button"
               onClick={onAddRepo}
-              className="text-text-tertiary hover:bg-bg-raised hover:text-text-secondary flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs transition-all"
+              className="text-text-tertiary hover:bg-bg-raised hover:text-text-secondary flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-xs transition-[background-color,color]"
             >
               <Plus size={12} />
               Add repository...
@@ -596,7 +599,7 @@ function PrRow({
                   }}
                   disabled={mergeMutation.isPending}
                   aria-label={`Merge pull request #${pr.number}`}
-                  className="bg-success text-bg-root flex cursor-pointer items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all hover:shadow-[0_0_12px_rgba(61,214,140,0.15)] hover:brightness-110 disabled:opacity-60"
+                  className="bg-success text-bg-root flex cursor-pointer items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-[filter,box-shadow,opacity] hover:shadow-[0_0_12px_rgba(61,214,140,0.15)] hover:brightness-110 disabled:opacity-60"
                 >
                   {mergeMutation.isPending ? (
                     <Spinner className="h-[11px] w-[11px]" />

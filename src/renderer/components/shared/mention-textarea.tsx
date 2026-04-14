@@ -17,8 +17,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
  */
 
 interface MentionTextareaProps {
+  ariaLabel?: string;
+  autoComplete?: string;
   value: string;
   onChange: (value: string) => void;
+  name?: string;
   placeholder?: string;
   rows?: number;
   className?: string;
@@ -50,8 +53,11 @@ const DEFAULT_TEXTAREA_CLASS =
   "border-border bg-bg-root text-text-primary placeholder:text-text-tertiary focus:border-primary w-full resize-none rounded-md border px-3 py-2.5 text-xs leading-relaxed focus:outline-none";
 
 export function MentionTextarea({
+  ariaLabel,
+  autoComplete = "off",
   value,
   onChange,
+  name,
   placeholder,
   rows = 3,
   className = "",
@@ -265,10 +271,13 @@ export function MentionTextarea({
   return (
     <div className={`relative ${className}`}>
       <textarea
+        aria-label={ariaLabel}
+        autoComplete={autoComplete}
         ref={(node) => {
           textareaRef.current = node;
           assignTextareaRef(forwardedTextareaRef, node);
         }}
+        name={name}
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}

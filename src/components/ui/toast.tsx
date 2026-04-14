@@ -55,6 +55,8 @@ function Toasts({ position }: { position: ToastPosition }): React.ReactElement {
           "data-[position*=right]:right-(--toast-inset)",
           "data-[position*=center]:left-1/2 data-[position*=center]:-translate-x-1/2",
         )}
+        aria-atomic="false"
+        aria-live="polite"
         data-position={position}
         data-slot="toast-viewport"
       >
@@ -116,7 +118,10 @@ function Toasts({ position }: { position: ToastPosition }): React.ReactElement {
                       className="[&_svg]:pointer-events-none [&_svg]:shrink-0 [&>svg]:h-lh [&>svg]:w-4"
                       data-slot="toast-icon"
                     >
-                      <Icon className="in-data-[type=error]:text-destructive in-data-[type=info]:text-info in-data-[type=success]:text-success in-data-[type=warning]:text-warning in-data-[type=loading]:animate-spin in-data-[type=loading]:opacity-80" />
+                      <Icon
+                        aria-hidden="true"
+                        className="in-data-[type=error]:text-destructive in-data-[type=info]:text-info in-data-[type=success]:text-success in-data-[type=warning]:text-warning in-data-[type=loading]:animate-spin in-data-[type=loading]:opacity-80"
+                      />
                     </div>
                   )}
 
@@ -141,6 +146,7 @@ function Toasts({ position }: { position: ToastPosition }): React.ReactElement {
                 )}
                 {toast.type === "error" && (
                   <Toast.Close
+                    aria-label="Dismiss notification"
                     className="text-muted-foreground hover:text-foreground -mr-1 shrink-0 cursor-pointer self-start rounded-sm p-0.5 transition-colors"
                     data-slot="toast-close"
                   >
@@ -162,7 +168,8 @@ function AnchoredToasts(): React.ReactElement {
   return (
     <Toast.Portal data-slot="toast-portal-anchored">
       <Toast.Viewport
-        className="outline-none"
+        aria-atomic="false"
+        aria-live="polite"
         data-slot="toast-viewport-anchored"
       >
         {toasts.map((toast) => {
@@ -204,7 +211,10 @@ function AnchoredToasts(): React.ReactElement {
                           className="[&_svg]:pointer-events-none [&_svg]:shrink-0 [&>svg]:h-lh [&>svg]:w-4"
                           data-slot="toast-icon"
                         >
-                          <Icon className="in-data-[type=error]:text-destructive in-data-[type=info]:text-info in-data-[type=success]:text-success in-data-[type=warning]:text-warning in-data-[type=loading]:animate-spin in-data-[type=loading]:opacity-80" />
+                          <Icon
+                            aria-hidden="true"
+                            className="in-data-[type=error]:text-destructive in-data-[type=info]:text-info in-data-[type=success]:text-success in-data-[type=warning]:text-warning in-data-[type=loading]:animate-spin in-data-[type=loading]:opacity-80"
+                          />
                         </div>
                       )}
 

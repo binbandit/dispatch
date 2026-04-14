@@ -288,7 +288,7 @@ export function NotificationCenter() {
                     type="button"
                     aria-label="Dismiss notification"
                     onClick={() => dismissMutation.mutate(notification.id)}
-                    className="text-text-ghost hover:text-text-secondary mt-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm opacity-0 transition-all group-hover:opacity-100 focus:opacity-100"
+                    className="text-text-ghost hover:text-text-secondary mt-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-sm opacity-0 transition-[opacity,color] group-hover:opacity-100 focus-visible:opacity-100"
                   >
                     <X size={11} />
                   </button>

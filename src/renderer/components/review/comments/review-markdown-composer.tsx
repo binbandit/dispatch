@@ -21,6 +21,7 @@ import {
 import { useCallback, useRef, useState } from "react";
 
 interface ReviewMarkdownComposerProps {
+  ariaLabel?: string;
   autoFocus?: boolean;
   className?: string;
   collapseWhenIdle?: boolean;
@@ -50,13 +51,14 @@ const TOOLBAR_ACTIONS: Array<{
 ];
 
 export function ReviewMarkdownComposer({
+  ariaLabel,
   autoFocus = false,
   className,
   collapseWhenIdle = false,
   compact = false,
   onChange,
   onKeyDown,
-  placeholder = "Leave a comment...",
+  placeholder = "Leave a comment…",
   prNumber,
   rows = 4,
   value,
@@ -158,7 +160,10 @@ export function ReviewMarkdownComposer({
 
       {mode === "write" ? (
         <MentionTextarea
+          ariaLabel={ariaLabel ?? placeholder}
           autoFocus={autoFocus}
+          autoComplete="off"
+          name="review-comment"
           onBlur={() => {
             syncSelection();
             setHasFocus(false);
