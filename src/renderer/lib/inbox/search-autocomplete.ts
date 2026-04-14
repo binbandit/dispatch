@@ -33,7 +33,19 @@ interface CurrentToken {
 // ---------------------------------------------------------------------------
 
 const FIELD_SUGGESTIONS: SearchSuggestion[] = [
-  { completion: "is:", label: "is:", hint: "draft, approved, new, review", group: "field" },
+  {
+    completion: "is:",
+    label: "is:",
+    hint: "draft, approved, review, changes, open",
+    group: "field",
+  },
+  { completion: "state:", label: "state:", hint: "open, closed, merged", group: "field" },
+  {
+    completion: "review:",
+    label: "review:",
+    hint: "approved, changes, review, none",
+    group: "field",
+  },
   { completion: "size:", label: "size:", hint: "s, m, l, xl", group: "field" },
   { completion: "author:", label: "author:", hint: "login or name", group: "field" },
   { completion: "repo:", label: "repo:", hint: "repository name", group: "field" },
@@ -47,8 +59,24 @@ const FIELD_SUGGESTIONS: SearchSuggestion[] = [
 const IS_VALUES: SearchSuggestion[] = [
   { completion: "is:draft", label: "draft", hint: "draft PRs", group: "value" },
   { completion: "is:approved", label: "approved", hint: "approved PRs", group: "value" },
+  { completion: "is:changes", label: "changes", hint: "changes requested", group: "value" },
   { completion: "is:new", label: "new", hint: "PRs with new activity", group: "value" },
   { completion: "is:review", label: "review", hint: "review requested", group: "value" },
+  { completion: "is:open", label: "open", hint: "open PRs", group: "value" },
+  { completion: "is:closed", label: "closed", hint: "closed PRs", group: "value" },
+  { completion: "is:merged", label: "merged", hint: "merged PRs", group: "value" },
+];
+
+const REVIEW_VALUES: SearchSuggestion[] = [
+  { completion: "review:approved", label: "approved", hint: "review approved", group: "value" },
+  {
+    completion: "review:changes",
+    label: "changes",
+    hint: "changes requested",
+    group: "value",
+  },
+  { completion: "review:review", label: "review", hint: "review requested", group: "value" },
+  { completion: "review:none", label: "none", hint: "no review decision", group: "value" },
 ];
 
 const SIZE_VALUES: SearchSuggestion[] = [
@@ -56,6 +84,12 @@ const SIZE_VALUES: SearchSuggestion[] = [
   { completion: "size:m", label: "m", hint: "50–199 lines", group: "value" },
   { completion: "size:l", label: "l", hint: "200–499 lines", group: "value" },
   { completion: "size:xl", label: "xl", hint: "500+ lines", group: "value" },
+];
+
+const STATE_VALUES: SearchSuggestion[] = [
+  { completion: "state:open", label: "open", hint: "open PRs", group: "value" },
+  { completion: "state:closed", label: "closed", hint: "closed PRs", group: "value" },
+  { completion: "state:merged", label: "merged", hint: "merged PRs", group: "value" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -69,13 +103,27 @@ function findCurrentToken(query: string, cursor: number): CurrentToken | null {
 
   // Walk backward from cursor to find token start
   let start = cursor;
-  while (start > 0 && query[start - 1] !== " ") {
+  while (
+    start > 0 &&
+    query[start - 1] !== " " &&
+    query[start - 1] !== "(" &&
+    query[start - 1] !== ")" &&
+    query[start - 1] !== "|" &&
+    query[start - 1] !== "&"
+  ) {
     start--;
   }
 
   // Walk forward from cursor to find token end
   let end = cursor;
-  while (end < query.length && query[end] !== " ") {
+  while (
+    end < query.length &&
+    query[end] !== " " &&
+    query[end] !== "(" &&
+    query[end] !== ")" &&
+    query[end] !== "|" &&
+    query[end] !== "&"
+  ) {
     end++;
   }
 
@@ -238,9 +286,21 @@ export function getSearchSuggestions(
           token,
         };
       }
+      case "review": {
+        return {
+          suggestions: filterSuggestions(REVIEW_VALUES, value),
+          token,
+        };
+      }
       case "size": {
         return {
           suggestions: filterSuggestions(SIZE_VALUES, value),
+          token,
+        };
+      }
+      case "state": {
+        return {
+          suggestions: filterSuggestions(STATE_VALUES, value),
           token,
         };
       }

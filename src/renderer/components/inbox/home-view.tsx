@@ -30,6 +30,7 @@ import { RefreshCw, Search } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { KbdHint, PrSectionView, RepoSelector } from "./home-view-parts";
+import { SearchHelpPopover } from "./search-autocomplete";
 
 // ---------------------------------------------------------------------------
 // HomeView
@@ -471,7 +472,7 @@ export function HomeView() {
                     setSearchQuery(e.target.value);
                     setFocusIndex(-1);
                   }}
-                  placeholder="Search PRs — title, #number, @author..."
+                  placeholder="Search PRs — @author, repo:dispatch, (review:changes OR state:merged)"
                   className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {
@@ -485,6 +486,7 @@ export function HomeView() {
                   }}
                 />
                 <Kbd className="h-[18px] min-w-[18px] px-1 text-[9px]">/</Kbd>
+                <SearchHelpPopover />
               </div>
 
               <button

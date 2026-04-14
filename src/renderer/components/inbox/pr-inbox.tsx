@@ -390,7 +390,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
             }}
             onFocus={() => setAutocompleteOpen(true)}
             onBlur={() => setAutocompleteOpen(false)}
-            placeholder="Search title, #123, @author, branch..."
+            placeholder="Search #123, @author, repo:dispatch, review:changes..."
             className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
             onKeyDown={(event) => {
               // Let autocomplete handle navigation keys first

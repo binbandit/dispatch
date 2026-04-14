@@ -172,8 +172,11 @@ const HELP_SECTIONS = [
     items: [
       { syntax: "is:draft", desc: "Draft PRs" },
       { syntax: "is:approved", desc: "Approved PRs" },
+      { syntax: "is:changes", desc: "Changes requested" },
       { syntax: "is:new", desc: "New activity" },
       { syntax: "is:review", desc: "Review requested" },
+      { syntax: "state:merged", desc: "Merged PRs" },
+      { syntax: "review:changes", desc: "Review decision" },
       { syntax: "size:s|m|l|xl", desc: "PR size" },
       { syntax: "author:name", desc: "Author login or name" },
       { syntax: "repo:name", desc: "Repository" },
@@ -190,10 +193,18 @@ const HELP_SECTIONS = [
     ],
   },
   {
+    title: "Combine queries",
+    items: [
+      { syntax: "repo:dispatch review:approved", desc: "Implicit AND" },
+      { syntax: "repo:dispatch OR repo:api", desc: "Either side can match" },
+      { syntax: "(review:changes OR is:draft)", desc: "Group with parentheses" },
+    ],
+  },
+  {
     title: "Modifiers",
     items: [
       { syntax: "-term", desc: "Exclude results" },
-      { syntax: "!author:bot", desc: "Negated filter" },
+      { syntax: "!(repo:archive OR @bot)", desc: "Negated group" },
     ],
   },
 ] as const;

@@ -241,6 +241,27 @@ describe("filterHomePrSections", () => {
     const result = filterHomePrSections(sections, "nonexistent-query-xyz");
     expect(result).toHaveLength(0);
   });
+
+  it("supports compound grouped queries across sections", () => {
+    const approvedPr = createDashboardItem({
+      number: 52,
+      title: "Polish grouped search",
+      reviewDecision: "APPROVED",
+    });
+    const changesPr = createDashboardItem({
+      number: 91,
+      title: "Follow-up search cleanup",
+      author: { login: "alex", name: "Alex Kim" },
+      reviewDecision: "CHANGES_REQUESTED",
+    });
+
+    const sections = categorizeHomePrs([approvedPr, changesPr], new Set(), "someone-else", true);
+    const result = filterHomePrSections(sections, "(review:approved OR review:changes) search");
+
+    expect(result.flatMap((section) => section.items.map((item) => item.pr.number))).toEqual([
+      52, 91,
+    ]);
+  });
 });
 
 describe("categorizeHomePrs — additional", () => {

@@ -9,18 +9,40 @@ export type PrSearchField =
   | "head"
   | "base"
   | "is"
+  | "state"
+  | "review"
   | "size"
   | "number";
 
-export interface PrSearchToken {
+export interface PrSearchTermToken {
+  kind: "term";
   field: PrSearchField;
   negated: boolean;
   raw: string;
   value: string;
 }
 
+export interface PrSearchOperatorToken {
+  kind: "operator";
+  operator: "and" | "or" | "not";
+  raw: string;
+}
+
+export interface PrSearchGroupToken {
+  kind: "group";
+  delimiter: "(" | ")";
+  raw: string;
+}
+
+export type PrSearchToken = PrSearchTermToken | PrSearchOperatorToken | PrSearchGroupToken;
+
 export interface SearchablePrItem {
-  pr: GhPrListItemCore & { workspace?: string; workspacePath?: string };
+  pr: GhPrListItemCore & {
+    workspace?: string;
+    workspacePath?: string;
+    repository?: string;
+    pullRequestRepository?: string;
+  };
   hasNewActivity?: boolean;
 }
 
@@ -30,8 +52,50 @@ export interface PrSearchResult {
   score: number;
 }
 
-type ReviewState = "approved" | "draft" | "new" | "review";
+type SearchFlag =
+  | "approved"
+  | "changes"
+  | "closed"
+  | "draft"
+  | "merged"
+  | "new"
+  | "open"
+  | "review";
+type PrReviewBucket = "approved" | "changes" | "none" | "review";
 type PrSizeBucket = "l" | "m" | "s" | "xl";
+type PrStateBucket = "closed" | "merged" | "open";
+
+type SearchExpression =
+  | { kind: "and"; left: SearchExpression; right: SearchExpression }
+  | { kind: "not"; child: SearchExpression }
+  | { kind: "or"; left: SearchExpression; right: SearchExpression }
+  | { kind: "term"; term: PrSearchTermToken };
+
+interface MatchResult {
+  field: PrSearchField;
+  matched: boolean;
+  score: number;
+}
+
+interface SearchExpressionResult {
+  fields: Set<PrSearchField>;
+  matched: boolean;
+  score: number;
+}
+
+interface SearchIndex {
+  authorTerms: string[];
+  base: string;
+  branches: string[];
+  flags: Set<SearchFlag>;
+  head: string;
+  number: string;
+  repoTerms: string[];
+  review: PrReviewBucket;
+  size: PrSizeBucket | null;
+  state: PrStateBucket;
+  title: string;
+}
 
 const SEARCH_FIELD_ALIASES: Record<string, Exclude<PrSearchField, "text">> = {
   author: "author",
@@ -44,17 +108,30 @@ const SEARCH_FIELD_ALIASES: Record<string, Exclude<PrSearchField, "text">> = {
   number: "number",
   pr: "number",
   repo: "repo",
+  review: "review",
   size: "size",
+  state: "state",
   title: "title",
   user: "author",
   workspace: "repo",
 };
 
-const REVIEW_STATE_ALIASES: Record<ReviewState, string[]> = {
+const SEARCH_FLAG_ALIASES: Record<SearchFlag, string[]> = {
   approved: ["approved"],
+  changes: ["blocked", "changes", "changes-requested", "requested-changes"],
+  closed: ["closed"],
   draft: ["draft", "wip"],
+  merged: ["merged"],
   new: ["new", "unseen", "updated"],
-  review: ["needs-review", "review", "review-required"],
+  open: ["open"],
+  review: ["needs-review", "review", "review-required", "review-requested"],
+};
+
+const REVIEW_BUCKET_ALIASES: Record<PrReviewBucket, string[]> = {
+  approved: ["approved"],
+  changes: ["blocked", "changes", "changes-requested", "requested-changes"],
+  none: ["none", "unreviewed"],
+  review: ["needs-review", "requested", "review", "review-required", "review-requested"],
 };
 
 const SIZE_BUCKET_ALIASES: Record<PrSizeBucket, string[]> = {
@@ -64,77 +141,209 @@ const SIZE_BUCKET_ALIASES: Record<PrSizeBucket, string[]> = {
   xl: ["extra-large", "huge", "xl", "xlarge"],
 };
 
-interface QuerySegment {
-  raw: string;
-  value: string;
-}
+const STATE_BUCKET_ALIASES: Record<PrStateBucket, string[]> = {
+  closed: ["closed"],
+  merged: ["merged"],
+  open: ["open"],
+};
 
-interface MatchResult {
-  field: PrSearchField;
-  matched: boolean;
-  score: number;
-}
-
-interface SearchIndex {
-  authorTerms: string[];
-  base: string;
-  branches: string[];
-  head: string;
-  number: string;
-  repo: string;
-  reviewStates: Set<ReviewState>;
-  size: PrSizeBucket | null;
-  title: string;
+function isOperatorToken(
+  token: PrSearchToken | undefined,
+  operator: "and" | "or" | "not",
+): boolean {
+  return token?.kind === "operator" && token.operator === operator;
 }
 
 function normalizeSearchValue(value: string): string {
   return value.trim().toLowerCase();
 }
 
-function splitQuerySegments(query: string): QuerySegment[] {
-  const segments: QuerySegment[] = [];
-  let inQuotes = false;
-  let raw = "";
-  let value = "";
-
-  const pushSegment = () => {
-    const trimmedRaw = raw.trim();
-    if (trimmedRaw) {
-      segments.push({
-        raw: trimmedRaw,
-        value,
-      });
-    }
-    raw = "";
-    value = "";
-  };
-
-  for (const char of query) {
-    if (!inQuotes && /\s/.test(char)) {
-      pushSegment();
-    } else {
-      raw += char;
-
-      if (char === '"') {
-        inQuotes = !inQuotes;
-      } else {
-        value += char;
-      }
-    }
-  }
-
-  pushSegment();
-  return segments;
+function normalizeTokenValue(value: string): string {
+  return normalizeSearchValue(value.replaceAll('"', ""));
 }
 
-function resolveRepoLabel(
-  workspace: string | undefined,
-  workspacePath: string | undefined,
-): string {
-  if (workspace) {
-    return normalizeSearchValue(workspace);
+function lexQueryParts(query: string): string[] {
+  const parts: string[] = [];
+  let current = "";
+  let inQuotes = false;
+
+  const pushCurrent = () => {
+    const trimmed = current.trim();
+    if (trimmed) {
+      parts.push(trimmed);
+    }
+    current = "";
+  };
+
+  for (let index = 0; index < query.length; index += 1) {
+    const char = query[index]!;
+    const nextChar = query[index + 1] ?? "";
+
+    if (char === '"') {
+      current += char;
+      inQuotes = !inQuotes;
+      continue;
+    }
+
+    if (!inQuotes && /\s/.test(char)) {
+      pushCurrent();
+      continue;
+    }
+
+    if (!inQuotes && (char === "(" || char === ")" || char === "|" || char === "&")) {
+      pushCurrent();
+      parts.push(char);
+      continue;
+    }
+
+    if (
+      !inQuotes &&
+      current.length === 0 &&
+      (char === "!" || char === "-") &&
+      (nextChar === "(" || nextChar === "" || /\s/.test(nextChar))
+    ) {
+      pushCurrent();
+      parts.push(char);
+      continue;
+    }
+
+    current += char;
   }
 
+  pushCurrent();
+  return parts;
+}
+
+function resolveFlagAlias(value: string): SearchFlag | null {
+  for (const [flag, aliases] of Object.entries(SEARCH_FLAG_ALIASES)) {
+    if (aliases.includes(value)) {
+      return flag as SearchFlag;
+    }
+  }
+
+  return null;
+}
+
+function resolveReviewBucketAlias(value: string): PrReviewBucket | null {
+  for (const [bucket, aliases] of Object.entries(REVIEW_BUCKET_ALIASES)) {
+    if (aliases.includes(value)) {
+      return bucket as PrReviewBucket;
+    }
+  }
+
+  return null;
+}
+
+function resolveSizeAlias(value: string): PrSizeBucket | null {
+  for (const [bucket, aliases] of Object.entries(SIZE_BUCKET_ALIASES)) {
+    if (aliases.includes(value)) {
+      return bucket as PrSizeBucket;
+    }
+  }
+
+  return null;
+}
+
+function resolveStateAlias(value: string): PrStateBucket | null {
+  for (const [bucket, aliases] of Object.entries(STATE_BUCKET_ALIASES)) {
+    if (aliases.includes(value)) {
+      return bucket as PrStateBucket;
+    }
+  }
+
+  return null;
+}
+
+function parseSearchTerm(raw: string): PrSearchTermToken {
+  const negated = raw.startsWith("-") || raw.startsWith("!");
+  const body = negated ? raw.slice(1) : raw;
+
+  if (body.startsWith("@")) {
+    return {
+      kind: "term",
+      field: "author",
+      negated,
+      raw,
+      value: normalizeTokenValue(body.slice(1)),
+    };
+  }
+
+  if (body.startsWith("#")) {
+    return {
+      kind: "term",
+      field: "number",
+      negated,
+      raw,
+      value: normalizeTokenValue(body.slice(1)),
+    };
+  }
+
+  const separatorIndex = body.indexOf(":");
+  if (separatorIndex > 0) {
+    const alias = SEARCH_FIELD_ALIASES[normalizeSearchValue(body.slice(0, separatorIndex))];
+    if (alias) {
+      return {
+        kind: "term",
+        field: alias,
+        negated,
+        raw,
+        value: normalizeTokenValue(body.slice(separatorIndex + 1)),
+      };
+    }
+  }
+
+  return {
+    kind: "term",
+    field: "text",
+    negated,
+    raw,
+    value: normalizeTokenValue(body),
+  };
+}
+
+function parseSearchToken(raw: string): PrSearchToken {
+  const normalized = normalizeSearchValue(raw);
+
+  if (raw === "(" || raw === ")") {
+    return {
+      kind: "group",
+      delimiter: raw,
+      raw,
+    };
+  }
+
+  if (raw === "|" || normalized === "or") {
+    return {
+      kind: "operator",
+      operator: "or",
+      raw,
+    };
+  }
+
+  if (raw === "&" || normalized === "and") {
+    return {
+      kind: "operator",
+      operator: "and",
+      raw,
+    };
+  }
+
+  if (raw === "!" || raw === "-" || normalized === "not") {
+    return {
+      kind: "operator",
+      operator: "not",
+      raw,
+    };
+  }
+
+  return parseSearchTerm(raw);
+}
+
+function stringifySearchToken(token: PrSearchToken): string {
+  return token.raw;
+}
+
+function resolveRepoPathTerm(workspacePath: string | undefined): string {
   if (!workspacePath) {
     return "";
   }
@@ -143,26 +352,68 @@ function resolveRepoLabel(
   return normalizeSearchValue(parts.at(-1) ?? "");
 }
 
-function resolveReviewStates(item: SearchablePrItem): Set<ReviewState> {
-  const states = new Set<ReviewState>();
+function resolveRepoTerms(pr: SearchablePrItem["pr"]): string[] {
+  return [
+    ...new Set(
+      [pr.workspace, resolveRepoPathTerm(pr.workspacePath), pr.repository, pr.pullRequestRepository]
+        .map((term) => normalizeSearchValue(term ?? ""))
+        .filter(Boolean),
+    ),
+  ];
+}
 
-  if (item.pr.isDraft) {
-    states.add("draft");
+function resolveReviewBucket(item: SearchablePrItem): PrReviewBucket {
+  if (item.pr.reviewDecision === "APPROVED") {
+    return "approved";
   }
 
-  if (item.pr.reviewDecision === "APPROVED") {
-    states.add("approved");
+  if (item.pr.reviewDecision === "CHANGES_REQUESTED") {
+    return "changes";
   }
 
   if (item.pr.reviewDecision === "REVIEW_REQUIRED") {
-    states.add("review");
+    return "review";
+  }
+
+  return "none";
+}
+
+function resolveSearchFlags(item: SearchablePrItem): Set<SearchFlag> {
+  const flags = new Set<SearchFlag>();
+
+  if (item.pr.isDraft) {
+    flags.add("draft");
+  }
+
+  if (item.pr.reviewDecision === "APPROVED") {
+    flags.add("approved");
+  }
+
+  if (item.pr.reviewDecision === "CHANGES_REQUESTED") {
+    flags.add("changes");
+  }
+
+  if (item.pr.reviewDecision === "REVIEW_REQUIRED") {
+    flags.add("review");
+  }
+
+  if (item.pr.state === "OPEN") {
+    flags.add("open");
+  }
+
+  if (item.pr.state === "CLOSED") {
+    flags.add("closed");
+  }
+
+  if (item.pr.state === "MERGED") {
+    flags.add("merged");
   }
 
   if (item.hasNewActivity) {
-    states.add("new");
+    flags.add("new");
   }
 
-  return states;
+  return flags;
 }
 
 function resolveSizeBucket(pr: GhPrListItemCore): PrSizeBucket | null {
@@ -193,11 +444,13 @@ function createSearchIndex(item: SearchablePrItem): SearchIndex {
       normalizeSearchValue(item.pr.headRefName),
       normalizeSearchValue(item.pr.baseRefName),
     ].filter(Boolean),
+    flags: resolveSearchFlags(item),
     head: normalizeSearchValue(item.pr.headRefName),
     number: String(item.pr.number),
-    repo: resolveRepoLabel(item.pr.workspace, item.pr.workspacePath),
-    reviewStates: resolveReviewStates(item),
+    repoTerms: resolveRepoTerms(item.pr),
+    review: resolveReviewBucket(item),
     size: resolveSizeBucket(item.pr),
+    state: normalizeSearchValue(item.pr.state) as PrStateBucket,
     title: normalizeSearchValue(item.pr.title),
   };
 }
@@ -247,26 +500,6 @@ function scoreTextMatch(
   return 0;
 }
 
-function resolveReviewAlias(value: string): ReviewState | null {
-  for (const [state, aliases] of Object.entries(REVIEW_STATE_ALIASES)) {
-    if (aliases.includes(value)) {
-      return state as ReviewState;
-    }
-  }
-
-  return null;
-}
-
-function resolveSizeAlias(value: string): PrSizeBucket | null {
-  for (const [bucket, aliases] of Object.entries(SIZE_BUCKET_ALIASES)) {
-    if (aliases.includes(value)) {
-      return bucket as PrSizeBucket;
-    }
-  }
-
-  return null;
-}
-
 function matchTextToken(index: SearchIndex, value: string): MatchResult {
   const candidates: MatchResult[] = [
     {
@@ -302,7 +535,7 @@ function matchTextToken(index: SearchIndex, value: string): MatchResult {
     {
       field: "repo",
       matched: false,
-      score: scoreTextMatch(index.repo, value, {
+      score: scoreBestTextMatch(index.repoTerms, value, {
         contains: 34,
         exact: 64,
         prefix: 54,
@@ -331,12 +564,30 @@ function matchTextToken(index: SearchIndex, value: string): MatchResult {
     },
   ];
 
-  const reviewAlias = resolveReviewAlias(value);
-  if (reviewAlias && index.reviewStates.has(reviewAlias)) {
+  const flagAlias = resolveFlagAlias(value);
+  if (flagAlias && index.flags.has(flagAlias)) {
     candidates.push({
       field: "is",
       matched: true,
       score: 60,
+    });
+  }
+
+  const reviewAlias = resolveReviewBucketAlias(value);
+  if (reviewAlias && index.review === reviewAlias) {
+    candidates.push({
+      field: "review",
+      matched: true,
+      score: 58,
+    });
+  }
+
+  const stateAlias = resolveStateAlias(value);
+  if (stateAlias && index.state === stateAlias) {
+    candidates.push({
+      field: "state",
+      matched: true,
+      score: 56,
     });
   }
 
@@ -368,7 +619,7 @@ function matchTextToken(index: SearchIndex, value: string): MatchResult {
   return bestMatch;
 }
 
-function matchFieldToken(index: SearchIndex, token: PrSearchToken): MatchResult {
+function matchFieldToken(index: SearchIndex, token: PrSearchTermToken): MatchResult {
   switch (token.field) {
     case "text": {
       return matchTextToken(index, token.value);
@@ -401,7 +652,7 @@ function matchFieldToken(index: SearchIndex, token: PrSearchToken): MatchResult 
       return { field: "author", matched: score > 0, score };
     }
     case "repo": {
-      const score = scoreTextMatch(index.repo, token.value, {
+      const score = scoreBestTextMatch(index.repoTerms, token.value, {
         contains: 40,
         exact: 72,
         prefix: 60,
@@ -437,9 +688,19 @@ function matchFieldToken(index: SearchIndex, token: PrSearchToken): MatchResult 
       return { field: "base", matched: score > 0, score };
     }
     case "is": {
-      const canonicalState = resolveReviewAlias(token.value);
-      const score = canonicalState ? (index.reviewStates.has(canonicalState) ? 72 : 0) : 0;
+      const canonicalFlag = resolveFlagAlias(token.value);
+      const score = canonicalFlag && index.flags.has(canonicalFlag) ? 72 : 0;
       return { field: "is", matched: score > 0, score };
+    }
+    case "state": {
+      const canonicalState = resolveStateAlias(token.value);
+      const score = canonicalState && index.state === canonicalState ? 72 : 0;
+      return { field: "state", matched: score > 0, score };
+    }
+    case "review": {
+      const canonicalReview = resolveReviewBucketAlias(token.value);
+      const score = canonicalReview && index.review === canonicalReview ? 72 : 0;
+      return { field: "review", matched: score > 0, score };
     }
     case "size": {
       const canonicalBucket = resolveSizeAlias(token.value);
@@ -449,73 +710,247 @@ function matchFieldToken(index: SearchIndex, token: PrSearchToken): MatchResult 
   }
 }
 
-export function parsePrSearchQuery(query: string): PrSearchToken[] {
-  return splitQuerySegments(query)
-    .map((segment) => {
-      const value = segment.value.trim();
-      if (!value) {
+function buildSearchExpression(tokens: PrSearchToken[]): SearchExpression | null {
+  let index = 0;
+
+  const current = (): PrSearchToken | undefined => tokens[index];
+
+  const advance = (): PrSearchToken | undefined => {
+    const token = tokens[index];
+    index += 1;
+    return token;
+  };
+
+  const parsePrimary = (): SearchExpression | null => {
+    const token = current();
+    if (!token) {
+      return null;
+    }
+
+    if (token.kind === "group") {
+      if (token.delimiter === ")") {
         return null;
       }
 
-      const negated = value.startsWith("-") || value.startsWith("!");
-      const body = negated ? value.slice(1) : value;
-      if (!body) {
-        return null;
+      advance();
+      const inner = parseOr();
+      if (current()?.kind === "group" && current()?.delimiter === ")") {
+        advance();
       }
+      return inner;
+    }
 
-      if (body.startsWith("@")) {
-        return {
-          field: "author",
-          negated,
-          raw: segment.raw,
-          value: normalizeSearchValue(body.slice(1)),
-        } satisfies PrSearchToken;
-      }
+    if (token.kind === "operator") {
+      advance();
+      return null;
+    }
 
-      if (body.startsWith("#")) {
-        return {
-          field: "number",
-          negated,
-          raw: segment.raw,
-          value: normalizeSearchValue(body.slice(1)),
-        } satisfies PrSearchToken;
-      }
+    advance();
 
-      const separatorIndex = body.indexOf(":");
-      if (separatorIndex > 0) {
-        const alias = SEARCH_FIELD_ALIASES[normalizeSearchValue(body.slice(0, separatorIndex))];
-        if (alias) {
-          return {
-            field: alias,
-            negated,
-            raw: segment.raw,
-            value: normalizeSearchValue(body.slice(separatorIndex + 1)),
-          } satisfies PrSearchToken;
+    if (token.value.length === 0) {
+      return null;
+    }
+
+    const normalizedTerm = token.negated ? { ...token, negated: false } : token;
+    const termExpression: SearchExpression = {
+      kind: "term",
+      term: normalizedTerm,
+    };
+
+    return token.negated
+      ? {
+          kind: "not",
+          child: termExpression,
         }
+      : termExpression;
+  };
+
+  const parseUnary = (): SearchExpression | null => {
+    let negateCount = 0;
+
+    while (isOperatorToken(current(), "not")) {
+      advance();
+      negateCount += 1;
+    }
+
+    const expression = parsePrimary();
+    if (!expression) {
+      return null;
+    }
+
+    return negateCount % 2 === 1
+      ? {
+          kind: "not",
+          child: expression,
+        }
+      : expression;
+  };
+
+  const parseAnd = (): SearchExpression | null => {
+    let left = parseUnary();
+
+    while (true) {
+      const token = current();
+      if (!token) {
+        break;
+      }
+
+      if (token.kind === "group" && token.delimiter === ")") {
+        break;
+      }
+
+      if (isOperatorToken(token, "or")) {
+        break;
+      }
+
+      if (isOperatorToken(token, "and")) {
+        advance();
+      }
+
+      const startIndex = index;
+      const right = parseUnary();
+      if (!right) {
+        if (index === startIndex) {
+          break;
+        }
+        continue;
+      }
+
+      left =
+        left === null
+          ? right
+          : {
+              kind: "and",
+              left,
+              right,
+            };
+    }
+
+    return left;
+  };
+
+  const parseOr = (): SearchExpression | null => {
+    let left = parseAnd();
+
+    while (isOperatorToken(current(), "or")) {
+      advance();
+      const right = parseAnd();
+      if (!right) {
+        continue;
+      }
+
+      left =
+        left === null
+          ? right
+          : {
+              kind: "or",
+              left,
+              right,
+            };
+    }
+
+    return left;
+  };
+
+  return parseOr();
+}
+
+function evaluateSearchExpression(
+  expression: SearchExpression,
+  searchIndex: SearchIndex,
+): SearchExpressionResult {
+  switch (expression.kind) {
+    case "term": {
+      const match = matchFieldToken(searchIndex, expression.term);
+      return {
+        fields: match.matched ? new Set([match.field]) : new Set(),
+        matched: match.matched,
+        score: match.matched ? match.score : 0,
+      };
+    }
+    case "and": {
+      const left = evaluateSearchExpression(expression.left, searchIndex);
+      if (!left.matched) {
+        return { fields: new Set(), matched: false, score: 0 };
+      }
+
+      const right = evaluateSearchExpression(expression.right, searchIndex);
+      if (!right.matched) {
+        return { fields: new Set(), matched: false, score: 0 };
       }
 
       return {
-        field: "text",
-        negated,
-        raw: segment.raw,
-        value: normalizeSearchValue(body),
-      } satisfies PrSearchToken;
-    })
-    .filter((token): token is PrSearchToken => token !== null);
+        fields: new Set([...left.fields, ...right.fields]),
+        matched: true,
+        score: left.score + right.score,
+      };
+    }
+    case "or": {
+      const left = evaluateSearchExpression(expression.left, searchIndex);
+      const right = evaluateSearchExpression(expression.right, searchIndex);
+
+      if (!left.matched && !right.matched) {
+        return { fields: new Set(), matched: false, score: 0 };
+      }
+
+      return {
+        fields: new Set([
+          ...(left.matched ? [...left.fields] : []),
+          ...(right.matched ? [...right.fields] : []),
+        ]),
+        matched: true,
+        score: (left.matched ? left.score : 0) + (right.matched ? right.score : 0),
+      };
+    }
+    case "not": {
+      const child = evaluateSearchExpression(expression.child, searchIndex);
+      return {
+        fields: new Set(),
+        matched: !child.matched,
+        score: 0,
+      };
+    }
+  }
+}
+
+function hasPositiveSearchTerm(expression: SearchExpression, negated = false): boolean {
+  switch (expression.kind) {
+    case "term": {
+      return !negated;
+    }
+    case "and":
+    case "or": {
+      return (
+        hasPositiveSearchTerm(expression.left, negated) ||
+        hasPositiveSearchTerm(expression.right, negated)
+      );
+    }
+    case "not": {
+      return hasPositiveSearchTerm(expression.child, !negated);
+    }
+  }
+}
+
+export function parsePrSearchQuery(query: string): PrSearchToken[] {
+  return lexQueryParts(query).map(parseSearchToken);
 }
 
 export function stringifyPrSearchTokens(tokens: PrSearchToken[]): string {
   return tokens
-    .map((token) => token.raw)
+    .map(stringifySearchToken)
     .join(" ")
-    .trim();
+    .trim()
+    .replaceAll("( ", "(")
+    .replaceAll(" )", ")")
+    .replaceAll("! (", "!(")
+    .replaceAll("- (", "-(");
 }
 
 export function searchPrs(items: SearchablePrItem[], query: string): PrSearchResult[] {
   const parsedTokens = parsePrSearchQuery(query);
-  const tokens = parsedTokens.filter((token) => token.value.length > 0);
+  const searchExpression = buildSearchExpression(parsedTokens);
 
-  if (tokens.length === 0) {
+  if (!searchExpression) {
     return items.map((item) => ({
       item,
       matchedFields: [],
@@ -523,26 +958,11 @@ export function searchPrs(items: SearchablePrItem[], query: string): PrSearchRes
     }));
   }
 
-  const hasPositiveTokens = tokens.some((token) => !token.negated);
-
+  const hasPositiveTerms = hasPositiveSearchTerm(searchExpression);
   const matches = items.flatMap((item, index) => {
-    const searchIndex = createSearchIndex(item);
-    const matchedFields = new Set<PrSearchField>();
-    let score = 0;
-
-    for (const token of tokens) {
-      const match = matchFieldToken(searchIndex, token);
-
-      if (token.negated) {
-        if (match.matched) {
-          return [];
-        }
-      } else if (match.matched) {
-        matchedFields.add(match.field);
-        score += match.score;
-      } else {
-        return [];
-      }
+    const result = evaluateSearchExpression(searchExpression, createSearchIndex(item));
+    if (!result.matched) {
+      return [];
     }
 
     return [
@@ -550,14 +970,14 @@ export function searchPrs(items: SearchablePrItem[], query: string): PrSearchRes
         index,
         result: {
           item,
-          matchedFields: [...matchedFields],
-          score,
+          matchedFields: [...result.fields],
+          score: result.score,
         },
       },
     ];
   });
 
-  if (!hasPositiveTokens) {
+  if (!hasPositiveTerms) {
     return matches.map(({ result }) => result);
   }
 

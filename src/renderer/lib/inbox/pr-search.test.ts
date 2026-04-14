@@ -32,41 +32,62 @@ function createItem(
 }
 
 describe("parsePrSearchQuery", () => {
-  it("parses structured tokens, shortcuts, quotes, negation, and incomplete filters", () => {
+  it("parses structured tokens, operators, grouping, negation, and incomplete filters", () => {
     expect(
-      parsePrSearchQuery('@brayden #42 status:failing "search polish" -repo:api author:'),
+      parsePrSearchQuery('@brayden OR (#42 review:changes) "search polish" -repo:api author:'),
     ).toEqual([
       {
+        kind: "term",
         field: "author",
         negated: false,
         raw: "@brayden",
         value: "brayden",
       },
       {
+        kind: "operator",
+        operator: "or",
+        raw: "OR",
+      },
+      {
+        kind: "group",
+        delimiter: "(",
+        raw: "(",
+      },
+      {
+        kind: "term",
         field: "number",
         negated: false,
         raw: "#42",
         value: "42",
       },
       {
-        field: "text",
+        kind: "term",
+        field: "review",
         negated: false,
-        raw: "status:failing",
-        value: "status:failing",
+        raw: "review:changes",
+        value: "changes",
       },
       {
+        kind: "group",
+        delimiter: ")",
+        raw: ")",
+      },
+      {
+        kind: "term",
         field: "text",
         negated: false,
         raw: '"search polish"',
         value: "search polish",
       },
       {
+        kind: "term",
         field: "repo",
         negated: true,
         raw: "-repo:api",
         value: "api",
       },
       {
+        kind: "term",
         field: "author",
         negated: false,
         raw: "author:",
@@ -76,8 +97,8 @@ describe("parsePrSearchQuery", () => {
   });
 
   it("rebuilds token strings without losing quoted segments", () => {
-    const tokens = parsePrSearchQuery('@brayden "search polish" status:pending');
-    expect(stringifyPrSearchTokens(tokens)).toBe('@brayden "search polish" status:pending');
+    const tokens = parsePrSearchQuery('@brayden OR ("search polish" review:changes)');
+    expect(stringifyPrSearchTokens(tokens)).toBe('@brayden OR ("search polish" review:changes)');
   });
 });
 
@@ -98,6 +119,8 @@ describe("searchPrs", () => {
         deletions: 30,
         workspace: "dispatch",
         workspacePath: "/repos/dispatch",
+        repository: "acme/dispatch",
+        pullRequestRepository: "acme/dispatch",
       },
     }),
     createItem({
@@ -115,6 +138,8 @@ describe("searchPrs", () => {
         deletions: 9,
         workspace: "marketing",
         workspacePath: "/repos/marketing",
+        repository: "acme/marketing",
+        pullRequestRepository: "acme/marketing",
       },
     }),
     createItem({
@@ -131,6 +156,8 @@ describe("searchPrs", () => {
         deletions: 150,
         workspace: "api",
         workspacePath: "/repos/api",
+        repository: "acme/api",
+        pullRequestRepository: "acme/api",
       },
     }),
     createItem({
@@ -140,30 +167,57 @@ describe("searchPrs", () => {
         author: { login: "sam" },
         headRefName: "feature/search",
         baseRefName: "main",
-        reviewDecision: "",
+        reviewDecision: "CHANGES_REQUESTED",
         updatedAt: "2026-03-18T08:00:00Z",
         url: "https://github.com/example/ops/pull/240",
         additions: 22,
         deletions: 6,
         workspace: "ops",
         workspacePath: "/repos/ops",
+        repository: "acme/ops",
+        pullRequestRepository: "acme/ops",
+      },
+    }),
+    createItem({
+      pr: {
+        number: 301,
+        title: "Retire search backlog",
+        state: "MERGED",
+        author: { login: "merle", name: "Merle Stone" },
+        headRefName: "cleanup/search-backlog",
+        baseRefName: "main",
+        reviewDecision: "APPROVED",
+        updatedAt: "2026-03-17T08:00:00Z",
+        url: "https://github.com/example/dispatch/pull/301",
+        additions: 66,
+        deletions: 12,
+        workspace: "dispatch",
+        workspacePath: "/repos/dispatch",
+        repository: "acme/dispatch",
+        pullRequestRepository: "acme/dispatch",
       },
     }),
   ];
 
   it("matches free text across repo, branch, and semantic states", () => {
-    expect(searchPrs(items, "dispatch").map(({ item }) => item.pr.number)).toEqual([42]);
+    expect(searchPrs(items, "dispatch").map(({ item }) => item.pr.number)).toEqual([42, 301]);
+    expect(searchPrs(items, "acme/dispatch").map(({ item }) => item.pr.number)).toEqual([42, 301]);
     expect(searchPrs(items, "release/2026.03").map(({ item }) => item.pr.number)).toEqual([9]);
     expect(searchPrs(items, "draft").map(({ item }) => item.pr.number)).toEqual([9]);
     expect(searchPrs(items, "new").map(({ item }) => item.pr.number)).toEqual([42]);
   });
 
-  it("supports structured filters, negation, and size buckets", () => {
+  it("supports structured filters, negation, size buckets, and review/state fields", () => {
     expect(
       searchPrs(items, "is:draft -author:brayden size:s").map(({ item }) => item.pr.number),
     ).toEqual([9]);
 
     expect(searchPrs(items, "size:xl -is:draft").map(({ item }) => item.pr.number)).toEqual([120]);
+    expect(
+      searchPrs(items, "state:merged review:approved repo:acme/dispatch").map(
+        ({ item }) => item.pr.number,
+      ),
+    ).toEqual([301]);
   });
 
   it("matches author queries against logins and display names", () => {
@@ -201,5 +255,17 @@ describe("searchPrs", () => {
     expect(upper.map(({ item }) => item.pr.number)).toEqual(
       lower.map(({ item }) => item.pr.number),
     );
+  });
+
+  it("supports compound OR groups with implicit AND", () => {
+    expect(
+      searchPrs(items, "search (review:changes OR state:merged)").map(({ item }) => item.pr.number),
+    ).toEqual([240, 301]);
+  });
+
+  it("supports negated groups and preserves source order for negative-only queries", () => {
+    expect(
+      searchPrs(items, "-(state:merged OR review:changes)").map(({ item }) => item.pr.number),
+    ).toEqual([42, 9, 120]);
   });
 });
