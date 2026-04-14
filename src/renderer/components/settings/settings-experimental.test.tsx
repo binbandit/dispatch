@@ -20,6 +20,7 @@ describe("ExperimentalSettingsSection", () => {
     expect(
       screen.getByText(/they may change substantially or disappear between releases/i),
     ).toBeInTheDocument();
+    expect(screen.getByText("OLED theme")).toBeInTheDocument();
     expect(screen.getByText("Workflow graph preview")).toBeInTheDocument();
 
     await user.click(screen.getByRole("switch", { name: /workflow graph preview/i }));

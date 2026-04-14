@@ -1,5 +1,11 @@
 export const EXPERIMENTAL_FEATURES = [
   {
+    key: "experimentalOledTheme",
+    label: "OLED theme",
+    description:
+      "Try a deeper black theme tuned for OLED displays before it becomes a standard appearance option.",
+  },
+  {
     key: "experimentalCommandPaletteOmnibar",
     label: "Command palette omnibar",
     description:
