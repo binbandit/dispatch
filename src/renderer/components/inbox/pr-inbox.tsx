@@ -9,6 +9,7 @@ import {
   SearchAutocomplete,
   SearchHelpPopover,
 } from "@/renderer/components/inbox/search-autocomplete";
+import { SearchPresetChips } from "@/renderer/components/inbox/search-presets";
 import { PrInboxSkeleton } from "@/renderer/components/shared/loading-skeletons";
 import { useKeyboardShortcuts } from "@/renderer/hooks/app/use-keyboard-shortcuts";
 import {
@@ -24,7 +25,12 @@ import { ipc } from "@/renderer/lib/app/ipc";
 import { openExternal } from "@/renderer/lib/app/open-external";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
-import { searchPrs, type SearchablePrItem } from "@/renderer/lib/inbox/pr-search";
+import {
+  searchPrs,
+  type PrSearchContext,
+  type SearchablePrItem,
+} from "@/renderer/lib/inbox/pr-search";
+import { getPrSearchPresets } from "@/renderer/lib/inbox/pr-search-presets";
 import { useKeybindings } from "@/renderer/lib/keyboard/keybinding-context";
 import {
   getPrActivityKey,
@@ -124,6 +130,11 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
   const activeFilterIpc: IpcApi["pr.list"]["args"]["filter"] =
     activeFilter === "mine" ? "authored" : activeFilter === "all" ? "all" : "reviewRequested";
   const activeState: IpcApi["pr.list"]["args"]["state"] = activeFilter === "all" ? "all" : "open";
+  const currentUserQuery = useQuery({
+    queryKey: ["env", "user"],
+    queryFn: () => ipc("env.user"),
+    staleTime: 300_000,
+  });
 
   const reviewPrs = reviewQuery.data ?? [];
   const authorPrs = authorQuery.data ?? [];
@@ -200,10 +211,17 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
     reReviewPrsWithActivity,
     reviewPrsWithActivity,
   ]);
+  const searchContext = useMemo<PrSearchContext>(
+    () => ({
+      currentAuthorLogin: currentUserQuery.data?.login ?? null,
+      currentRepoTerms: [nwo, repoTarget.repo],
+    }),
+    [currentUserQuery.data?.login, nwo, repoTarget.repo],
+  );
 
   const filteredResults = useMemo(
-    () => searchPrs(visiblePrs, searchQuery),
-    [searchQuery, visiblePrs],
+    () => searchPrs(visiblePrs, searchQuery, searchContext),
+    [searchContext, searchQuery, visiblePrs],
   );
   const searchRefreshRequests = useMemo<PrSearchRefreshRequest[]>(
     () => [
@@ -390,7 +408,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
             }}
             onFocus={() => setAutocompleteOpen(true)}
             onBlur={() => setAutocompleteOpen(false)}
-            placeholder="Search #123, @author, repo:dispatch, review:changes..."
+            placeholder="Search @me, repo:current, updated:7d, (review:changes OR state:merged)"
             className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
             onKeyDown={(event) => {
               // Let autocomplete handle navigation keys first
@@ -435,10 +453,23 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
           )}
           <SearchHelpPopover />
         </div>
+        <SearchPresetChips
+          presets={getPrSearchPresets("sidebar")}
+          activeQuery={searchQuery}
+          onSelect={(preset) => {
+            if (preset.preferredFilter) {
+              setActiveFilter(preset.preferredFilter);
+            }
+            updateSearchQuery(preset.query);
+            setAutocompleteOpen(false);
+            focusSearchInput();
+          }}
+        />
         <SearchAutocomplete
           query={searchQuery}
           cursorPosition={cursorPosition}
           items={visiblePrs}
+          context={searchContext}
           visible={autocompleteOpen}
           onAccept={(newQuery, newCursor) => {
             updateSearchQuery(newQuery);

@@ -262,6 +262,26 @@ describe("filterHomePrSections", () => {
       52, 91,
     ]);
   });
+
+  it("supports current-user aliases in dashboard filtering", () => {
+    const mine = createDashboardItem({
+      number: 61,
+      title: "Tighten preset search",
+      author: { login: "brayden", name: "Brayden Doyle" },
+    });
+    const other = createDashboardItem({
+      number: 62,
+      title: "Another query tweak",
+      author: { login: "alex", name: "Alex Kim" },
+    });
+
+    const sections = categorizeHomePrs([mine, other], new Set(), "brayden", true);
+    const result = filterHomePrSections(sections, "author:me", {
+      currentAuthorLogin: "brayden",
+    });
+
+    expect(result.flatMap((section) => section.items.map((item) => item.pr.number))).toEqual([61]);
+  });
 });
 
 describe("categorizeHomePrs — additional", () => {

@@ -11,8 +11,16 @@ export type PrSearchField =
   | "is"
   | "state"
   | "review"
+  | "updated"
+  | "age"
   | "size"
   | "number";
+
+export interface PrSearchContext {
+  currentAuthorLogin?: string | null;
+  currentRepoTerms?: string[];
+  now?: number;
+}
 
 export interface PrSearchTermToken {
   kind: "term";
@@ -53,11 +61,13 @@ export interface PrSearchResult {
 }
 
 type SearchFlag =
+  | "active"
   | "approved"
   | "changes"
   | "closed"
   | "draft"
   | "merged"
+  | "mine"
   | "new"
   | "open"
   | "review";
@@ -89,15 +99,20 @@ interface SearchIndex {
   branches: string[];
   flags: Set<SearchFlag>;
   head: string;
+  nowMs: number;
   number: string;
   repoTerms: string[];
   review: PrReviewBucket;
   size: PrSizeBucket | null;
   state: PrStateBucket;
   title: string;
+  updatedAtMs: number;
 }
 
+const ACTIVE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
 const SEARCH_FIELD_ALIASES: Record<string, Exclude<PrSearchField, "text">> = {
+  age: "age",
   author: "author",
   base: "base",
   branch: "branch",
@@ -112,16 +127,19 @@ const SEARCH_FIELD_ALIASES: Record<string, Exclude<PrSearchField, "text">> = {
   size: "size",
   state: "state",
   title: "title",
+  updated: "updated",
   user: "author",
   workspace: "repo",
 };
 
 const SEARCH_FLAG_ALIASES: Record<SearchFlag, string[]> = {
+  active: ["active"],
   approved: ["approved"],
   changes: ["blocked", "changes", "changes-requested", "requested-changes"],
   closed: ["closed"],
   draft: ["draft", "wip"],
   merged: ["merged"],
+  mine: ["me", "mine"],
   new: ["new", "unseen", "updated"],
   open: ["open"],
   review: ["needs-review", "review", "review-required", "review-requested"],
@@ -160,6 +178,10 @@ function normalizeSearchValue(value: string): string {
 
 function normalizeTokenValue(value: string): string {
   return normalizeSearchValue(value.replaceAll('"', ""));
+}
+
+function normalizeContextTerms(terms: string[] | undefined): string[] {
+  return [...new Set((terms ?? []).map((term) => normalizeSearchValue(term)).filter(Boolean))];
 }
 
 function lexQueryParts(query: string): string[] {
@@ -434,24 +456,118 @@ function resolveSizeBucket(pr: GhPrListItemCore): PrSizeBucket | null {
   return "xl";
 }
 
-function createSearchIndex(item: SearchablePrItem): SearchIndex {
+function createSearchIndex(item: SearchablePrItem, context: PrSearchContext): SearchIndex {
+  const normalizedCurrentAuthor = normalizeSearchValue(context.currentAuthorLogin ?? "");
+  const normalizedCurrentRepoTerms = normalizeContextTerms(context.currentRepoTerms);
+  const repoTerms = resolveRepoTerms(item.pr);
+  const updatedAtMs = Date.parse(item.pr.updatedAt);
+  const nowMs = context.now ?? Date.now();
+  const flags = resolveSearchFlags(item);
+  const authorTerms = [item.pr.author.login, item.pr.author.name ?? ""]
+    .map((term) => normalizeSearchValue(term))
+    .filter(Boolean);
+
+  if (
+    normalizedCurrentAuthor &&
+    normalizeSearchValue(item.pr.author.login) === normalizedCurrentAuthor
+  ) {
+    authorTerms.push("me");
+    flags.add("mine");
+  }
+
+  if (normalizedCurrentRepoTerms.some((term) => repoTerms.includes(term))) {
+    repoTerms.push("current");
+  }
+
+  if (item.pr.state === "OPEN" && nowMs - updatedAtMs <= ACTIVE_WINDOW_MS) {
+    flags.add("active");
+  }
+
   return {
-    authorTerms: [item.pr.author.login, item.pr.author.name ?? ""]
-      .map((term) => normalizeSearchValue(term))
-      .filter(Boolean),
+    authorTerms: [...new Set(authorTerms)],
     base: normalizeSearchValue(item.pr.baseRefName),
     branches: [
       normalizeSearchValue(item.pr.headRefName),
       normalizeSearchValue(item.pr.baseRefName),
     ].filter(Boolean),
-    flags: resolveSearchFlags(item),
+    flags,
     head: normalizeSearchValue(item.pr.headRefName),
+    nowMs,
     number: String(item.pr.number),
-    repoTerms: resolveRepoTerms(item.pr),
+    repoTerms: [...new Set(repoTerms)],
     review: resolveReviewBucket(item),
     size: resolveSizeBucket(item.pr),
     state: normalizeSearchValue(item.pr.state) as PrStateBucket,
     title: normalizeSearchValue(item.pr.title),
+    updatedAtMs,
+  };
+}
+
+function resolveTimeQuery(
+  field: "age" | "updated",
+  value: string,
+):
+  | {
+      comparison: "older" | "within";
+      kind: "duration";
+      milliseconds: number;
+    }
+  | { kind: "named"; name: "today" | "yesterday" }
+  | null {
+  const normalizedValue = normalizeSearchValue(value);
+  if (normalizedValue === "today" || normalizedValue === "yesterday") {
+    return { kind: "named", name: normalizedValue };
+  }
+
+  const match = /^(<=|>=|<|>)?(\d+)(h|d|w)$/.exec(normalizedValue);
+  if (!match) {
+    return null;
+  }
+
+  const [, operator = "", amountText, unit] = match;
+  const amount = Number(amountText);
+  const multiplier =
+    unit === "h" ? 60 * 60 * 1000 : unit === "d" ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+
+  return {
+    comparison:
+      operator === ">" || operator === ">=" ? "older" : field === "age" ? "older" : "within",
+    kind: "duration",
+    milliseconds: amount * multiplier,
+  };
+}
+
+function isSameCalendarDay(leftMs: number, rightMs: number): boolean {
+  const left = new Date(leftMs);
+  const right = new Date(rightMs);
+
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+function matchTimeToken(index: SearchIndex, field: "age" | "updated", value: string): MatchResult {
+  const timeQuery = resolveTimeQuery(field, value);
+  if (!timeQuery) {
+    return { field, matched: false, score: 0 };
+  }
+
+  const elapsed = Math.max(index.nowMs - index.updatedAtMs, 0);
+  const matched =
+    timeQuery.kind === "duration"
+      ? timeQuery.comparison === "within"
+        ? elapsed <= timeQuery.milliseconds
+        : elapsed >= timeQuery.milliseconds
+      : timeQuery.name === "today"
+        ? isSameCalendarDay(index.updatedAtMs, index.nowMs)
+        : isSameCalendarDay(index.updatedAtMs, index.nowMs - 24 * 60 * 60 * 1000);
+
+  return {
+    field,
+    matched,
+    score: matched ? 68 : 0,
   };
 }
 
@@ -702,6 +818,12 @@ function matchFieldToken(index: SearchIndex, token: PrSearchTermToken): MatchRes
       const score = canonicalReview && index.review === canonicalReview ? 72 : 0;
       return { field: "review", matched: score > 0, score };
     }
+    case "updated": {
+      return matchTimeToken(index, "updated", token.value);
+    }
+    case "age": {
+      return matchTimeToken(index, "age", token.value);
+    }
     case "size": {
       const canonicalBucket = resolveSizeAlias(token.value);
       const score = canonicalBucket && index.size === canonicalBucket ? 64 : 0;
@@ -946,7 +1068,11 @@ export function stringifyPrSearchTokens(tokens: PrSearchToken[]): string {
     .replaceAll("- (", "-(");
 }
 
-export function searchPrs(items: SearchablePrItem[], query: string): PrSearchResult[] {
+export function searchPrs(
+  items: SearchablePrItem[],
+  query: string,
+  context: PrSearchContext = {},
+): PrSearchResult[] {
   const parsedTokens = parsePrSearchQuery(query);
   const searchExpression = buildSearchExpression(parsedTokens);
 
@@ -960,7 +1086,7 @@ export function searchPrs(items: SearchablePrItem[], query: string): PrSearchRes
 
   const hasPositiveTerms = hasPositiveSearchTerm(searchExpression);
   const matches = items.flatMap((item, index) => {
-    const result = evaluateSearchExpression(searchExpression, createSearchIndex(item));
+    const result = evaluateSearchExpression(searchExpression, createSearchIndex(item, context));
     if (!result.matched) {
       return [];
     }
