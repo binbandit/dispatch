@@ -209,7 +209,7 @@ function UserMenu({
         ) : (
           <div
             className="flex h-full w-full items-center justify-center"
-            style={{ background: "linear-gradient(135deg, var(--primary), #7c5a2a)" }}
+            style={{ background: "linear-gradient(135deg, var(--primary), var(--accent-hover))" }}
           >
             <span className="text-bg-root text-[10px] font-semibold">?</span>
           </div>

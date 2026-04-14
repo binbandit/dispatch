@@ -349,7 +349,7 @@ export function SettingsView() {
               onClick={() => setActiveSection(id)}
               className={`flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-left text-xs transition-all duration-[--duration-fast] ${
                 activeSection === id
-                  ? "border border-[--border-strong] bg-[--bg-elevated] font-medium text-[--text-primary] shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
+                  ? "border border-[--border-strong] bg-[--bg-elevated] font-medium text-[--text-primary] shadow-sm"
                   : "border border-transparent text-[--text-secondary] hover:bg-[--bg-raised] hover:text-[--text-primary]"
               }`}
             >
@@ -787,7 +787,7 @@ export function SettingsView() {
                 <p className="text-text-tertiary mt-0.5 text-xs">
                   Choose whether each AI workflow uses the big or small slot.
                 </p>
-                <div className="border-border mt-3 overflow-hidden rounded-xl border bg-[linear-gradient(180deg,rgba(255,255,255,0.015),rgba(255,255,255,0)),radial-gradient(circle_at_top_left,rgba(212,136,58,0.05),transparent_44%)] shadow-sm">
+                <div className="border-border mt-3 overflow-hidden rounded-xl border bg-[radial-gradient(circle_at_top_left,rgba(212,136,58,0.05),transparent_44%)] shadow-sm">
                   {AI_TASK_DEFINITIONS.map((task, index) => {
                     const selectedSlot = taskSlotById[task.id];
                     const resolvedTask = aiConfig?.tasks[task.id];
@@ -880,7 +880,7 @@ export function SettingsView() {
                 <p className="text-text-tertiary text-[10px] font-semibold tracking-[0.08em] uppercase">
                   Providers
                 </p>
-                <div className="border-border mt-3 overflow-hidden rounded-xl border bg-[radial-gradient(circle_at_top_left,rgba(212,136,58,0.07),transparent_42%),linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0))] shadow-sm">
+                <div className="border-border mt-3 overflow-hidden rounded-xl border bg-[radial-gradient(circle_at_top_left,rgba(212,136,58,0.07),transparent_42%)] shadow-sm">
                   {AI_PROVIDER_LIST.map((provider, index) => {
                     const status = aiProviderStatusById.get(provider.id);
                     const isExpanded = expandedAiProvider === provider.id;
@@ -1018,8 +1018,8 @@ export function SettingsView() {
                                   className={cn(
                                     "mt-2 inline-flex max-w-xl items-start gap-2 rounded-md border px-2.5 py-2 text-[10px] leading-[1.5]",
                                     providerTestFeedback.kind === "success"
-                                      ? "border-[rgba(61,214,140,0.28)] bg-[rgba(61,214,140,0.08)] text-[--success]"
-                                      : "border-[rgba(255,107,107,0.24)] bg-[rgba(255,107,107,0.08)] text-[--danger]",
+                                      ? "border-success/28 bg-success-muted text-[--success]"
+                                      : "border-destructive/24 bg-danger-muted text-[--danger]",
                                   )}
                                 >
                                   {providerTestFeedback.kind === "success" ? (

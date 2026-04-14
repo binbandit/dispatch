@@ -272,7 +272,7 @@ export function MergeButton({
               size="sm"
               variant={!requirementsMet ? "outline" : "success"}
               className={`rounded-l-none border-l px-1.5 ${
-                !requirementsMet ? "disabled:opacity-100" : "border-l-[#08080a]/20"
+                !requirementsMet ? "disabled:opacity-100" : "border-l-bg-root/20"
               }`}
               disabled={mergeMutation.isPending || closeMutation.isPending}
               onClick={() => setMenuOpen(!menuOpen)}
@@ -398,7 +398,7 @@ export function MergeButton({
             !canMerge
               ? "disabled:opacity-100"
               : requirementsMet
-                ? "border-l-[#08080a]/20"
+                ? "border-l-bg-root/20"
                 : "border-l-bg-root/20 border-warning/80 bg-warning/80 text-bg-root hover:bg-warning/90"
           }`}
           disabled={!canMerge || mergeMutation.isPending || closeMutation.isPending}

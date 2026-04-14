@@ -250,7 +250,7 @@ export function AiProviderRow({
           keepMounted
           className="border-border-subtle border-t"
         >
-          <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.01),rgba(255,255,255,0)),radial-gradient(circle_at_top_left,rgba(212,136,58,0.05),transparent_55%)] px-5 py-4">
+          <div className="bg-[radial-gradient(circle_at_top_left,rgba(212,136,58,0.05),transparent_55%)] px-5 py-4">
             {children}
           </div>
         </CollapsibleContent>
@@ -333,7 +333,7 @@ export function AiModelSlotCard({
   onSelectModel: (value: string) => void;
 }) {
   return (
-    <div className="border-border overflow-hidden rounded-xl border bg-[linear-gradient(180deg,rgba(255,255,255,0.015),rgba(255,255,255,0)),radial-gradient(circle_at_top_left,rgba(212,136,58,0.06),transparent_44%)] shadow-sm">
+    <div className="border-border overflow-hidden rounded-xl border bg-[radial-gradient(circle_at_top_left,rgba(212,136,58,0.06),transparent_44%)] shadow-sm">
       <div className="border-border-subtle border-b px-4 py-3">
         <div className="flex items-center gap-2">
           <span className="text-text-primary text-[14px] font-semibold tracking-[-0.02em]">

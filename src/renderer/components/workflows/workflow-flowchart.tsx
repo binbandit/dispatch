@@ -108,7 +108,7 @@ export function WorkflowFlowchart({ repoTarget, workflowId, jobs }: WorkflowFlow
           >
             <polygon
               points="0 0, 8 3, 0 6"
-              fill="#33302a"
+              style={{ fill: "var(--border-strong)" }}
             />
           </marker>
         </defs>
@@ -156,8 +156,7 @@ function FlowchartNodeBox({ node }: { node: FlowchartNode }) {
         height={NODE_HEIGHT}
         rx={6}
         ry={6}
-        fill={style.bgColor}
-        stroke={style.borderColor}
+        style={{ fill: style.bgColor, stroke: style.borderColor }}
         strokeWidth={1.5}
       />
 
@@ -216,7 +215,7 @@ function FlowchartEdgePath({ from, to }: { from: FlowchartNode; to: FlowchartNod
     <path
       d={`M ${x1} ${y1} C ${midX} ${y1}, ${midX} ${y2}, ${x2} ${y2}`}
       fill="none"
-      stroke="#33302a"
+      style={{ stroke: "var(--border-strong)" }}
       strokeWidth={1.5}
       markerEnd="url(#arrowhead)"
     />
@@ -361,8 +360,8 @@ function computeLayout(
 function resolveNodeStyle(conclusion: string | null, status: string | null) {
   if (conclusion === "success") {
     return {
-      borderColor: "#3dd68c",
-      bgColor: "rgba(61, 214, 140, 0.06)",
+      borderColor: "var(--success)",
+      bgColor: "var(--success-muted)",
       icon: CheckCircle2,
       iconColor: "text-success",
       iconSpin: false,
@@ -370,8 +369,8 @@ function resolveNodeStyle(conclusion: string | null, status: string | null) {
   }
   if (conclusion === "failure" || conclusion === "error") {
     return {
-      borderColor: "#ef6461",
-      bgColor: "rgba(239, 100, 97, 0.06)",
+      borderColor: "var(--destructive)",
+      bgColor: "var(--danger-muted)",
       icon: XCircle,
       iconColor: "text-destructive",
       iconSpin: false,
@@ -379,8 +378,8 @@ function resolveNodeStyle(conclusion: string | null, status: string | null) {
   }
   if (conclusion === "cancelled" || conclusion === "skipped") {
     return {
-      borderColor: "#25231f",
-      bgColor: "#16161b",
+      borderColor: "var(--border)",
+      bgColor: "var(--bg-raised)",
       icon: XCircle,
       iconColor: "text-text-tertiary",
       iconSpin: false,
@@ -388,16 +387,16 @@ function resolveNodeStyle(conclusion: string | null, status: string | null) {
   }
   if (status === "in_progress" || status === "queued") {
     return {
-      borderColor: "#f0b449",
-      bgColor: "rgba(240, 180, 73, 0.06)",
+      borderColor: "var(--warning)",
+      bgColor: "var(--warning-muted)",
       icon: Loader2,
       iconColor: "text-warning",
       iconSpin: true,
     };
   }
   return {
-    borderColor: "#25231f",
-    bgColor: "#16161b",
+    borderColor: "var(--border)",
+    bgColor: "var(--bg-raised)",
     icon: Circle,
     iconColor: "text-text-ghost",
     iconSpin: false,

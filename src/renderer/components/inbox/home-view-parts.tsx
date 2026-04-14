@@ -567,7 +567,7 @@ function PrRow({
                 }}
                 disabled={mergeMutation.isPending}
                 aria-label={`Merge pull request #${pr.number}`}
-                className="bg-success flex cursor-pointer items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold text-[#08080a] transition-all hover:shadow-[0_0_12px_rgba(61,214,140,0.15)] hover:brightness-110 disabled:opacity-60"
+                className="bg-success flex cursor-pointer items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold text-bg-root transition-all hover:shadow-[0_0_12px_rgba(61,214,140,0.15)] hover:brightness-110 disabled:opacity-60"
               >
                 {mergeMutation.isPending ? (
                   <Spinner className="h-[11px] w-[11px]" />

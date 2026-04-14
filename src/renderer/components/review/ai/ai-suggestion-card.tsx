@@ -68,7 +68,7 @@ export function AiSuggestionCard({ suggestion, onPost, onDismiss }: AiSuggestion
 
   return (
     <div
-      className="mx-3 my-2 overflow-hidden rounded-[10px] border bg-[linear-gradient(180deg,rgba(15,15,18,0.98),rgba(10,10,12,0.92))] shadow-[0_8px_24px_rgba(0,0,0,0.24)]"
+      className="mx-3 my-2 overflow-hidden rounded-[10px] border bg-[linear-gradient(180deg,var(--comment-card-from),var(--comment-card-to))] shadow-[var(--comment-card-shadow)]"
       style={{
         borderColor: `color-mix(in srgb, ${style.border} 30%, transparent)`,
         boxShadow: `0 8px 24px rgba(0,0,0,0.24), 0 0 0 1px color-mix(in srgb, ${style.border} 10%, transparent) inset`,
@@ -181,7 +181,7 @@ export function AiSuggestionCard({ suggestion, onPost, onDismiss }: AiSuggestion
                   backgroundColor: `color-mix(in srgb, ${style.bg} 32%, transparent)`,
                 }}
               >
-                <div className="border-b border-[rgba(255,255,255,0.04)] px-2.5 py-1.5">
+                <div className="border-border-subtle border-b px-2.5 py-1.5">
                   <span className="text-text-ghost font-mono text-[10px]">
                     Pending AI review comment
                   </span>

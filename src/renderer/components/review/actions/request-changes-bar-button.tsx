@@ -150,7 +150,7 @@ export function RequestChangesBarButton({
               style={{
                 ...btnBase,
                 background: hasReviewBody ? "var(--danger)" : "var(--bg-raised)",
-                color: hasReviewBody ? "#fff" : "var(--text-tertiary)",
+                color: hasReviewBody ? "var(--primary-foreground)" : "var(--text-tertiary)",
                 borderColor: hasReviewBody ? "var(--danger)" : "var(--border)",
                 cursor: hasReviewBody ? "pointer" : "not-allowed",
                 opacity: reviewMutation.isPending ? 0.5 : 1,

@@ -244,7 +244,7 @@ export function AddRepoDialog({ open, onOpenChange, onAdded }: AddRepoDialogProp
                     }}
                   >
                     {/* Visibility icon */}
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[rgba(255,255,255,0.04)]">
+                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-bg-raised/50">
                       {result.isPrivate ? (
                         <Lock
                           size={13}
