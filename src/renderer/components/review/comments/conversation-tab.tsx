@@ -143,7 +143,7 @@ export function ConversationTab({
             <div className="py-8 text-center">
               <p
                 className="text-sm"
-                style={{ color: "rgba(94, 89, 84, 0.6)" }}
+                style={{ color: "var(--text-tertiary)" }}
               >
                 No conversation yet
               </p>
@@ -302,18 +302,18 @@ const STATUS_CONFIG: Record<string, { icon: typeof Check; label: string; classNa
 
 const STATUS_STYLES: Record<string, { bg: string; border: string; color: string }> = {
   "status-success": {
-    bg: "rgba(61, 214, 140, 0.05)",
-    border: "rgba(61, 214, 140, 0.2)",
+    bg: "var(--success-muted)",
+    border: "color-mix(in srgb, var(--success) 20%, transparent)",
     color: "var(--success)",
   },
   "status-danger": {
-    bg: "rgba(239, 100, 97, 0.05)",
-    border: "rgba(239, 100, 97, 0.2)",
+    bg: "var(--danger-muted)",
+    border: "color-mix(in srgb, var(--danger) 20%, transparent)",
     color: "var(--danger)",
   },
   "status-muted": {
-    bg: "rgba(255, 255, 255, 0.015)",
-    border: "rgba(255, 255, 255, 0.05)",
+    bg: "var(--bg-surface)",
+    border: "var(--border-subtle)",
     color: "var(--text-tertiary)",
   },
 };
@@ -360,7 +360,7 @@ function StatusEvent({
       </UserProfileTooltip>
       <span
         className="text-xs font-medium"
-        style={{ color: "rgba(240, 236, 230, 0.8)" }}
+        style={{ color: "var(--text-primary)" }}
       >
         {login}
       </span>
@@ -435,8 +435,8 @@ export function ContentEvent({
         className="overflow-hidden rounded-lg"
         style={{
           border: isBotUser
-            ? "1px solid rgba(212, 136, 58, 0.2)"
-            : "1px solid rgba(37, 35, 31, 0.6)",
+            ? "1px solid var(--border-accent)"
+            : "1px solid var(--border)",
         }}
       >
         {/* Header — bg-card/50 equivalent */}
@@ -449,12 +449,12 @@ export function ContentEvent({
           className="flex cursor-pointer items-center gap-2 transition-colors focus-visible:ring-1 focus-visible:ring-[var(--accent)] focus-visible:outline-none"
           style={{
             padding: "6px 12px",
-            background: isBotUser ? "rgba(212, 136, 58, 0.03)" : "rgba(22, 22, 27, 0.5)",
+            background: isBotUser ? "var(--accent-muted)" : "var(--bg-surface)",
             borderBottom: minimized
               ? "none"
               : isBotUser
-                ? "1px solid rgba(212, 136, 58, 0.1)"
-                : "1px solid rgba(37, 35, 31, 0.6)",
+                ? "1px solid var(--border-accent)"
+                : "1px solid var(--border)",
           }}
           onClick={onToggleMinimized}
           onKeyDown={(event) => {
@@ -474,7 +474,7 @@ export function ContentEvent({
           <span
             className="text-xs font-medium"
             style={{
-              color: isBotUser ? "var(--accent-text)" : "rgba(240, 236, 230, 0.8)",
+              color: isBotUser ? "var(--accent-text)" : "var(--text-primary)",
             }}
           >
             {login}
@@ -484,8 +484,8 @@ export function ContentEvent({
               className="rounded text-[9px]"
               style={{
                 padding: "0 4px",
-                border: "1px solid rgba(212, 136, 58, 0.25)",
-                color: "rgba(94, 89, 84, 0.5)",
+                border: "1px solid var(--border-accent)",
+                color: "var(--text-ghost)",
                 lineHeight: "16px",
               }}
             >
@@ -508,7 +508,7 @@ export function ContentEvent({
           )}
           <span
             className="ml-auto shrink-0 text-[10px]"
-            style={{ color: "rgba(94, 89, 84, 0.5)" }}
+            style={{ color: "var(--text-ghost)" }}
           >
             {relativeTime(time)}
           </span>
@@ -537,7 +537,7 @@ export function ContentEvent({
               )}
               <div
                 className="text-xs leading-relaxed"
-                style={{ color: "rgba(155, 149, 144, 0.9)" }}
+                style={{ color: "var(--text-secondary)" }}
               >
                 <CollapsibleDescription maxHeight={200}>
                   <MarkdownBody
@@ -735,8 +735,8 @@ function UnresolvedThreadItem({
       className="w-full cursor-pointer overflow-hidden rounded-lg text-left"
       style={{
         border: thread.isResolved
-          ? "1px solid rgba(61, 214, 140, 0.15)"
-          : "1px solid rgba(37, 35, 31, 0.6)",
+          ? "1px solid color-mix(in srgb, var(--success) 15%, transparent)"
+          : "1px solid var(--border)",
         opacity: thread.isResolved ? 0.6 : 1,
       }}
     >
@@ -745,8 +745,8 @@ function UnresolvedThreadItem({
         className="flex items-center gap-2"
         style={{
           padding: "6px 10px",
-          background: "rgba(22, 22, 27, 0.5)",
-          borderBottom: "1px solid rgba(37, 35, 31, 0.6)",
+          background: "var(--bg-surface)",
+          borderBottom: "1px solid var(--border)",
         }}
       >
         <MessageSquare
@@ -756,7 +756,7 @@ function UnresolvedThreadItem({
         />
         <span
           className="text-[11px] font-medium"
-          style={{ color: "rgba(240, 236, 230, 0.8)" }}
+          style={{ color: "var(--text-primary)" }}
         >
           {firstComment.author.login}
         </span>
@@ -766,8 +766,10 @@ function UnresolvedThreadItem({
             padding: "0 5px",
             lineHeight: "16px",
             color: thread.isResolved ? "var(--success)" : "var(--warning)",
-            borderColor: thread.isResolved ? "rgba(61, 214, 140, 0.2)" : "rgba(240, 180, 73, 0.2)",
-            background: thread.isResolved ? "rgba(61, 214, 140, 0.05)" : "rgba(240, 180, 73, 0.05)",
+            borderColor: thread.isResolved
+              ? "color-mix(in srgb, var(--success) 20%, transparent)"
+              : "color-mix(in srgb, var(--warning) 20%, transparent)",
+            background: thread.isResolved ? "var(--success-muted)" : "var(--warning-muted)",
           }}
         >
           {thread.isResolved ? "resolved" : "unresolved"}
@@ -786,7 +788,7 @@ function UnresolvedThreadItem({
         <p
           className="text-[11px] leading-[1.4]"
           style={{
-            color: "rgba(155, 149, 144, 0.7)",
+            color: "var(--text-secondary)",
             display: "-webkit-box",
             WebkitLineClamp: 2,
             WebkitBoxOrient: "vertical",
@@ -819,24 +821,24 @@ function parseBotSeverity(
   if (lower.includes("[critical]") || lower.includes("**critical") || lower.includes("🔴")) {
     return {
       label: "Critical",
-      bg: "rgba(239, 100, 97, 0.05)",
-      border: "rgba(239, 100, 97, 0.2)",
+      bg: "var(--danger-muted)",
+      border: "color-mix(in srgb, var(--danger) 20%, transparent)",
       color: "var(--danger)",
     };
   }
   if (lower.includes("[suggestion]") || lower.includes("**suggestion")) {
     return {
       label: "Suggestion",
-      bg: "rgba(240, 180, 73, 0.05)",
-      border: "rgba(240, 180, 73, 0.2)",
+      bg: "var(--warning-muted)",
+      border: "color-mix(in srgb, var(--warning) 20%, transparent)",
       color: "var(--warning)",
     };
   }
   if (lower.includes("[nitpick]") || lower.includes("**nitpick") || lower.includes("nit:")) {
     return {
       label: "Nitpick",
-      bg: "rgba(255, 255, 255, 0.015)",
-      border: "rgba(255, 255, 255, 0.05)",
+      bg: "var(--bg-surface)",
+      border: "var(--border-subtle)",
       color: "var(--text-tertiary)",
     };
   }
