@@ -28,7 +28,10 @@ import {
   getAiTaskSlotPreferenceKey,
   normalizeAiTaskSlot,
 } from "@/shared/ai-provider-settings";
-import { EXPERIMENTAL_FEATURE_PREFERENCE_KEYS } from "@/shared/experimental-features";
+import {
+  EXPERIMENTAL_FEATURE_PREFERENCE_KEYS,
+  isExperimentalFeatureEnabled,
+} from "@/shared/experimental-features";
 import {
   DEFAULT_PR_FETCH_LIMIT,
   PR_FETCH_LIMIT_OPTIONS,
@@ -79,7 +82,7 @@ import {
   CODE_THEMES_LIGHT,
   CodeThemeCard,
   CodeThemePreview,
-  THEME_OPTIONS,
+  getThemeOptions,
 } from "./settings-code-theme";
 import { ExperimentalSettingsSection } from "./settings-experimental";
 
@@ -161,6 +164,8 @@ export function SettingsView() {
   const prefs = prefsQuery.data ?? {};
   const aiConfig = aiConfigQuery.data;
   const aiEnabled = isAiEnabledPreference(prefs.aiEnabled);
+  const oledThemeEnabled = isExperimentalFeatureEnabled(prefs.experimentalOledTheme);
+  const themeOptions = useMemo(() => getThemeOptions(oledThemeEnabled), [oledThemeEnabled]);
   const aiProvidersQuery = useQuery({
     queryKey: ["ai", "providersStatus"],
     queryFn: () => ipc("ai.providersStatus"),
@@ -428,7 +433,7 @@ export function SettingsView() {
                   Choose your preferred color theme.
                 </p>
                 <div className="border-border bg-bg-raised mt-3 flex rounded-md border p-[2px]">
-                  {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+                  {themeOptions.map(({ value, label, icon: Icon }) => (
                     <button
                       key={value}
                       type="button"

@@ -74,6 +74,7 @@ export function Navbar({
         {
           WebkitAppRegion: "drag",
           paddingLeft: isMac && !isFullscreen && !bannerVisible ? 92 : 16,
+          backdropFilter: "var(--chrome-backdrop-filter, none)",
         } as React.CSSProperties
       }
     >

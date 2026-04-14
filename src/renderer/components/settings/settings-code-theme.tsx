@@ -12,6 +12,14 @@ export const THEME_OPTIONS = [
   { value: "system", label: "System", icon: Monitor },
 ] as const;
 
+export const OLED_THEME_OPTION = { value: "oled", label: "OLED", icon: Moon } as const;
+
+export function getThemeOptions(includeOled: boolean) {
+  return includeOled
+    ? [THEME_OPTIONS[0], OLED_THEME_OPTION, ...THEME_OPTIONS.slice(1)]
+    : THEME_OPTIONS;
+}
+
 export interface CodeThemeOption {
   id: string;
   name: string;

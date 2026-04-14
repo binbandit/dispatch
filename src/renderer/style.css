@@ -6,13 +6,13 @@
  * This file maps the coss ui / shadcn token system onto the Dispatch
  * design system defined in DISPATCH-DESIGN-SYSTEM.md.
  *
- * Dark is the default. The `.dark` or `.light` class is applied to <html>
+ * Dark is the default. The `.dark`, `.oled`, or `.light` class is applied to <html>
  * at boot based on the user's preference (persisted in localStorage and
  * SQLite). An inline script in index.html applies the class synchronously
  * before paint to prevent a flash-of-wrong-theme.
  * --------------------------------------------------------------------------- */
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (&:is(.dark *, .oled *));
 
 /* ---------------------------------------------------------------------------
  * 1. Font stacks
@@ -263,6 +263,11 @@
   /* ---- Dispatch scrollbar (§ 2.7) ---- */
   --scrollbar-thumb: #2a2824;
   --scrollbar-hover: #3a3632;
+  --selection-bg: rgba(212, 136, 58, 0.22);
+  --app-shell-background: linear-gradient(180deg, #0a0a0c 0%, #08080a 100%);
+  --noise-opacity: 0.015;
+  --accent-bar-opacity: 0.4;
+  --chrome-backdrop-filter: blur(18px) saturate(125%);
 
   /* ---- Transitions (§ 7) ---- */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -352,6 +357,11 @@
   --avatar-ring: rgba(240, 236, 230, 0.08);
   --scrollbar-thumb: #2a2824;
   --scrollbar-hover: #3a3632;
+  --selection-bg: rgba(212, 136, 58, 0.22);
+  --app-shell-background: linear-gradient(180deg, #0a0a0c 0%, #08080a 100%);
+  --noise-opacity: 0.015;
+  --accent-bar-opacity: 0.4;
+  --chrome-backdrop-filter: blur(18px) saturate(125%);
   --bar-glass: rgba(28, 28, 34, 0.85);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -362,7 +372,105 @@
 }
 
 /* ---------------------------------------------------------------------------
- * 3b. Light theme — "Warm Parchment"
+ * 3b. OLED theme — experimental
+ *
+ * A darker variant of Dispatch's warm dark theme with true-black roots and
+ * slightly stronger contrast for OLED panels.
+ * --------------------------------------------------------------------------- */
+.oled {
+  --background: #000000;
+  --foreground: #f6efe7;
+  --card: rgba(10, 10, 12, 0.96);
+  --card-foreground: #f6efe7;
+  --popover: rgba(12, 12, 15, 0.94);
+  --popover-foreground: #f6efe7;
+  --primary: #d4883a;
+  --primary-foreground: #050403;
+  --secondary: rgba(13, 13, 16, 0.92);
+  --secondary-foreground: #f6efe7;
+  --muted: rgba(7, 7, 9, 0.88);
+  --muted-foreground: #b0a69a;
+  --accent: rgba(212, 136, 58, 0.16);
+  --accent-foreground: #f1b36d;
+  --destructive: #ff7a71;
+  --destructive-foreground: #ff7a71;
+  --info: #6bb6ff;
+  --info-foreground: #6bb6ff;
+  --success: #44e39a;
+  --success-foreground: #44e39a;
+  --warning: #f4bf57;
+  --warning-foreground: #f4bf57;
+  --border: #1b1813;
+  --input: #2d2720;
+  --ring: #e5a764;
+  --sidebar: rgba(5, 5, 7, 0.86);
+  --sidebar-foreground: #b0a69a;
+  --sidebar-primary: #d4883a;
+  --sidebar-primary-foreground: #050403;
+  --sidebar-accent: rgba(212, 136, 58, 0.14);
+  --sidebar-accent-foreground: #f6efe7;
+  --sidebar-border: #120f0b;
+  --sidebar-ring: #e5a764;
+  --code: #09090b;
+  --code-highlight: rgba(212, 136, 58, 0.12);
+  --chart-1: #d4883a;
+  --chart-2: #44e39a;
+  --chart-3: #6bb6ff;
+  --chart-4: #b398ff;
+  --chart-5: #ff7a71;
+  --bg-root: #000000;
+  --bg-surface: rgba(5, 5, 7, 0.84);
+  --bg-raised: rgba(10, 10, 12, 0.9);
+  --bg-elevated: rgba(16, 16, 20, 0.96);
+  --bg-overlay: rgba(0, 0, 0, 0.88);
+  --text-primary: #f6efe7;
+  --text-secondary: #b0a69a;
+  --text-tertiary: #8f857a;
+  --text-ghost: #685f56;
+  --accent-hover: #e6a45f;
+  --accent-muted: rgba(212, 136, 58, 0.16);
+  --accent-text: #f1b36d;
+  --border-subtle: #120f0b;
+  --border-strong: #2d2720;
+  --border-accent: rgba(212, 136, 58, 0.32);
+  --diff-add-bg: rgba(68, 227, 154, 0.09);
+  --diff-add-bar: #44e39a;
+  --diff-add-word: rgba(68, 227, 154, 0.24);
+  --diff-del-bg: rgba(255, 122, 113, 0.1);
+  --diff-del-bar: #ff7a71;
+  --diff-del-word: rgba(255, 122, 113, 0.24);
+  --diff-hunk-bg: rgba(107, 182, 255, 0.1);
+  --success-muted: rgba(68, 227, 154, 0.14);
+  --danger-muted: rgba(255, 122, 113, 0.14);
+  --warning-muted: rgba(244, 191, 87, 0.14);
+  --info-muted: rgba(107, 182, 255, 0.14);
+  --purple: #b398ff;
+  --purple-muted: rgba(179, 152, 255, 0.14);
+  --comment-card-from: rgba(11, 11, 13, 0.96);
+  --comment-card-to: rgba(3, 3, 4, 0.94);
+  --comment-card-shadow: 0 22px 56px rgba(0, 0, 0, 0.56), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  --avatar-ring: rgba(246, 239, 231, 0.11);
+  --scrollbar-thumb: #25201b;
+  --scrollbar-hover: #383028;
+  --selection-bg: rgba(232, 166, 85, 0.28);
+  --app-shell-background:
+    radial-gradient(1200px 320px at 50% -12%, rgba(212, 136, 58, 0.16), transparent 58%),
+    radial-gradient(720px 240px at 82% 0%, rgba(255, 255, 255, 0.05), transparent 52%),
+    linear-gradient(180deg, #050506 0%, #010101 18%, #000000 100%);
+  --noise-opacity: 0.01;
+  --accent-bar-opacity: 0.62;
+  --chrome-backdrop-filter: blur(24px) saturate(145%);
+  --bar-glass: rgba(12, 12, 15, 0.78);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast: 120ms;
+  --duration-normal: 200ms;
+  --duration-slow: 400ms;
+  --radius: 6px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 3c. Light theme — "Warm Parchment"
  *
  * Maintains the warm personality of Dispatch on a light canvas.
  * Copper accent stays. Backgrounds use warm cream/parchment tones.
@@ -478,6 +586,11 @@
   /* ---- Scrollbar ---- */
   --scrollbar-thumb: #ccc7c0;
   --scrollbar-hover: #b5afa7;
+  --selection-bg: rgba(212, 136, 58, 0.18);
+  --app-shell-background: linear-gradient(180deg, #f8f4ef 0%, #f5f1eb 100%);
+  --noise-opacity: 0.012;
+  --accent-bar-opacity: 0.32;
+  --chrome-backdrop-filter: blur(18px) saturate(115%);
   --bar-glass: rgba(255, 255, 255, 0.85);
 
   /* ---- Transitions (unchanged) ---- */
@@ -502,7 +615,8 @@
   }
 
   html,
-  html.dark {
+  html.dark,
+  html.oled {
     color-scheme: dark;
   }
   html.light {
@@ -511,6 +625,11 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  ::selection {
+    background: var(--selection-bg);
+    color: var(--text-primary);
   }
 
   code,
@@ -717,4 +836,33 @@ button.bg-primary:hover {
     outline: 2px solid transparent;
     outline-offset: 4px;
   }
+}
+
+.oled [data-slot="menu-popup"],
+.oled [data-slot="popover-popup"],
+.oled [data-slot="tooltip-popup"],
+.oled [data-slot="dialog-popup"],
+.oled [data-slot="alert-dialog-popup"],
+.oled [data-slot="sheet-popup"],
+.oled [data-slot="command-dialog-popup"],
+.oled [data-slot="select-popup"] > div {
+  backdrop-filter: blur(24px) saturate(145%);
+  box-shadow:
+    0 24px 80px rgba(0, 0, 0, 0.56),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.oled [data-slot="dialog-backdrop"],
+.oled [data-slot="alert-dialog-backdrop"],
+.oled [data-slot="sheet-backdrop"],
+.oled [data-slot="command-dialog-backdrop"] {
+  background: rgba(0, 0, 0, 0.52);
+  backdrop-filter: blur(18px) saturate(120%);
+}
+
+.oled [data-slot="button"].bg-primary:hover,
+.oled button.bg-primary:hover {
+  box-shadow:
+    0 0 0 1px rgba(212, 136, 58, 0.24),
+    0 0 28px rgba(212, 136, 58, 0.18);
 }

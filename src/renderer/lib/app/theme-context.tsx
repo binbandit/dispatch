@@ -5,7 +5,7 @@ import {
 } from "@/renderer/lib/review/highlighter";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
-type Theme = "dark" | "light" | "system";
+type Theme = "dark" | "light" | "oled" | "system";
 type ResolvedTheme = "dark" | "light";
 const LEGACY_SINGLE_CODE_THEME_STORAGE_KEY = "dispatch-code-theme";
 const LEGACY_SINGLE_CODE_THEME_PREFERENCE_KEY = "codeTheme";
@@ -39,13 +39,17 @@ function getSystemTheme(): ResolvedTheme {
 }
 
 function resolveTheme(theme: Theme): ResolvedTheme {
-  return theme === "system" ? getSystemTheme() : theme;
+  if (theme === "system") {
+    return getSystemTheme();
+  }
+
+  return theme === "light" ? "light" : "dark";
 }
 
-function applyTheme(resolved: ResolvedTheme) {
+function applyTheme(theme: Theme, resolved: ResolvedTheme) {
   const root = document.documentElement;
-  root.classList.remove("dark", "light");
-  root.classList.add(resolved);
+  root.classList.remove("dark", "light", "oled");
+  root.classList.add(theme === "system" ? resolved : theme);
   root.style.colorScheme = resolved;
 }
 
@@ -71,8 +75,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   // Apply theme class on changes
   useEffect(() => {
-    applyTheme(resolved);
-  }, [resolved]);
+    applyTheme(theme, resolved);
+  }, [resolved, theme]);
 
   // Load authoritative value from SQLite preferences on mount
   useEffect(() => {
@@ -83,7 +87,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       if (savedTheme && savedTheme !== theme) {
         setThemeState(savedTheme as Theme);
         localStorage.setItem("dispatch-theme", savedTheme);
-        applyTheme(resolveTheme(savedTheme as Theme));
+        applyTheme(savedTheme as Theme, resolveTheme(savedTheme as Theme));
       }
       const savedDark = prefs.codeThemeDark;
       if (savedDark) {
@@ -114,7 +118,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       return;
     }
     const mq = globalThis.matchMedia("(prefers-color-scheme: light)");
-    const handler = () => applyTheme(resolveTheme("system"));
+    const handler = () => applyTheme("system", resolveTheme("system"));
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
   }, [theme]);
@@ -122,7 +126,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem("dispatch-theme", newTheme);
-    applyTheme(resolveTheme(newTheme));
+    applyTheme(newTheme, resolveTheme(newTheme));
     ipc("preferences.set", { key: "theme", value: newTheme });
   }, []);
 

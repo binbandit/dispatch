@@ -34,10 +34,12 @@
             ? window.matchMedia("(prefers-color-scheme: light)").matches
               ? "light"
               : "dark"
-            : t;
+            : t === "light"
+              ? "light"
+              : "dark";
         var d = document.documentElement;
-        d.classList.remove("dark", "light");
-        d.classList.add(r);
+        d.classList.remove("dark", "light", "oled");
+        d.classList.add(t === "system" ? r : t);
         d.style.colorScheme = r;
       })();
     </script>
