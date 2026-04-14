@@ -1,4 +1,4 @@
-import type { SearchablePrItem } from "@/renderer/lib/inbox/pr-search";
+import type { PrSearchContext, SearchablePrItem } from "@/renderer/lib/inbox/pr-search";
 
 import { Kbd } from "@/components/ui/kbd";
 import {
@@ -17,6 +17,7 @@ interface SearchAutocompleteProps {
   query: string;
   cursorPosition: number;
   items: SearchablePrItem[];
+  context?: PrSearchContext;
   visible: boolean;
   onAccept: (newQuery: string, newCursor: number) => void;
   onDismiss: () => void;
@@ -32,6 +33,7 @@ export function SearchAutocomplete({
   query,
   cursorPosition,
   items,
+  context,
   visible,
   onAccept,
   onDismiss,
@@ -43,9 +45,9 @@ export function SearchAutocomplete({
   const { suggestions, token } = useMemo(
     () =>
       visible
-        ? getSearchSuggestions(query, cursorPosition, items)
+        ? getSearchSuggestions(query, cursorPosition, items, context)
         : { suggestions: [], token: null },
-    [query, cursorPosition, items, visible],
+    [query, cursorPosition, items, context, visible],
   );
 
   // Reset selection when suggestions change
@@ -171,15 +173,21 @@ const HELP_SECTIONS = [
     title: "Filter by field",
     items: [
       { syntax: "is:draft", desc: "Draft PRs" },
+      { syntax: "is:mine", desc: "Authored by you" },
+      { syntax: "is:active", desc: "Open and recently updated" },
       { syntax: "is:approved", desc: "Approved PRs" },
       { syntax: "is:changes", desc: "Changes requested" },
       { syntax: "is:new", desc: "New activity" },
       { syntax: "is:review", desc: "Review requested" },
       { syntax: "state:merged", desc: "Merged PRs" },
       { syntax: "review:changes", desc: "Review decision" },
+      { syntax: "updated:7d", desc: "Updated in the last week" },
+      { syntax: "age:>30d", desc: "Older than 30 days" },
       { syntax: "size:s|m|l|xl", desc: "PR size" },
       { syntax: "author:name", desc: "Author login or name" },
+      { syntax: "author:me", desc: "Current user alias" },
       { syntax: "repo:name", desc: "Repository" },
+      { syntax: "repo:current", desc: "Active workspace repo" },
       { syntax: "base:branch", desc: "Target branch" },
       { syntax: "head:branch", desc: "Source branch" },
     ],
@@ -188,6 +196,7 @@ const HELP_SECTIONS = [
     title: "Shortcuts",
     items: [
       { syntax: "@username", desc: "Author shortcut" },
+      { syntax: "@me", desc: "Current user shortcut" },
       { syntax: "#123", desc: "PR number" },
       { syntax: '"exact match"', desc: "Quoted phrase" },
     ],
@@ -198,13 +207,15 @@ const HELP_SECTIONS = [
       { syntax: "repo:dispatch review:approved", desc: "Implicit AND" },
       { syntax: "repo:dispatch OR repo:api", desc: "Either side can match" },
       { syntax: "(review:changes OR is:draft)", desc: "Group with parentheses" },
+      { syntax: "!(repo:archive OR @bot)", desc: "Exclude grouped clauses" },
     ],
   },
   {
     title: "Modifiers",
     items: [
       { syntax: "-term", desc: "Exclude results" },
-      { syntax: "!(repo:archive OR @bot)", desc: "Negated group" },
+      { syntax: "updated:<24h", desc: "Updated within a day" },
+      { syntax: "age:>7d", desc: "Older than a week" },
     ],
   },
 ] as const;

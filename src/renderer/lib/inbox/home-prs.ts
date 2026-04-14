@@ -1,6 +1,6 @@
 import type { GhPrListItemCore } from "@/shared/ipc";
 
-import { searchPrs } from "./pr-search";
+import { searchPrs, type PrSearchContext } from "./pr-search";
 
 export type DashboardPr = GhPrListItemCore & {
   workspace: string;
@@ -103,7 +103,11 @@ export function preferWorkspacePrs(
   return [...deduped.values()];
 }
 
-export function filterHomePrSections(sections: PrSection[], query: string): PrSection[] {
+export function filterHomePrSections(
+  sections: PrSection[],
+  query: string,
+  context: PrSearchContext = {},
+): PrSection[] {
   const trimmedQuery = query.trim();
   if (!trimmedQuery) {
     return sections.filter((section) => section.items.length > 0);
@@ -113,6 +117,7 @@ export function filterHomePrSections(sections: PrSection[], query: string): PrSe
     searchPrs(
       sections.flatMap((section) => section.items),
       trimmedQuery,
+      context,
     ).map(({ item }) => getDashboardPrKey(item.pr.workspacePath ?? "", item.pr.number)),
   );
 

@@ -1,7 +1,15 @@
+import type { PrSearchContext } from "@/renderer/lib/inbox/pr-search";
+
 /* eslint-disable import/max-dependencies -- The home view intentionally centralizes dashboard data and section rendering for the main workspace surface. */
 import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
+import {
+  type SearchAutocompleteActions,
+  SearchAutocomplete,
+  SearchHelpPopover,
+} from "@/renderer/components/inbox/search-autocomplete";
+import { SearchPresetChips } from "@/renderer/components/inbox/search-presets";
 import { AddRepoDialog } from "@/renderer/components/shared/add-repo-dialog";
 import { useKeyboardShortcuts } from "@/renderer/hooks/app/use-keyboard-shortcuts";
 import { usePrSearchRefreshOnMiss } from "@/renderer/hooks/app/use-pr-search-refresh";
@@ -19,6 +27,7 @@ import {
   type SectionId,
   preferWorkspacePrs,
 } from "@/renderer/lib/inbox/home-prs";
+import { getPrSearchPresets } from "@/renderer/lib/inbox/pr-search-presets";
 import { useKeybindings } from "@/renderer/lib/keyboard/keybinding-context";
 import {
   getPrActivityKey,
@@ -30,7 +39,6 @@ import { RefreshCw, Search } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 import { KbdHint, PrSectionView, RepoSelector } from "./home-view-parts";
-import { SearchHelpPopover } from "./search-autocomplete";
 
 // ---------------------------------------------------------------------------
 // HomeView
@@ -48,6 +56,9 @@ export function HomeView() {
   );
   const [focusIndex, setFocusIndex] = useState(-1);
   const searchRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<SearchAutocompleteActions | null>(null);
+  const [autocompleteOpen, setAutocompleteOpen] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState(0);
   const [repoDropdownOpen, setRepoDropdownOpen] = useState(false);
   const [addRepoOpen, setAddRepoOpen] = useState(false);
   const repoRef = useRef<HTMLDivElement>(null);
@@ -162,11 +173,18 @@ export function HomeView() {
     () => categorizeHomePrs(allPrs, reviewRequestedKeys, currentUser, canMergeTargetRepo),
     [allPrs, canMergeTargetRepo, currentUser, reviewRequestedKeys],
   );
+  const searchContext = useMemo<PrSearchContext>(
+    () => ({
+      currentAuthorLogin: currentUser,
+      currentRepoTerms: [nwo, repoName, pullRequestRepository],
+    }),
+    [currentUser, nwo, pullRequestRepository, repoName],
+  );
 
   // Search filter
   const filteredSections = useMemo(
-    () => filterHomePrSections(sections, searchQuery),
-    [searchQuery, sections],
+    () => filterHomePrSections(sections, searchQuery, searchContext),
+    [searchContext, searchQuery, sections],
   );
   const filteredCount = useMemo(
     () => filteredSections.reduce((sum, section) => sum + section.items.length, 0),
@@ -455,7 +473,7 @@ export function HomeView() {
 
               {/* Search */}
               <div
-                className="border-border bg-bg-surface focus-within:border-border-strong flex flex-1 items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors"
+                className="border-border bg-bg-surface focus-within:border-border-strong relative flex flex-1 items-center gap-2 rounded-md border px-2.5 py-1.5 transition-colors"
                 role="search"
               >
                 <Search
@@ -471,10 +489,18 @@ export function HomeView() {
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                     setFocusIndex(-1);
+                    setCursorPosition(e.target.selectionStart ?? e.target.value.length);
+                    setAutocompleteOpen(true);
                   }}
-                  placeholder="Search PRs — @author, repo:dispatch, (review:changes OR state:merged)"
+                  onFocus={() => setAutocompleteOpen(true)}
+                  onBlur={() => setAutocompleteOpen(false)}
+                  placeholder="Search PRs — @me, repo:current, updated:7d, (review:changes OR is:draft)"
                   className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
                   onKeyDown={(e) => {
+                    if (autocompleteOpen && autocompleteRef.current?.handleKeyDown(e)) {
+                      return;
+                    }
+
                     if (e.key === "Escape") {
                       e.preventDefault();
                       if (searchQuery) {
@@ -487,6 +513,26 @@ export function HomeView() {
                 />
                 <Kbd className="h-[18px] min-w-[18px] px-1 text-[9px]">/</Kbd>
                 <SearchHelpPopover />
+                <SearchAutocomplete
+                  query={searchQuery}
+                  cursorPosition={cursorPosition}
+                  items={allPrs}
+                  context={searchContext}
+                  visible={autocompleteOpen}
+                  onAccept={(newQuery, newCursor) => {
+                    setSearchQuery(newQuery);
+                    setCursorPosition(newCursor);
+                    requestAnimationFrame(() => {
+                      const input = searchRef.current;
+                      if (input) {
+                        input.focus();
+                        input.setSelectionRange(newCursor, newCursor);
+                      }
+                    });
+                  }}
+                  onDismiss={() => setAutocompleteOpen(false)}
+                  actionRef={autocompleteRef}
+                />
               </div>
 
               <button
@@ -504,6 +550,14 @@ export function HomeView() {
                 <span>{isRefreshing ? "Refreshing" : "Refresh"}</span>
               </button>
             </div>
+            <SearchPresetChips
+              presets={getPrSearchPresets("home")}
+              activeQuery={searchQuery}
+              onSelect={(preset) => {
+                setSearchQuery(preset.query);
+                setFocusIndex(-1);
+              }}
+            />
 
             {/* Loading */}
             {isLoading && (

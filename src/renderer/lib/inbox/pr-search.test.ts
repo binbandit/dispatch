@@ -103,6 +103,12 @@ describe("parsePrSearchQuery", () => {
 });
 
 describe("searchPrs", () => {
+  const searchContext = {
+    currentAuthorLogin: "brayden",
+    currentRepoTerms: ["dispatch", "acme/dispatch"],
+    now: Date.parse("2026-03-20T12:00:00Z"),
+  };
+
   const items: SearchablePrItem[] = [
     createItem({
       hasNewActivity: true,
@@ -218,6 +224,30 @@ describe("searchPrs", () => {
         ({ item }) => item.pr.number,
       ),
     ).toEqual([301]);
+  });
+
+  it("supports time filters and context-aware aliases", () => {
+    expect(searchPrs(items, "author:me", searchContext).map(({ item }) => item.pr.number)).toEqual([
+      42,
+    ]);
+    expect(
+      searchPrs(items, "repo:current", searchContext).map(({ item }) => item.pr.number),
+    ).toEqual([42, 301]);
+    expect(searchPrs(items, "is:mine", searchContext).map(({ item }) => item.pr.number)).toEqual([
+      42,
+    ]);
+    expect(
+      searchPrs(items, "updated:<24h", searchContext).map(({ item }) => item.pr.number),
+    ).toEqual([120, 42]);
+    expect(searchPrs(items, "age:>2d", searchContext).map(({ item }) => item.pr.number)).toEqual([
+      240, 301,
+    ]);
+  });
+
+  it("supports active aliases for open recently-updated pull requests", () => {
+    expect(searchPrs(items, "is:active", searchContext).map(({ item }) => item.pr.number)).toEqual([
+      120, 42, 9, 240,
+    ]);
   });
 
   it("matches author queries against logins and display names", () => {

@@ -54,12 +54,34 @@ describe("getSearchSuggestions", () => {
         (suggestion) => suggestion.completion,
       ),
     ).toContain("review:changes");
+    expect(
+      getSearchSuggestions("upd", 3, items).suggestions.map((suggestion) => suggestion.completion),
+    ).toContain("updated:");
   });
 
   it("treats grouping characters as token boundaries", () => {
     expect(
       getSearchSuggestions("(rev", 4, items).suggestions.map((suggestion) => suggestion.completion),
     ).toContain("review:");
+  });
+
+  it("suggests aliases and operators when context is available", () => {
+    expect(
+      getSearchSuggestions("o", 1, items, {
+        currentAuthorLogin: "brayden",
+        currentRepoTerms: ["dispatch", "acme/dispatch"],
+      }).suggestions.map((suggestion) => suggestion.completion),
+    ).toContain("OR");
+    expect(
+      getSearchSuggestions("author:m", 8, items, {
+        currentAuthorLogin: "brayden",
+      }).suggestions.map((suggestion) => suggestion.completion),
+    ).toContain("author:me");
+    expect(
+      getSearchSuggestions("repo:c", 6, items, {
+        currentRepoTerms: ["dispatch"],
+      }).suggestions.map((suggestion) => suggestion.completion),
+    ).toContain("repo:current");
   });
 });
 
