@@ -16,7 +16,7 @@ import {
   parseAiTriagePayload,
 } from "@/shared/ai-triage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Sparkles } from "lucide-react";
+import { RefreshCw, Sparkles } from "lucide-react";
 import { useEffect, useMemo } from "react";
 
 type AiTriageRunStatus = "idle" | "running" | "error";
@@ -291,7 +291,7 @@ export function useAiTriageSections({
   }, [activeAiTriage, heuristicTriageSections, triageGroups]);
 
   const startAiTriageGenerationInBackground = () => {
-    if (!aiTriageInput || !aiTriageSnapshotKey || isTriageRunning) {
+    if (!aiTriageInput || !aiTriageSnapshotKey || isTriageRunning || !hasAiCandidateFiles) {
       return;
     }
 
@@ -360,18 +360,21 @@ export function useAiTriageSections({
               ? aiTriageNeedsRefresh
                 ? "PR changed. Using stable triage until AI is refreshed."
                 : activeAiTriage
-                  ? "AI aligned files to the triage sections."
+                  ? shouldShowTriageError
+                    ? "AI grouping failed on last run."
+                    : "AI aligned files to the triage sections."
                   : shouldShowTriageError
                     ? "AI grouping failed. Using default buckets."
                     : "Using default buckets while AI grouping warms up."
               : "Using stable triage buckets for this PR."}
         </span>
-        {(aiTriageNeedsRefresh || shouldShowTriageError) && !isTriageRunning ? (
+        {!isTriageRunning && aiTriageInput && hasAiCandidateFiles ? (
           <button
             type="button"
             onClick={startAiTriageGenerationInBackground}
-            className="text-accent-text hover:text-text-primary shrink-0 cursor-pointer text-[10px] font-medium transition-colors"
+            className="text-accent-text hover:text-text-primary inline-flex shrink-0 cursor-pointer items-center gap-1 text-[10px] font-medium uppercase tracking-[0.04em] transition-colors"
           >
+            <RefreshCw size={9} />
             {shouldShowTriageError ? "Retry" : "Refresh"}
           </button>
         ) : null}
