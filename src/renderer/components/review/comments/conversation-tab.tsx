@@ -1,6 +1,8 @@
 /* eslint-disable import/max-dependencies -- This timeline surface composes many focused conversation primitives. */
 import type { GhReactionGroup, GhReviewThread } from "@/shared/ipc";
 
+import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { ReactionBar } from "@/renderer/components/review/comments/reaction-bar";
 import { ReviewMarkdownComposer } from "@/renderer/components/review/comments/review-markdown-composer";
@@ -856,9 +858,10 @@ function parseBotSeverity(
   return null;
 }
 
-function PanelComposer({ prNumber }: { prNumber: number }) {
+export function PanelComposer({ prNumber }: { prNumber: number }) {
   const { repoTarget } = useWorkspace();
   const [body, setBody] = useState("");
+  const trimmedBody = body.trim();
 
   const commentMutation = useMutation({
     mutationFn: (args: { body: string }) => ipc("pr.comment", { ...repoTarget, prNumber, ...args }),
@@ -874,6 +877,14 @@ function PanelComposer({ prNumber }: { prNumber: number }) {
 
   const isMac = typeof navigator !== "undefined" && navigator.platform.includes("Mac");
 
+  function handleSubmit() {
+    if (!trimmedBody) {
+      return;
+    }
+
+    commentMutation.mutate({ body: trimmedBody });
+  }
+
   return (
     <div
       className="shrink-0"
@@ -884,9 +895,9 @@ function PanelComposer({ prNumber }: { prNumber: number }) {
         compact
         onChange={setBody}
         onKeyDown={(e) => {
-          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && body.trim()) {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && trimmedBody) {
             e.preventDefault();
-            commentMutation.mutate({ body: body.trim() });
+            handleSubmit();
           }
         }}
         placeholder="Leave a comment…"
@@ -894,11 +905,21 @@ function PanelComposer({ prNumber }: { prNumber: number }) {
         rows={3}
         value={body}
       />
-      <div
-        className="text-text-ghost font-mono"
-        style={{ fontSize: "10px", marginTop: "3px" }}
-      >
-        {isMac ? "⌘" : "Ctrl"}+Enter to submit
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <div
+          className="text-text-ghost font-mono"
+          style={{ fontSize: "10px" }}
+        >
+          {isMac ? "⌘" : "Ctrl"}+Enter to submit
+        </div>
+        <Button
+          size="sm"
+          className="shrink-0 text-[11px]"
+          disabled={!trimmedBody || commentMutation.isPending}
+          onClick={handleSubmit}
+        >
+          {commentMutation.isPending ? <Spinner className="h-3 w-3" /> : "Comment"}
+        </Button>
       </div>
     </div>
   );
