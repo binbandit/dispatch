@@ -96,7 +96,7 @@ export function Navbar({
 
       {/* Nav tabs */}
       <nav
-        className={`flex min-w-0 items-center gap-0.5 overflow-hidden ${collapseChromeLabels ? "ml-3" : "ml-6"}`}
+        className={`flex min-w-0 items-center gap-0.5 ${collapseChromeLabels ? "ml-3" : "ml-6"}`}
         style={{ WebkitAppRegion: "no-drag" } as React.CSSProperties}
       >
         <NavTab
@@ -472,7 +472,7 @@ function NavTab({
       {icon}
       {!compact && label}
       {active && (
-        <div className="bg-primary absolute bottom-[-7px] left-1/2 h-[1.5px] w-4 -translate-x-1/2 rounded-[1px]" />
+        <div className="bg-primary pointer-events-none absolute right-2 bottom-[-7px] left-2 h-[1.5px] rounded-[1px]" />
       )}
     </button>
   );
