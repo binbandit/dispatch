@@ -16,6 +16,8 @@ export const workspaceHandlers: Pick<
   | "workspace.setActive"
   | "workspace.pickFolder"
   | "workspace.searchGitHub"
+  | "workspace.checkPath"
+  | "workspace.unlinkPath"
 > = {
   "workspace.list": async () => {
     const workspaces = repo.getWorkspaces();
@@ -90,4 +92,8 @@ export const workspaceHandlers: Pick<
     return result.filePaths[0] ?? null;
   },
   "workspace.searchGitHub": (args) => ghCli.searchRepos(args.query, args.limit),
+  "workspace.checkPath": (args) => repo.checkWorkspacePath(args.id),
+  "workspace.unlinkPath": (args) => {
+    repo.unlinkWorkspacePath(args.id);
+  },
 };

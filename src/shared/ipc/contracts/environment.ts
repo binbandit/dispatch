@@ -52,4 +52,12 @@ export interface EnvironmentIpcApi {
     args: { query: string; limit?: number };
     result: GhRepoSearchResult[];
   };
+  "workspace.checkPath": {
+    args: { id: number };
+    result: boolean;
+  };
+  "workspace.unlinkPath": {
+    args: { id: number };
+    result: void;
+  };
 }

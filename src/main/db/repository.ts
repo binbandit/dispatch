@@ -573,6 +573,29 @@ export function addWorkspace(args: {
   }
 }
 
+export function checkWorkspacePath(id: number): boolean {
+  const db = getDatabase();
+  const row = db.prepare("SELECT path FROM workspaces WHERE id = ?").get(id) as
+    | { path: string | null }
+    | undefined;
+  // Remote-only workspaces are always valid
+  if (!row || !row.path) {
+    return true;
+  }
+  return splitWorkspaceRows([{ path: row.path }]).validRows.length > 0;
+}
+
+export function unlinkWorkspacePath(id: number): void {
+  const db = getDatabase();
+  const row = db.prepare("SELECT path FROM workspaces WHERE id = ?").get(id) as
+    | { path: string | null }
+    | undefined;
+  if (row?.path) {
+    db.prepare("DELETE FROM repo_accounts WHERE path = ?").run(row.path);
+  }
+  db.prepare("UPDATE workspaces SET path = NULL WHERE id = ?").run(id);
+}
+
 function pruneMissingWorkspaces(): Array<{
   id: number;
   owner: string | null;

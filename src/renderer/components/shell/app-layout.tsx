@@ -13,6 +13,7 @@ import { ReleasesView } from "@/renderer/components/workflows/releases-view";
 import { WorkflowsDashboard } from "@/renderer/components/workflows/workflows-dashboard";
 import { useKeyboardShortcuts } from "@/renderer/hooks/app/use-keyboard-shortcuts";
 import { useNotificationPolling } from "@/renderer/hooks/app/use-notification-polling";
+import { useWorkspacePathMonitor } from "@/renderer/hooks/app/use-workspace-path-monitor";
 import { CommandPaletteProvider } from "@/renderer/lib/app/command-palette-context";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { listenForMainProcessEvents } from "@/renderer/lib/app/posthog";
@@ -36,6 +37,7 @@ import {
   useState,
 } from "react";
 
+import { MissingFolderDialog } from "../shared/missing-folder-dialog";
 import { KeyboardShortcutsDialog } from "./keyboard-shortcuts-dialog";
 import { Navbar } from "./navbar";
 import { UpdateBanner } from "./update-banner";
@@ -134,6 +136,8 @@ function AppShell({ resumeState, resumeReady, initialFileNavState }: AppShellPro
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed((v) => !v);
   }, []);
+
+  const { pathMissing, dismiss: dismissPathMissing } = useWorkspacePathMonitor();
 
   useKeyboardShortcuts([
     { ...getBinding("navigation.toggleSidebar"), handler: toggleSidebar },
@@ -335,6 +339,12 @@ function AppShell({ resumeState, resumeReady, initialFileNavState }: AppShellPro
 
         {/* Command palette (⌘K) */}
         <CommandPalette />
+
+        {/* Missing folder recovery dialog */}
+        <MissingFolderDialog
+          open={pathMissing}
+          onResolved={dismissPathMissing}
+        />
       </div>
     </CommandPaletteProvider>
   );
