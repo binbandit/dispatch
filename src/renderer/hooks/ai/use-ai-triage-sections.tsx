@@ -372,7 +372,7 @@ export function useAiTriageSections({
           <button
             type="button"
             onClick={startAiTriageGenerationInBackground}
-            className="text-accent-text hover:text-text-primary inline-flex shrink-0 cursor-pointer items-center gap-1 text-[10px] font-medium uppercase tracking-[0.04em] transition-colors"
+            className="text-accent-text hover:text-text-primary inline-flex shrink-0 cursor-pointer items-center gap-1 text-[10px] font-medium tracking-[0.04em] uppercase transition-colors"
           >
             <RefreshCw size={9} />
             {shouldShowTriageError ? "Retry" : "Refresh"}
