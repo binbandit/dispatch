@@ -380,15 +380,15 @@
 .oled {
   --background: #000000;
   --foreground: #f6efe7;
-  --card: rgba(10, 10, 12, 0.96);
+  --card: rgba(14, 14, 17, 0.96);
   --card-foreground: #f6efe7;
-  --popover: rgba(12, 12, 15, 0.94);
+  --popover: rgba(16, 16, 20, 0.94);
   --popover-foreground: #f6efe7;
   --primary: #d4883a;
   --primary-foreground: #050403;
-  --secondary: rgba(13, 13, 16, 0.92);
+  --secondary: rgba(16, 16, 20, 0.92);
   --secondary-foreground: #f6efe7;
-  --muted: rgba(7, 7, 9, 0.88);
+  --muted: rgba(10, 10, 13, 0.90);
   --muted-foreground: #b0a69a;
   --accent: rgba(212, 136, 58, 0.16);
   --accent-foreground: #f1b36d;
@@ -400,16 +400,16 @@
   --success-foreground: #44e39a;
   --warning: #f4bf57;
   --warning-foreground: #f4bf57;
-  --border: #1b1813;
+  --border: #221f18;
   --input: #2d2720;
   --ring: #e5a764;
-  --sidebar: rgba(5, 5, 7, 0.86);
+  --sidebar: rgba(9, 9, 11, 0.90);
   --sidebar-foreground: #b0a69a;
   --sidebar-primary: #d4883a;
   --sidebar-primary-foreground: #050403;
   --sidebar-accent: rgba(212, 136, 58, 0.14);
   --sidebar-accent-foreground: #f6efe7;
-  --sidebar-border: #120f0b;
+  --sidebar-border: #18150f;
   --sidebar-ring: #e5a764;
   --code: #09090b;
   --code-highlight: rgba(212, 136, 58, 0.12);
@@ -419,9 +419,9 @@
   --chart-4: #b398ff;
   --chart-5: #ff7a71;
   --bg-root: #000000;
-  --bg-surface: rgba(5, 5, 7, 0.84);
-  --bg-raised: rgba(10, 10, 12, 0.9);
-  --bg-elevated: rgba(16, 16, 20, 0.96);
+  --bg-surface: rgba(9, 9, 11, 0.88);
+  --bg-raised: rgba(14, 14, 17, 0.92);
+  --bg-elevated: rgba(20, 20, 24, 0.96);
   --bg-overlay: rgba(0, 0, 0, 0.88);
   --text-primary: #f6efe7;
   --text-secondary: #b0a69a;
@@ -430,8 +430,8 @@
   --accent-hover: #e6a45f;
   --accent-muted: rgba(212, 136, 58, 0.16);
   --accent-text: #f1b36d;
-  --border-subtle: #120f0b;
-  --border-strong: #2d2720;
+  --border-subtle: #1a1610;
+  --border-strong: #332e26;
   --border-accent: rgba(212, 136, 58, 0.32);
   --diff-add-bg: rgba(68, 227, 154, 0.09);
   --diff-add-bar: #44e39a;
@@ -446,21 +446,21 @@
   --info-muted: rgba(107, 182, 255, 0.14);
   --purple: #b398ff;
   --purple-muted: rgba(179, 152, 255, 0.14);
-  --comment-card-from: rgba(11, 11, 13, 0.96);
-  --comment-card-to: rgba(3, 3, 4, 0.94);
+  --comment-card-from: rgba(14, 14, 17, 0.96);
+  --comment-card-to: rgba(6, 6, 8, 0.94);
   --comment-card-shadow: 0 22px 56px rgba(0, 0, 0, 0.56), inset 0 1px 0 rgba(255, 255, 255, 0.03);
   --avatar-ring: rgba(246, 239, 231, 0.11);
-  --scrollbar-thumb: #25201b;
-  --scrollbar-hover: #383028;
+  --scrollbar-thumb: #2e2820;
+  --scrollbar-hover: #3f362c;
   --selection-bg: rgba(232, 166, 85, 0.28);
   --app-shell-background:
     radial-gradient(1200px 320px at 50% -12%, rgba(212, 136, 58, 0.16), transparent 58%),
-    radial-gradient(720px 240px at 82% 0%, rgba(255, 255, 255, 0.05), transparent 52%),
+    radial-gradient(720px 240px at 82% 0%, rgba(232, 200, 160, 0.04), transparent 52%),
     linear-gradient(180deg, #050506 0%, #010101 18%, #000000 100%);
-  --noise-opacity: 0.01;
+  --noise-opacity: 0.025;
   --accent-bar-opacity: 0.62;
   --chrome-backdrop-filter: blur(24px) saturate(145%);
-  --bar-glass: rgba(12, 12, 15, 0.78);
+  --bar-glass: rgba(16, 16, 20, 0.84);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
   --duration-fast: 120ms;
