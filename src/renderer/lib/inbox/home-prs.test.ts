@@ -290,7 +290,11 @@ describe("categorizeHomePrs — additional", () => {
     const sections = categorizeHomePrs([], new Set(), "me");
     expect(sections).toHaveLength(5);
     expect(sections.map((s) => s.id)).toEqual([
-      "attention", "reReview", "ship", "progress", "completed",
+      "attention",
+      "reReview",
+      "ship",
+      "progress",
+      "completed",
     ]);
   });
 });

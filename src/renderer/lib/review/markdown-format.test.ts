@@ -75,14 +75,22 @@ describe("applyMarkdownFormat", () => {
 
   describe("bullet-list", () => {
     it("prefixes selected lines with -", () => {
-      const result = applyMarkdownFormat("item one\nitem two", { start: 0, end: 17 }, "bullet-list");
+      const result = applyMarkdownFormat(
+        "item one\nitem two",
+        { start: 0, end: 17 },
+        "bullet-list",
+      );
       expect(result.value).toBe("- item one\n- item two");
     });
   });
 
   describe("numbered-list", () => {
     it("prefixes lines with sequential numbers", () => {
-      const result = applyMarkdownFormat("first\nsecond\nthird", { start: 0, end: 18 }, "numbered-list");
+      const result = applyMarkdownFormat(
+        "first\nsecond\nthird",
+        { start: 0, end: 18 },
+        "numbered-list",
+      );
       expect(result.value).toBe("1. first\n2. second\n3. third");
     });
   });

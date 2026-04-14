@@ -54,7 +54,14 @@ describe("summarizePrChecks", () => {
   });
 
   it("counts pending statuses correctly", () => {
-    const pendingStatuses = ["expected", "in_progress", "pending", "queued", "requested", "waiting"];
+    const pendingStatuses = [
+      "expected",
+      "in_progress",
+      "pending",
+      "queued",
+      "requested",
+      "waiting",
+    ];
     const result = summarizePrChecks(
       pendingStatuses.map((status) => ({ status, conclusion: null })),
     );
@@ -98,9 +105,7 @@ describe("summarizePrChecks", () => {
   });
 
   it("handles whitespace in conclusion values", () => {
-    const result = summarizePrChecks([
-      { status: "COMPLETED", conclusion: "  success  " },
-    ]);
+    const result = summarizePrChecks([{ status: "COMPLETED", conclusion: "  success  " }]);
     expect(result.passed).toBe(1);
   });
 

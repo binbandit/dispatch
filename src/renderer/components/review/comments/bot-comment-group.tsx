@@ -1,6 +1,5 @@
-import type { GhReactionGroup } from "@/shared/ipc";
-
 import type { ReviewComment } from "@/renderer/components/review/comments/inline-comment";
+import type { GhReactionGroup } from "@/shared/ipc";
 
 import { CommentBody } from "@/renderer/components/review/comments/comment-body";
 import { InlineMetaBadge } from "@/renderer/components/review/comments/inline-meta-badge";

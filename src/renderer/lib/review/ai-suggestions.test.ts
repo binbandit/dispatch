@@ -177,9 +177,10 @@ describe("parseSuggestionsResponse — additional cases", () => {
   const validLines = new Set([1, 2, 3, 10]);
 
   it("strips markdown code fences", () => {
-    const raw = "```json\n" + JSON.stringify([
-      { line: 1, severity: "warning", title: "Perf", body: "Optimize" },
-    ]) + "\n```";
+    const raw =
+      "```json\n" +
+      JSON.stringify([{ line: 1, severity: "warning", title: "Perf", body: "Optimize" }]) +
+      "\n```";
     expect(parseSuggestionsResponse(raw, "f.ts", validLines)).toHaveLength(1);
   });
 
@@ -218,7 +219,10 @@ describe("parseSuggestionsResponse — additional cases", () => {
 
   it("caps at 5 suggestions", () => {
     const items = Array.from({ length: 10 }, (_, i) => ({
-      line: 1, severity: "suggestion", title: `T${i}`, body: `B${i}`,
+      line: 1,
+      severity: "suggestion",
+      title: `T${i}`,
+      body: `B${i}`,
     }));
     expect(parseSuggestionsResponse(JSON.stringify(items), "f.ts", validLines)).toHaveLength(5);
   });

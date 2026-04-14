@@ -90,10 +90,7 @@ function startAiTriageGeneration({
   }
 
   const previousState = queryClient.getQueryData<AiTriageRunState>(runStateQueryKey);
-  if (
-    previousState?.status === "running" &&
-    previousState.snapshotKey === aiTriageSnapshotKey
-  ) {
+  if (previousState?.status === "running" && previousState.snapshotKey === aiTriageSnapshotKey) {
     return Promise.resolve();
   }
 
@@ -276,15 +273,13 @@ export function useAiTriageSections({
     staleTime: Number.POSITIVE_INFINITY,
   });
   const activeRunState =
-    aiTriageSnapshotKey && runState.data.snapshotKey === aiTriageSnapshotKey
-      ? runState.data
-      : null;
+    aiTriageSnapshotKey && runState.data.snapshotKey === aiTriageSnapshotKey ? runState.data : null;
   const isTriageRunning = activeRunState?.status === "running";
   const shouldShowTriageError = activeRunState?.status === "error";
   const aiTriageNeedsRefresh = Boolean(
     aiTriageSnapshotKey &&
-      aiTriageQuery.data &&
-      aiTriageQuery.data.snapshotKey !== aiTriageSnapshotKey,
+    aiTriageQuery.data &&
+    aiTriageQuery.data.snapshotKey !== aiTriageSnapshotKey,
   );
   const activeAiTriage = aiTriageNeedsRefresh ? null : parsedAiTriage;
   const sections = useMemo(() => {

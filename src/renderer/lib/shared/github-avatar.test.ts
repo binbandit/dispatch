@@ -146,8 +146,8 @@ describe("resizeGitHubAvatarUrl — additional", () => {
   });
 
   it("replaces existing s param on CDN URL", () => {
-    expect(
-      resizeGitHubAvatarUrl("https://avatars.githubusercontent.com/u/1?s=32&v=4", 96),
-    ).toBe("https://avatars.githubusercontent.com/u/1?v=4&s=96");
+    expect(resizeGitHubAvatarUrl("https://avatars.githubusercontent.com/u/1?s=32&v=4", 96)).toBe(
+      "https://avatars.githubusercontent.com/u/1?v=4&s=96",
+    );
   });
 });

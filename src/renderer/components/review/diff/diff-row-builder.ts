@@ -1,7 +1,7 @@
-import type { AiSuggestion } from "@/renderer/lib/review/ai-suggestions";
-import type { DiffFile, DiffLine } from "@/renderer/lib/review/diff-parser";
 import type { ReviewComment } from "@/renderer/components/review/comments/inline-comment";
 import type { Annotation } from "@/renderer/components/review/diff/ci-annotation";
+import type { AiSuggestion } from "@/renderer/lib/review/ai-suggestions";
+import type { DiffFile, DiffLine } from "@/renderer/lib/review/diff-parser";
 
 import { getDiffFilePath } from "@/renderer/lib/review/diff-parser";
 import { getReviewPositionKey } from "@/renderer/lib/review/review-position";

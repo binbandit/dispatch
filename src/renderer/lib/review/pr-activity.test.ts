@@ -15,8 +15,18 @@ describe("indexPrActivityStates", () => {
 
   it("indexes by repo::prNumber key", () => {
     const states = [
-      { repo: "owner/repo", prNumber: 1, lastSeenUpdatedAt: "2024-01-01T00:00:00Z", seenAt: "2024-01-01T00:00:00Z" },
-      { repo: "owner/repo", prNumber: 2, lastSeenUpdatedAt: "2024-01-02T00:00:00Z", seenAt: "2024-01-02T00:00:00Z" },
+      {
+        repo: "owner/repo",
+        prNumber: 1,
+        lastSeenUpdatedAt: "2024-01-01T00:00:00Z",
+        seenAt: "2024-01-01T00:00:00Z",
+      },
+      {
+        repo: "owner/repo",
+        prNumber: 2,
+        lastSeenUpdatedAt: "2024-01-02T00:00:00Z",
+        seenAt: "2024-01-02T00:00:00Z",
+      },
     ];
     const map = indexPrActivityStates(states);
     expect(map.size).toBe(2);
@@ -57,11 +67,11 @@ describe("hasNewPrActivity", () => {
   });
 
   it("returns false for invalid date strings", () => {
-    expect(
-      hasNewPrActivity("not-a-date", { lastSeenUpdatedAt: "2024-06-01T00:00:00Z" }),
-    ).toBe(false);
-    expect(
-      hasNewPrActivity("2024-06-01T00:00:00Z", { lastSeenUpdatedAt: "not-a-date" }),
-    ).toBe(false);
+    expect(hasNewPrActivity("not-a-date", { lastSeenUpdatedAt: "2024-06-01T00:00:00Z" })).toBe(
+      false,
+    );
+    expect(hasNewPrActivity("2024-06-01T00:00:00Z", { lastSeenUpdatedAt: "not-a-date" })).toBe(
+      false,
+    );
   });
 });

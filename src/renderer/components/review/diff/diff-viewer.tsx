@@ -26,11 +26,7 @@ import {
   type NonLineFlatRow,
 } from "@/renderer/components/review/diff/diff-row-builder";
 import { useTheme } from "@/renderer/lib/app/theme-context";
-import {
-  getDiffFilePath,
-  type DiffFile,
-  type Segment,
-} from "@/renderer/lib/review/diff-parser";
+import { getDiffFilePath, type DiffFile, type Segment } from "@/renderer/lib/review/diff-parser";
 import {
   DEFAULT_CODE_THEME_DARK,
   DEFAULT_CODE_THEME_LIGHT,
@@ -191,7 +187,11 @@ export function DiffViewer({
   }>({ from: null, hover: null });
 
   const selectionRange = useMemo<{ side: CommentSide; start: number; end: number } | null>(() => {
-    if (dragState.from !== null && dragState.hover !== null && dragState.from.side === dragState.hover.side) {
+    if (
+      dragState.from !== null &&
+      dragState.hover !== null &&
+      dragState.from.side === dragState.hover.side
+    ) {
       return {
         side: dragState.from.side,
         start: Math.min(dragState.from.line, dragState.hover.line),

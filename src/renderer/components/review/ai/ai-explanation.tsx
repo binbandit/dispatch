@@ -92,9 +92,7 @@ export function AiExplanation({ filePath, codeSnippet, language, onDismiss }: Ai
             <span className="text-text-tertiary text-xs">Thinking...</span>
           </div>
         ) : explainMutation.isError ? (
-          <p className="text-destructive text-xs">
-            {getErrorMessage(explainMutation.error)}
-          </p>
+          <p className="text-destructive text-xs">{getErrorMessage(explainMutation.error)}</p>
         ) : (
           <Button
             size="sm"

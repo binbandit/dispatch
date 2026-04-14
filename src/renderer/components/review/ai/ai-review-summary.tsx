@@ -61,13 +61,8 @@ function summarizeInBackground({
   snapshotKey: string;
   summaryCacheQueryKey: readonly ["ai", "reviewSummary", string, number];
 }) {
-  const previousState = queryClient.getQueryData<AiReviewSummaryRunState>(
-    runStateQueryKey,
-  );
-  if (
-    previousState?.status === "running" &&
-    previousState.snapshotKey === snapshotKey
-  ) {
+  const previousState = queryClient.getQueryData<AiReviewSummaryRunState>(runStateQueryKey);
+  if (previousState?.status === "running" && previousState.snapshotKey === snapshotKey) {
     return Promise.resolve();
   }
   const runId = (previousState?.runId ?? 0) + 1;
@@ -146,7 +141,12 @@ function summarizeInBackground({
       );
       const fallbackSummary =
         parsedSummary?.summary ??
-        (fencedSummaryMatch?.[1] ?? summaryResponse).trim().split("\n").slice(0, 5).join("\n").trim();
+        (fencedSummaryMatch?.[1] ?? summaryResponse)
+          .trim()
+          .split("\n")
+          .slice(0, 5)
+          .join("\n")
+          .trim();
       const confidencePayload = confidenceResponse
         ? parseAiReviewConfidencePayload(confidenceResponse)
         : null;
@@ -282,11 +282,9 @@ export function AiReviewSummary({
     staleTime: Number.POSITIVE_INFINITY,
   });
 
-  const activeRunState =
-    runState.data.snapshotKey === summarySnapshotKey ? runState.data : null;
+  const activeRunState = runState.data.snapshotKey === summarySnapshotKey ? runState.data : null;
   const isGeneratingSummary = activeRunState?.status === "running";
-  const shouldShowSummaryError =
-    activeRunState?.status === "error";
+  const shouldShowSummaryError = activeRunState?.status === "error";
   const summaryErrorMessage = activeRunState?.errorMessage;
 
   const startSummaryGeneration = () => {
@@ -331,11 +329,7 @@ export function AiReviewSummary({
     cachedSummary && cachedSummary.snapshotKey !== summarySnapshotKey,
   );
   const showCompactCardTrigger =
-    isCard &&
-    !dismissed &&
-    !summaryText &&
-    !isGeneratingSummary &&
-    !shouldShowSummaryError;
+    isCard && !dismissed && !summaryText && !isGeneratingSummary && !shouldShowSummaryError;
 
   if (showCompactCardTrigger) {
     return (
@@ -489,9 +483,7 @@ export function AiReviewSummary({
             />
           </div>
         ) : shouldShowSummaryError ? (
-          <p className="text-destructive mt-2 text-xs">
-            {String(summaryErrorMessage ?? "Failed")}
-          </p>
+          <p className="text-destructive mt-2 text-xs">{String(summaryErrorMessage ?? "Failed")}</p>
         ) : (
           <div className="mt-2">
             <ReviewScopeSummary

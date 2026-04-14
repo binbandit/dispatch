@@ -23,20 +23,12 @@ describe("getShikiTokenColor", () => {
 
   it("falls back to htmlStyle.color in dark mode when no --shiki-dark", () => {
     expect(
-      getShikiTokenColor(
-        { content: "x", color: "#aaa", htmlStyle: { color: "#bbb" } },
-        "dark",
-      ),
+      getShikiTokenColor({ content: "x", color: "#aaa", htmlStyle: { color: "#bbb" } }, "dark"),
     ).toBe("#bbb");
   });
 
   it("falls back to token.color in dark mode when htmlStyle has no relevant keys", () => {
-    expect(
-      getShikiTokenColor(
-        { content: "x", color: "#aaa", htmlStyle: {} },
-        "dark",
-      ),
-    ).toBe("#aaa");
+    expect(getShikiTokenColor({ content: "x", color: "#aaa", htmlStyle: {} }, "dark")).toBe("#aaa");
   });
 
   it("returns htmlStyle.color in light mode", () => {
@@ -49,11 +41,8 @@ describe("getShikiTokenColor", () => {
   });
 
   it("falls back to token.color in light mode when htmlStyle.color is undefined", () => {
-    expect(
-      getShikiTokenColor(
-        { content: "x", color: "#aaa", htmlStyle: {} },
-        "light",
-      ),
-    ).toBe("#aaa");
+    expect(getShikiTokenColor({ content: "x", color: "#aaa", htmlStyle: {} }, "light")).toBe(
+      "#aaa",
+    );
   });
 });

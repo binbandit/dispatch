@@ -39,7 +39,11 @@ export function ApproveBarButton({
       toastManager.add({ title: "PR approved", type: "success" });
     },
     onError: (err) => {
-      toastManager.add({ title: "Review failed", description: getErrorMessage(err), type: "error" });
+      toastManager.add({
+        title: "Review failed",
+        description: getErrorMessage(err),
+        type: "error",
+      });
     },
   });
 

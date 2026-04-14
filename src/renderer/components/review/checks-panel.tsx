@@ -177,7 +177,11 @@ function RerunButton({ repoTarget, runId }: { repoTarget: RepoTarget; runId: num
       });
     },
     onError: (err) => {
-      toastManager.add({ title: "Re-run failed", description: getErrorMessage(err), type: "error" });
+      toastManager.add({
+        title: "Re-run failed",
+        description: getErrorMessage(err),
+        type: "error",
+      });
     },
   });
 
