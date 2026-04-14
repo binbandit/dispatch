@@ -4,6 +4,11 @@ import type { GhPrListItemCore, IpcApi, RepoTarget } from "@/shared/ipc";
 import { Kbd } from "@/components/ui/kbd";
 import { MenuItem, MenuPopup, MenuSeparator } from "@/components/ui/menu";
 import { toastManager } from "@/components/ui/toast";
+import {
+  type SearchAutocompleteActions,
+  SearchAutocomplete,
+  SearchHelpPopover,
+} from "@/renderer/components/inbox/search-autocomplete";
 import { PrInboxSkeleton } from "@/renderer/components/shared/loading-skeletons";
 import { useKeyboardShortcuts } from "@/renderer/hooks/app/use-keyboard-shortcuts";
 import {
@@ -91,6 +96,9 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
   const [focusIndex, setFocusIndex] = useState(0);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("review");
   const searchRef = useRef<HTMLInputElement>(null);
+  const autocompleteRef = useRef<SearchAutocompleteActions | null>(null);
+  const [autocompleteOpen, setAutocompleteOpen] = useState(false);
+  const [cursorPosition, setCursorPosition] = useState(0);
 
   const reviewQuery = useQuery({
     queryKey: ["pr", "list", nwo, "reviewRequested", "open"],
@@ -365,7 +373,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
       </div>
 
       {/* Search box */}
-      <div className="px-3 py-2">
+      <div className="relative px-3 py-2">
         <div className="border-border bg-bg-raised flex items-center gap-2 rounded-md border px-2 py-1.5">
           <Search
             size={13}
@@ -375,11 +383,21 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
             ref={searchRef}
             type="text"
             value={searchQuery}
-            onChange={(e) => updateSearchQuery(e.target.value)}
+            onChange={(e) => {
+              updateSearchQuery(e.target.value);
+              setCursorPosition(e.target.selectionStart ?? e.target.value.length);
+              setAutocompleteOpen(true);
+            }}
+            onFocus={() => setAutocompleteOpen(true)}
+            onBlur={() => setAutocompleteOpen(false)}
             placeholder="Search title, #123, @author, branch..."
             className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
-            title="Search title, #123, @author, branch, repo, or use status:, is:, size:, and base:"
             onKeyDown={(event) => {
+              // Let autocomplete handle navigation keys first
+              if (autocompleteOpen && autocompleteRef.current?.handleKeyDown(event)) {
+                return;
+              }
+
               if (event.key === "Enter") {
                 const match = filteredResults[safeFocusIndex];
                 if (match) {
@@ -415,7 +433,28 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
           ) : (
             <Kbd className="h-4 min-w-4 px-1 font-mono text-[10px]">/</Kbd>
           )}
+          <SearchHelpPopover />
         </div>
+        <SearchAutocomplete
+          query={searchQuery}
+          cursorPosition={cursorPosition}
+          items={visiblePrs}
+          visible={autocompleteOpen}
+          onAccept={(newQuery, newCursor) => {
+            updateSearchQuery(newQuery);
+            setCursorPosition(newCursor);
+            // Restore focus + set cursor position
+            requestAnimationFrame(() => {
+              const input = searchRef.current;
+              if (input) {
+                input.focus();
+                input.setSelectionRange(newCursor, newCursor);
+              }
+            });
+          }}
+          onDismiss={() => setAutocompleteOpen(false)}
+          actionRef={autocompleteRef}
+        />
       </div>
 
       {/* Loading state */}
@@ -443,12 +482,14 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
                 className="text-text-ghost"
               />
               <p className="text-text-tertiary text-center text-xs">
-                {{
-                  review: "No PRs need your review",
-                  reReview: "No PRs need re-review",
-                  mine: "You have no open PRs",
-                  all: "No pull requests found",
-                }[activeFilter]}
+                {
+                  {
+                    review: "No PRs need your review",
+                    reReview: "No PRs need re-review",
+                    mine: "You have no open PRs",
+                    all: "No pull requests found",
+                  }[activeFilter]
+                }
               </p>
             </>
           )}
