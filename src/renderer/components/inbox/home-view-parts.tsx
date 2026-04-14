@@ -2,10 +2,12 @@
 import type { Workspace } from "@/shared/ipc";
 
 import { Kbd } from "@/components/ui/kbd";
+import { MenuItem, MenuPopup, MenuSeparator } from "@/components/ui/menu";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { formatAuthorName } from "@/renderer/hooks/preferences/use-display-name";
 import { ipc } from "@/renderer/lib/app/ipc";
+import { openExternal } from "@/renderer/lib/app/open-external";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import {
   getDashboardPrKey,
@@ -13,10 +15,13 @@ import {
   type EnrichedDashboardPr,
   type PrSection,
 } from "@/renderer/lib/inbox/home-prs";
+import { ContextMenu } from "@base-ui/react/context-menu";
 import { useMutation } from "@tanstack/react-query";
 import {
   Check,
   ChevronDown,
+  Copy,
+  ExternalLink,
   Eye,
   GitMerge,
   Loader2,
@@ -501,12 +506,16 @@ function PrRow({
   const isAuthor = currentUser && pr.author.login === currentUser;
   const authorDisplay = isAuthor ? "you" : formatAuthorName(pr.author, nameFormat);
 
+  const repoTarget = {
+    cwd: pr.workspacePath,
+    owner: pr.pullRequestRepository.split("/")[0] ?? "",
+    repo: pr.pullRequestRepository.split("/")[1] ?? "",
+  };
+
   const mergeMutation = useMutation({
     mutationFn: () =>
       ipc("pr.merge", {
-        cwd: pr.workspacePath,
-        owner: pr.pullRequestRepository.split("/")[0] ?? "",
-        repo: pr.pullRequestRepository.split("/")[1] ?? "",
+        ...repoTarget,
         prNumber: pr.number,
         strategy: "squash",
       }),
@@ -526,133 +535,213 @@ function PrRow({
     },
   });
 
+  const closeMutation = useMutation({
+    mutationFn: () => ipc("pr.close", { ...repoTarget, prNumber: pr.number }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr"] });
+      toastManager.add({ title: `PR #${pr.number} closed`, type: "success" });
+    },
+    onError: (error) => {
+      toastManager.add({
+        title: "Close failed",
+        description: String(error.message),
+        type: "error",
+      });
+    },
+  });
+
   const prLabel = `${pr.title}, #${pr.number} by ${authorDisplay}${statusTag ? `, ${statusTag.label}` : ""}`;
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label={prLabel}
-      className={`border-border-subtle flex w-full cursor-pointer items-stretch border-b text-left transition-colors last:border-b-0 ${
-        isFocused
-          ? "bg-accent-muted"
-          : isDim && !isShipSection
-            ? "hover:bg-bg-raised"
-            : isShipSection
-              ? "bg-[rgba(61,214,140,0.02)] hover:bg-[rgba(61,214,140,0.05)]"
-              : "hover:bg-bg-raised"
-      }`}
-      style={{ minHeight: 48 }}
-    >
-      <div
-        className={`w-0.5 shrink-0 rounded-r-sm opacity-80 ${barColor}`}
-        aria-hidden="true"
-      />
+    <ContextMenu.Root>
+      <ContextMenu.Trigger
+        render={
+          <button
+            type="button"
+            onClick={onClick}
+            aria-label={prLabel}
+            className={`border-border-subtle flex w-full cursor-pointer items-stretch border-b text-left transition-colors last:border-b-0 ${
+              isFocused
+                ? "bg-accent-muted"
+                : isDim && !isShipSection
+                  ? "hover:bg-bg-raised"
+                  : isShipSection
+                    ? "bg-[rgba(61,214,140,0.02)] hover:bg-[rgba(61,214,140,0.05)]"
+                    : "hover:bg-bg-raised"
+            }`}
+            style={{ minHeight: 48 }}
+          />
+        }
+      >
+        <div
+          className={`w-0.5 shrink-0 rounded-r-sm opacity-80 ${barColor}`}
+          aria-hidden="true"
+        />
 
-      <div className="min-w-0 flex-1 px-2.5 py-[7px]">
-        <div className="flex items-baseline gap-2.5">
-          <span
-            className={`min-w-0 flex-1 truncate text-[13px] leading-snug ${isDim ? "text-text-secondary font-normal" : "text-text-primary font-medium"}`}
-          >
-            {pr.title}
-          </span>
-
-          {isShipSection && (
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  mergeMutation.mutate();
-                }}
-                disabled={mergeMutation.isPending}
-                aria-label={`Merge pull request #${pr.number}`}
-                className="bg-success text-bg-root flex cursor-pointer items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all hover:shadow-[0_0_12px_rgba(61,214,140,0.15)] hover:brightness-110 disabled:opacity-60"
-              >
-                {mergeMutation.isPending ? (
-                  <Spinner className="h-[11px] w-[11px]" />
-                ) : mergeMutation.isSuccess ? (
-                  <Check
-                    size={11}
-                    strokeWidth={2.5}
-                  />
-                ) : (
-                  <GitMerge
-                    size={11}
-                    strokeWidth={2.5}
-                  />
-                )}
-                {mergeMutation.isSuccess ? "Merged!" : "Merge"}
-              </button>
-            </div>
-          )}
-
-          {!isShipSection && (
-            <time
-              dateTime={pr.updatedAt}
-              title={compactTime(pr.updatedAt).full}
-              className="text-text-tertiary shrink-0 font-mono text-[10px]"
-            >
-              {compactTime(pr.updatedAt).short}
-            </time>
-          )}
-        </div>
-
-        <div className="mt-px flex items-center gap-1.5">
-          <div className="flex min-w-0 items-center gap-1">
-            <span className="text-text-secondary shrink-0 font-mono text-[10px]">#{pr.number}</span>
+        <div className="min-w-0 flex-1 px-2.5 py-[7px]">
+          <div className="flex items-baseline gap-2.5">
             <span
-              className="text-text-ghost text-[9px]"
-              aria-hidden="true"
+              className={`min-w-0 flex-1 truncate text-[13px] leading-snug ${isDim ? "text-text-secondary font-normal" : "text-text-primary font-medium"}`}
             >
-              &middot;
+              {pr.title}
             </span>
-            <span className="text-text-secondary text-[11px] font-[450]">{authorDisplay}</span>
+
+            {isShipSection && (
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    mergeMutation.mutate();
+                  }}
+                  disabled={mergeMutation.isPending}
+                  aria-label={`Merge pull request #${pr.number}`}
+                  className="bg-success text-bg-root flex cursor-pointer items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-semibold transition-all hover:shadow-[0_0_12px_rgba(61,214,140,0.15)] hover:brightness-110 disabled:opacity-60"
+                >
+                  {mergeMutation.isPending ? (
+                    <Spinner className="h-[11px] w-[11px]" />
+                  ) : mergeMutation.isSuccess ? (
+                    <Check
+                      size={11}
+                      strokeWidth={2.5}
+                    />
+                  ) : (
+                    <GitMerge
+                      size={11}
+                      strokeWidth={2.5}
+                    />
+                  )}
+                  {mergeMutation.isSuccess ? "Merged!" : "Merge"}
+                </button>
+              </div>
+            )}
+
+            {!isShipSection && (
+              <time
+                dateTime={pr.updatedAt}
+                title={compactTime(pr.updatedAt).full}
+                className="text-text-tertiary shrink-0 font-mono text-[10px]"
+              >
+                {compactTime(pr.updatedAt).short}
+              </time>
+            )}
           </div>
 
-          <div className="flex-1" />
-
-          <div className="flex shrink-0 items-center gap-1.5">
-            {statusTag && <StatusTagBadge tag={statusTag} />}
-
-            {isShipSection && size && (
-              <span aria-label={`${pr.additions} additions, ${pr.deletions} deletions`}>
-                <span
-                  className="text-success font-mono text-[10px]"
-                  aria-hidden="true"
-                >
-                  +{pr.additions}
-                </span>{" "}
-                <span
-                  className="text-destructive font-mono text-[10px]"
-                  aria-hidden="true"
-                >
-                  &minus;{pr.deletions}
-                </span>
+          <div className="mt-px flex items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-1">
+              <span className="text-text-secondary shrink-0 font-mono text-[10px]">
+                #{pr.number}
               </span>
-            )}
-
-            {size && !isShipSection && (
               <span
-                className={`rounded-xs px-1 font-mono text-[9px] leading-snug font-semibold ${size.cls}`}
-                title={size.fullLabel}
-                aria-label={size.fullLabel}
+                className="text-text-ghost text-[9px]"
+                aria-hidden="true"
               >
-                {size.label}
+                &middot;
               </span>
-            )}
+              <span className="text-text-secondary text-[11px] font-[450]">{authorDisplay}</span>
+            </div>
 
-            {hasNewActivity && (
-              <span
-                className="bg-primary h-[5px] w-[5px] shrink-0 rounded-full"
-                role="img"
-                aria-label="New activity"
-              />
-            )}
+            <div className="flex-1" />
+
+            <div className="flex shrink-0 items-center gap-1.5">
+              {statusTag && <StatusTagBadge tag={statusTag} />}
+
+              {isShipSection && size && (
+                <span aria-label={`${pr.additions} additions, ${pr.deletions} deletions`}>
+                  <span
+                    className="text-success font-mono text-[10px]"
+                    aria-hidden="true"
+                  >
+                    +{pr.additions}
+                  </span>{" "}
+                  <span
+                    className="text-destructive font-mono text-[10px]"
+                    aria-hidden="true"
+                  >
+                    &minus;{pr.deletions}
+                  </span>
+                </span>
+              )}
+
+              {size && !isShipSection && (
+                <span
+                  className={`rounded-xs px-1 font-mono text-[9px] leading-snug font-semibold ${size.cls}`}
+                  title={size.fullLabel}
+                  aria-label={size.fullLabel}
+                >
+                  {size.label}
+                </span>
+              )}
+
+              {hasNewActivity && (
+                <span
+                  className="bg-primary h-[5px] w-[5px] shrink-0 rounded-full"
+                  role="img"
+                  aria-label="New activity"
+                />
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </button>
+      </ContextMenu.Trigger>
+      <MenuPopup
+        side="bottom"
+        align="start"
+        className="border-border bg-bg-elevated w-48 rounded-md border shadow-lg"
+      >
+        {pr.state === "OPEN" && (
+          <>
+            <MenuItem
+              className="text-text-secondary hover:bg-bg-raised hover:text-text-primary flex items-center gap-2 rounded-sm px-3 py-1.5 text-xs"
+              onClick={() => mergeMutation.mutate()}
+            >
+              <GitMerge
+                size={13}
+                className="text-primary"
+              />
+              Squash & Merge
+            </MenuItem>
+            <MenuItem
+              className="text-destructive hover:bg-destructive/10 flex items-center gap-2 rounded-sm px-3 py-1.5 text-xs"
+              onClick={() => closeMutation.mutate()}
+            >
+              <XCircle size={13} />
+              Close
+            </MenuItem>
+            <MenuSeparator />
+          </>
+        )}
+        <MenuItem
+          className="text-text-secondary hover:bg-bg-raised hover:text-text-primary flex items-center gap-2 rounded-sm px-3 py-1.5 text-xs"
+          onClick={() => {
+            void openExternal(pr.url);
+          }}
+        >
+          <ExternalLink size={13} />
+          Open in Browser
+        </MenuItem>
+        <MenuItem
+          className="text-text-secondary hover:bg-bg-raised hover:text-text-primary flex items-center gap-2 rounded-sm px-3 py-1.5 text-xs"
+          onClick={() => {
+            navigator.clipboard.writeText(pr.url);
+            toastManager.add({ title: "URL copied", type: "success" });
+          }}
+        >
+          <Copy size={13} />
+          Copy URL
+        </MenuItem>
+        <MenuItem
+          className="text-text-secondary hover:bg-bg-raised hover:text-text-primary flex items-center gap-2 rounded-sm px-3 py-1.5 text-xs"
+          onClick={() => {
+            navigator.clipboard.writeText(`#${pr.number}`);
+            toastManager.add({ title: "PR number copied", type: "success" });
+          }}
+        >
+          <Copy size={13} />
+          Copy Number
+        </MenuItem>
+      </MenuPopup>
+    </ContextMenu.Root>
   );
 }
 
