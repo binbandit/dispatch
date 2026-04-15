@@ -47,19 +47,29 @@ Key architectural details live in [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 - [Bun](https://bun.sh)
 - [Git](https://git-scm.com)
-- [GitHub CLI](https://cli.github.com)
-- GitHub CLI authentication via `gh auth login`
+- [GitHub CLI (`gh`)](https://cli.github.com) installed and available on your `PATH`
+- GitHub CLI authentication completed with `gh auth login`
+
+Dispatch depends on the GitHub CLI for GitHub access. The app will not work unless `gh` is installed and you are already signed in locally.
+
+You can verify your setup with:
+
+```sh
+gh --version
+gh auth status
+```
 
 Local repository folders are optional, but linking a local clone enables git-backed features and better local context. You can also add remote-only repositories from inside the app.
 
 ## Getting started
 
 ```sh
+gh auth login
 bun install
 bun run dev
 ```
 
-On first launch, Dispatch checks for `git`, `gh`, and GitHub CLI authentication. If no workspaces are configured yet, the app walks you through adding a repository.
+On first launch, Dispatch checks for `git`, `gh`, and GitHub CLI authentication. If `gh` is missing or not logged in, GitHub-powered features will stay unavailable until that is fixed. If no workspaces are configured yet, the app walks you through adding a repository.
 
 ## Scripts
 
