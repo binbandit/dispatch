@@ -256,6 +256,8 @@ function PanelOverviewContent({
         login={pr.author.login}
         author={pr.author}
         createdAt={pr.createdAt}
+        repo={repo}
+        prNumber={prNumber}
       />
 
       {/* Description card */}

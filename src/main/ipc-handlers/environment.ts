@@ -24,7 +24,8 @@ export const environmentHandlers: Pick<
     return { ghVersion, gitVersion, ghAuth };
   },
   "env.user": () => ghCli.getAuthenticatedUser(),
-  "env.userProfile": (args) => ghCli.getUserProfile(args.login),
+  "env.userProfile": (args) =>
+    ghCli.getUserProfile(args.login, args.repoTarget ?? args.repo, args.currentPrNumber),
   "env.avatarUrl": (args) => ghCli.getAvatarUrl(args.cwd, args.login, args.host),
   "env.repoAccount": async (args) => {
     if (args.cwd) {

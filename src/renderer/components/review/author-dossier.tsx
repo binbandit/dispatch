@@ -1,5 +1,3 @@
-import type { GhUserProfile } from "@/shared/ipc";
-
 import {
   computeTrustBreakdown,
   TrustBreakdownModal,
@@ -31,22 +29,24 @@ interface AuthorDossierProps {
   login: string;
   author: { login: string; name?: string | null };
   createdAt: string;
+  repo: string;
+  prNumber: number;
 }
 
-export function AuthorDossier({ login, author, createdAt }: AuthorDossierProps) {
+export function AuthorDossier({ login, author, createdAt, repo, prNumber }: AuthorDossierProps) {
   const nameFormat = useDisplayNameFormat();
   const [trustModalOpen, setTrustModalOpen] = useState(false);
 
   const profileQuery = useQuery({
-    queryKey: ["env", "userProfile", login],
-    queryFn: () => ipc("env.userProfile", { login }),
+    queryKey: ["env", "userProfile", login, repo, prNumber],
+    queryFn: () => ipc("env.userProfile", { login, repo, currentPrNumber: prNumber }),
     staleTime: 300_000,
     retry: 1,
   });
 
   const profile = profileQuery.data;
-  const { score, label, color } = computeTrustSignal(profile);
   const breakdown = profile ? computeTrustBreakdown(profile) : null;
+  const { score, label, color } = computeTrustSignal(breakdown?.total);
 
   return (
     <div
@@ -222,31 +222,16 @@ function MetaItem({
 }
 
 /**
- * Compute a contributor trust signal from profile data.
- *
- * Scoring (0-100) considers:
- * - Account age (up to 30 pts for 4+ years)
- * - Followers (up to 25 pts for 100+)
- * - Public repos (up to 25 pts for 30+)
- * - Org memberships (up to 20 pts for 3+)
+ * Compute a contributor trust signal from the aggregated score.
  */
-function computeTrustSignal(profile: GhUserProfile | undefined): {
+function computeTrustSignal(score: number | undefined): {
   score: number;
   label: string;
   color: string;
 } {
-  if (!profile) {
+  if (score === undefined) {
     return { score: 0, label: "Unknown", color: "var(--text-ghost)" };
   }
-
-  const ageYears =
-    (Date.now() - new Date(profile.createdAt).getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-  const ageScore = Math.min(30, (ageYears / 4) * 30);
-  const followerScore = Math.min(25, (profile.followers / 100) * 25);
-  const repoScore = Math.min(25, (profile.publicRepos / 30) * 25);
-  const orgScore = Math.min(20, (profile.organizations.length / 3) * 20);
-
-  const score = Math.round(ageScore + followerScore + repoScore + orgScore);
 
   if (score >= 70) {
     return { score, label: "Trusted", color: "var(--success)" };

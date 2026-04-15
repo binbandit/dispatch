@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../shared/pr-fetch-limit", () => ({
   PR_FETCH_LIMIT_PREFERENCE_KEY: "prFetchLimit",
@@ -15,10 +15,12 @@ vi.mock("../shell", () => ({
   resolveExecutablePath: vi.fn(),
 }));
 
+import { execFile } from "../shell";
 import {
   buildFilterArgs,
   cacheKey,
   genericCache,
+  getUserProfile,
   getOrLoadCached,
   invalidateAllCaches,
   invalidateCacheKey,
@@ -26,6 +28,13 @@ import {
   parseJsonOutput,
   setCache,
 } from "./core";
+
+const execFileMock = vi.mocked(execFile);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  invalidateAllCaches();
+});
 
 describe("parseJsonOutput", () => {
   it("parses valid JSON array", () => {
@@ -254,5 +263,67 @@ describe("invalidatePrListCaches", () => {
 describe("invalidateAllCaches", () => {
   it("clears all caches without error", () => {
     expect(() => invalidateAllCaches()).not.toThrow();
+  });
+});
+
+describe("getUserProfile", () => {
+  it("includes prior repository contributions when repo context is available", async () => {
+    execFileMock
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          login: "octocat",
+          name: "The Octocat",
+          avatarUrl: "https://example.com/octocat.png",
+          bio: "Testing profile history.",
+          company: "@github",
+          location: "San Francisco",
+          followers: 120,
+          following: 5,
+          publicRepos: 42,
+          createdAt: "2020-01-01T00:00:00Z",
+        }),
+        stderr: "",
+      })
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          login: "hubot",
+          avatarUrl: "https://example.com/hubot.png",
+          name: "Hubot",
+        }),
+        stderr: "",
+      })
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify([{ login: "github", avatarUrl: "https://example.com/org.png" }]),
+        stderr: "",
+      })
+      .mockResolvedValueOnce({
+        stdout: JSON.stringify({
+          data: {
+            authoredPullRequests: { issueCount: 5 },
+            mergedPullRequests: { issueCount: 3 },
+            authoredIssues: { issueCount: 2 },
+            reviewedPullRequests: { issueCount: 4 },
+          },
+        }),
+        stderr: "",
+      });
+
+    const profile = await getUserProfile("octocat", "octo/dispatch", 42);
+
+    expect(profile.repoContributions).toEqual({
+      repo: "octo/dispatch",
+      pullRequests: 4,
+      mergedPullRequests: 3,
+      issues: 2,
+      reviewedPullRequests: 4,
+      total: 10,
+    });
+    expect(profile.organizations).toEqual([
+      { login: "github", avatarUrl: "https://example.com/org.png" },
+    ]);
+    expect(execFileMock).toHaveBeenCalledTimes(4);
+    expect(execFileMock.mock.calls[3]?.[1]).toContain(
+      "authoredPullRequestsQuery=repo:octo/dispatch is:pr author:octocat",
+    );
   });
 });

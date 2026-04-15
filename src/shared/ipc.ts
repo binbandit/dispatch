@@ -381,6 +381,15 @@ export interface GhUser {
   name: string | null;
 }
 
+export interface GhRepoContributionHistory {
+  repo: string;
+  pullRequests: number;
+  mergedPullRequests: number;
+  issues: number;
+  reviewedPullRequests: number;
+  total: number;
+}
+
 export interface GhUserProfile {
   login: string;
   name: string | null;
@@ -393,6 +402,7 @@ export interface GhUserProfile {
   publicRepos: number;
   createdAt: string;
   organizations: Array<{ login: string; avatarUrl: string }>;
+  repoContributions: GhRepoContributionHistory | null;
 }
 
 export interface GhAccount {

@@ -2,7 +2,7 @@ import type { GhUserProfile } from "@/shared/ipc";
 
 import { Dialog, DialogPopup } from "@/components/ui/dialog";
 import { GitHubAvatar } from "@/renderer/components/shared/github-avatar";
-import { Calendar, GitPullRequest, ShieldCheck, Users } from "lucide-react";
+import { Calendar, GitPullRequest, History, ShieldCheck, Users } from "lucide-react";
 
 export interface TrustBreakdown {
   total: number;
@@ -10,6 +10,7 @@ export interface TrustBreakdown {
   followers: number;
   publicRepos: number;
   organizations: number;
+  repoHistory: number;
 }
 
 interface TrustBreakdownModalProps {
@@ -21,11 +22,19 @@ interface TrustBreakdownModalProps {
   color: string;
 }
 
+const TRUST_SCORE_WEIGHTS = {
+  accountAge: 25,
+  followers: 20,
+  publicRepos: 20,
+  organizations: 15,
+  repoHistory: 20,
+} as const;
+
 const CATEGORIES = [
   {
     key: "accountAge" as const,
     label: "Account Age",
-    max: 30,
+    max: TRUST_SCORE_WEIGHTS.accountAge,
     icon: Calendar,
     color: "var(--success)",
     rawValue: (p: GhUserProfile) => {
@@ -38,7 +47,7 @@ const CATEGORIES = [
   {
     key: "followers" as const,
     label: "Followers",
-    max: 25,
+    max: TRUST_SCORE_WEIGHTS.followers,
     icon: Users,
     color: "var(--info)",
     rawValue: (p: GhUserProfile) => String(p.followers),
@@ -46,7 +55,7 @@ const CATEGORIES = [
   {
     key: "publicRepos" as const,
     label: "Public Repos",
-    max: 25,
+    max: TRUST_SCORE_WEIGHTS.publicRepos,
     icon: GitPullRequest,
     color: "var(--purple)",
     rawValue: (p: GhUserProfile) => String(p.publicRepos),
@@ -54,19 +63,37 @@ const CATEGORIES = [
   {
     key: "organizations" as const,
     label: "Organizations",
-    max: 20,
+    max: TRUST_SCORE_WEIGHTS.organizations,
     icon: ShieldCheck,
     color: "var(--warning)",
     rawValue: (p: GhUserProfile) => String(p.organizations.length),
+  },
+  {
+    key: "repoHistory" as const,
+    label: "Repo History",
+    max: TRUST_SCORE_WEIGHTS.repoHistory,
+    icon: History,
+    color: "var(--accent)",
+    rawValue: (p: GhUserProfile) => {
+      if (!p.repoContributions) {
+        return "No repo data";
+      }
+      if (p.repoContributions.total === 0) {
+        return "No prior activity";
+      }
+      return p.repoContributions.mergedPullRequests > 0
+        ? `${p.repoContributions.total} prior items · ${p.repoContributions.mergedPullRequests} merged`
+        : `${p.repoContributions.total} prior items`;
+    },
   },
 ];
 
 function trustDescription(total: number): string {
   if (total >= 70) {
-    return "An established contributor with strong community presence and a well-maintained GitHub profile.";
+    return "An established contributor with strong GitHub signals and meaningful prior work in this repository.";
   }
   if (total >= 40) {
-    return "A moderately established contributor with some community presence and activity on GitHub.";
+    return "A moderately established contributor with some track record on GitHub and in this codebase.";
   }
   return "A newer or less active GitHub user. Review contributions with standard diligence.";
 }
@@ -238,11 +265,30 @@ export function TrustBreakdownModal({
 
           {/* Footer */}
           <p className="text-text-ghost mt-4 text-center text-[9px]">
-            Based on public GitHub profile data
+            {profile.repoContributions
+              ? "Based on public GitHub profile data and prior repository activity"
+              : "Based on public GitHub profile data"}
           </p>
         </div>
       </DialogPopup>
     </Dialog>
+  );
+}
+
+function computeRepoHistoryScore(profile: GhUserProfile): number {
+  if (!profile.repoContributions) {
+    return 0;
+  }
+
+  const contributionUnits =
+    profile.repoContributions.pullRequests +
+    profile.repoContributions.issues +
+    profile.repoContributions.reviewedPullRequests +
+    profile.repoContributions.mergedPullRequests;
+
+  return Math.min(
+    TRUST_SCORE_WEIGHTS.repoHistory,
+    (contributionUnits / 12) * TRUST_SCORE_WEIGHTS.repoHistory,
   );
 }
 
@@ -252,16 +298,30 @@ export function TrustBreakdownModal({
 export function computeTrustBreakdown(profile: GhUserProfile): TrustBreakdown {
   const ageYears =
     (Date.now() - new Date(profile.createdAt).getTime()) / (365.25 * 24 * 60 * 60 * 1000);
-  const accountAge = Math.min(30, (ageYears / 4) * 30);
-  const followers = Math.min(25, (profile.followers / 100) * 25);
-  const publicRepos = Math.min(25, (profile.publicRepos / 30) * 25);
-  const organizations = Math.min(20, (profile.organizations.length / 3) * 20);
+  const accountAge = Math.min(
+    TRUST_SCORE_WEIGHTS.accountAge,
+    (ageYears / 4) * TRUST_SCORE_WEIGHTS.accountAge,
+  );
+  const followers = Math.min(
+    TRUST_SCORE_WEIGHTS.followers,
+    (profile.followers / 100) * TRUST_SCORE_WEIGHTS.followers,
+  );
+  const publicRepos = Math.min(
+    TRUST_SCORE_WEIGHTS.publicRepos,
+    (profile.publicRepos / 30) * TRUST_SCORE_WEIGHTS.publicRepos,
+  );
+  const organizations = Math.min(
+    TRUST_SCORE_WEIGHTS.organizations,
+    (profile.organizations.length / 3) * TRUST_SCORE_WEIGHTS.organizations,
+  );
+  const repoHistory = computeRepoHistoryScore(profile);
 
   return {
-    total: Math.round(accountAge + followers + publicRepos + organizations),
+    total: Math.round(accountAge + followers + publicRepos + organizations + repoHistory),
     accountAge,
     followers,
     publicRepos,
     organizations,
+    repoHistory,
   };
 }

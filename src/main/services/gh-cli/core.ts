@@ -2,6 +2,7 @@
 import type {
   GhAccount,
   GhAvatarLookup,
+  GhRepoContributionHistory,
   GhPrEnrichment,
   GhPrListItem,
   GhPrListItemCore,
@@ -124,7 +125,109 @@ export async function getAuthenticatedUser(): Promise<GhUser | null> {
   }
 }
 
-export async function getUserProfile(login: string): Promise<GhUserProfile> {
+async function getRepoContributionHistory(
+  login: string,
+  repo: string,
+  repoTarget?: RepoTarget,
+  currentPrNumber?: number,
+): Promise<GhRepoContributionHistory> {
+  const normalizedLogin = login.trim().toLowerCase();
+  const normalizedRepo = repo.trim().toLowerCase();
+  const cacheKey = `userRepoContributions::${normalizedRepo}::${normalizedLogin}::${currentPrNumber ?? "all"}`;
+
+  return getOrLoadCached({
+    cache: genericCache,
+    key: cacheKey,
+    ttl: CACHE_TTL_LONG_MS,
+    loader: async () => {
+      const resolved = repoTarget ? resolveTarget(repoTarget) : { cwd: undefined };
+      const query = `query(
+        $authoredPullRequestsQuery: String!
+        $mergedPullRequestsQuery: String!
+        $authoredIssuesQuery: String!
+        $reviewedPullRequestsQuery: String!
+      ) {
+        authoredPullRequests: search(
+          type: ISSUE
+          query: $authoredPullRequestsQuery
+          first: 1
+        ) {
+          issueCount
+        }
+        mergedPullRequests: search(
+          type: ISSUE
+          query: $mergedPullRequestsQuery
+          first: 1
+        ) {
+          issueCount
+        }
+        authoredIssues: search(
+          type: ISSUE
+          query: $authoredIssuesQuery
+          first: 1
+        ) {
+          issueCount
+        }
+        reviewedPullRequests: search(
+          type: ISSUE
+          query: $reviewedPullRequestsQuery
+          first: 1
+        ) {
+          issueCount
+        }
+      }`;
+
+      const { stdout } = await ghExec(
+        [
+          "api",
+          "graphql",
+          "-f",
+          `authoredPullRequestsQuery=repo:${repo} is:pr author:${login}`,
+          "-f",
+          `mergedPullRequestsQuery=repo:${repo} is:pr is:merged author:${login}`,
+          "-f",
+          `authoredIssuesQuery=repo:${repo} is:issue author:${login}`,
+          "-f",
+          `reviewedPullRequestsQuery=repo:${repo} is:pr reviewed-by:${login}`,
+          "-f",
+          `query=${query}`,
+        ],
+        { cwd: resolved.cwd, timeout: 15_000 },
+      );
+      const data = parseJsonOutput<{
+        data?: {
+          authoredPullRequests?: { issueCount?: number };
+          mergedPullRequests?: { issueCount?: number };
+          authoredIssues?: { issueCount?: number };
+          reviewedPullRequests?: { issueCount?: number };
+        };
+      }>(stdout);
+
+      const authoredPullRequests = Math.max(
+        0,
+        (data.data?.authoredPullRequests?.issueCount ?? 0) - (currentPrNumber ? 1 : 0),
+      );
+      const mergedPullRequests = data.data?.mergedPullRequests?.issueCount ?? 0;
+      const issues = data.data?.authoredIssues?.issueCount ?? 0;
+      const reviewedPullRequests = data.data?.reviewedPullRequests?.issueCount ?? 0;
+
+      return {
+        repo,
+        pullRequests: authoredPullRequests,
+        mergedPullRequests,
+        issues,
+        reviewedPullRequests,
+        total: authoredPullRequests + issues + reviewedPullRequests,
+      };
+    },
+  }) as Promise<GhRepoContributionHistory>;
+}
+
+export async function getUserProfile(
+  login: string,
+  repo?: string | RepoTarget,
+  currentPrNumber?: number,
+): Promise<GhUserProfile> {
   const jq = [
     "{",
     "login: .login,",
@@ -143,7 +246,8 @@ export async function getUserProfile(login: string): Promise<GhUserProfile> {
   const { stdout } = await ghExec(["api", `users/${encodeURIComponent(login)}`, "--jq", jq], {
     timeout: 15_000,
   });
-  const profile = parseJsonOutput<Omit<GhUserProfile, "organizations">>(stdout);
+  const profile =
+    parseJsonOutput<Omit<GhUserProfile, "organizations" | "repoContributions">>(stdout);
 
   // Fetch organizations separately.
   // The public endpoint (users/{login}/orgs) only returns public memberships.
@@ -166,7 +270,24 @@ export async function getUserProfile(login: string): Promise<GhUserProfile> {
     // Org fetch can fail for bots or private orgs — non-critical
   }
 
-  return { ...profile, organizations };
+  let repoContributions: GhUserProfile["repoContributions"] = null;
+  if (repo) {
+    try {
+      repoContributions =
+        typeof repo === "string"
+          ? await getRepoContributionHistory(login, repo, undefined, currentPrNumber)
+          : await getRepoContributionHistory(
+              login,
+              `${repo.owner}/${repo.repo}`,
+              repo,
+              currentPrNumber,
+            );
+    } catch {
+      // Contribution history is best-effort. Profile data remains useful without it.
+    }
+  }
+
+  return { ...profile, organizations, repoContributions };
 }
 
 export async function listAccounts(): Promise<GhAccount[]> {

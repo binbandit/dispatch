@@ -28,7 +28,10 @@ export interface EnvironmentIpcApi {
     result: GhAvatarLookup | null;
   };
   "env.switchAccount": { args: { host: string; login: string }; result: void };
-  "env.userProfile": { args: { login: string }; result: GhUserProfile };
+  "env.userProfile": {
+    args: { login: string; repo?: string; repoTarget?: RepoTarget; currentPrNumber?: number };
+    result: GhUserProfile;
+  };
 
   "repo.info": { args: RepoTarget; result: RepoInfo };
 
