@@ -1,5 +1,6 @@
 /* eslint-disable max-params, no-await-in-loop, no-continue, prefer-destructuring, init-declarations, @typescript-eslint/no-non-null-assertion -- PR command mapping stays intentionally direct so the gh adapter remains easy to audit. */
 import type {
+  GhIssueComment,
   GhPrDetail,
   GhPrEnrichment,
   GhPrListItem,
@@ -1307,7 +1308,7 @@ export async function createPrComment(
 export async function updateIssueComment(
   cwdOrTarget: string | RepoTarget,
   prNumber: number,
-  commentId: string,
+  commentId: number,
   body: string,
 ): Promise<void> {
   const resolved = resolveTarget(cwdOrTarget);
@@ -1329,24 +1330,30 @@ export async function updateIssueComment(
 export async function getIssueComments(
   cwdOrTarget: string | RepoTarget,
   prNumber: number,
-): Promise<Array<{ id: string; body: string; author: { login: string }; createdAt: string }>> {
+): Promise<GhIssueComment[]> {
   const resolved = resolveTarget(cwdOrTarget);
+  const { owner, repo } = await getPullRequestRepo(cwdOrTarget);
   const { stdout } = await ghExec(
-    [
-      "pr",
-      "view",
-      String(prNumber),
-      "--json",
-      "comments",
-      "--jq",
-      ".comments",
-      ...resolved.repoFlag,
-    ],
+    ["api", `repos/${owner}/${repo}/issues/${prNumber}/comments?per_page=100`, "--paginate"],
     { cwd: resolved.cwd, timeout: 15_000 },
   );
-  return parseJsonOutput<
-    Array<{ id: string; body: string; author: { login: string }; createdAt: string }>
+  const comments = parseJsonOutput<
+    Array<{
+      node_id: string;
+      id: number;
+      body: string;
+      user: { login: string };
+      created_at: string;
+    }>
   >(stdout);
+
+  return comments.map((comment) => ({
+    nodeId: comment.node_id,
+    databaseId: comment.id,
+    body: comment.body,
+    author: { login: comment.user.login },
+    createdAt: comment.created_at,
+  }));
 }
 
 export async function getPrContributors(

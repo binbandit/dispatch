@@ -10,7 +10,7 @@ import {
 } from "@/renderer/components/review/comments/conversation-tab";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vite-plus/test";
 
@@ -116,6 +116,7 @@ describe("ContentEvent", () => {
     renderWithQueryClient(
       <ContentEvent
         commentId="comment-1"
+        databaseId={101}
         login="alice"
         action="commented"
         time={new Date("2026-04-01T10:00:00Z")}
@@ -145,6 +146,7 @@ describe("ContentEvent", () => {
     renderWithQueryClient(
       <ContentEvent
         commentId="comment-1"
+        databaseId={101}
         login="alice"
         action="commented"
         time={new Date("2026-04-01T10:00:00Z")}
@@ -167,6 +169,49 @@ describe("ContentEvent", () => {
     expect(onClick.mock.calls).toHaveLength(1);
     expect(onToggleMinimized).not.toHaveBeenCalled();
   });
+
+  it("uses the database ID when saving an edited conversation comment", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(ipc).mockResolvedValue(undefined);
+
+    renderWithQueryClient(
+      <ContentEvent
+        commentId="IC_kwDOexample"
+        databaseId={456}
+        login="alice"
+        action="commented"
+        time={new Date("2026-04-01T10:00:00Z")}
+        body="Looks good."
+        repo="binbandit/dispatch"
+        isBot={false}
+        canEdit
+        autoCollapse={false}
+        prNumber={42}
+        onClick={vi.fn()}
+        minimized={false}
+        onToggleMinimized={vi.fn()}
+        reactions={[]}
+      />,
+    );
+
+    fireEvent.contextMenu(screen.getByText("Looks good."));
+    await user.click(screen.getByRole("button", { name: "Edit" }));
+    await user.clear(screen.getByLabelText("Edit comment…"));
+    await user.type(screen.getByLabelText("Edit comment…"), "Updated body.");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => {
+      expect(ipc).toHaveBeenCalledWith("pr.editIssueComment", {
+        cwd: "/tmp/dispatch",
+        owner: "binbandit",
+        repo: "dispatch",
+        prNumber: 42,
+        commentId: 456,
+        body: "Updated body.",
+      });
+    });
+  });
 });
 
 describe("ConversationTab", () => {
@@ -183,13 +228,15 @@ describe("ConversationTab", () => {
         reviews={[]}
         issueComments={[
           {
-            id: "comment-bot",
+            nodeId: "comment-bot",
+            databaseId: 101,
             body: "Automated update is ready.",
             author: { login: "deploy-bot" },
             createdAt: "2026-04-01T10:00:00Z",
           },
           {
-            id: "comment-human",
+            nodeId: "comment-human",
+            databaseId: 102,
             body: "Please take another look.",
             author: { login: "alice" },
             createdAt: "2026-04-01T11:00:00Z",

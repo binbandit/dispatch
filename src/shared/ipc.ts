@@ -219,6 +219,16 @@ export interface GhCheckRun {
   completedAt: string | null;
 }
 
+export interface GhIssueComment {
+  /** GraphQL node ID for reactions and other GraphQL mutations. */
+  nodeId: string;
+  /** Numeric database ID used by REST edit endpoints and comment anchors. */
+  databaseId: number;
+  body: string;
+  author: { login: string };
+  createdAt: string;
+}
+
 export interface GhReviewComment {
   id: number;
   body: string;
@@ -279,7 +289,7 @@ export interface GhReactionGroup {
 export interface GhPrReactions {
   prNodeId: string;
   prBody: GhReactionGroup[];
-  /** Keyed by issue comment node_id (GraphQL ID from `gh pr view --json comments`) */
+  /** Keyed by issue comment GraphQL node ID. */
   issueComments: Record<string, GhReactionGroup[]>;
   /** Keyed by review comment databaseId (numeric `id` from REST API, as string) */
   reviewComments: Record<string, GhReactionGroup[]>;

@@ -11,6 +11,7 @@ import {
 } from "../db/repository";
 import {
   createReviewComment,
+  getIssueComments,
   getPrDetail,
   getPrDiff,
   getPrReactions,
@@ -1042,6 +1043,40 @@ describe("gh-cli caching", () => {
       3,
       "gh",
       expect.arrayContaining(["-f", "owner=pingdotgg", "-f", "repo=t3code"]),
+      expect.anything(),
+    );
+  });
+
+  it("returns both node and database IDs for pull request conversation comments", async () => {
+    execFileMock.mockRejectedValueOnce(new Error("repo view unavailable")).mockResolvedValueOnce({
+      stdout: JSON.stringify([
+        {
+          node_id: "IC_kwDOexample",
+          id: 456,
+          body: "Please also update the fixture.",
+          user: { login: "octocat" },
+          created_at: "2026-03-20T00:00:00Z",
+        },
+      ]),
+      stderr: "",
+    });
+
+    await expect(
+      getIssueComments({ cwd: "/repo-comments", owner: "octo", repo: "dispatch" }, 42),
+    ).resolves.toEqual([
+      {
+        nodeId: "IC_kwDOexample",
+        databaseId: 456,
+        body: "Please also update the fixture.",
+        author: { login: "octocat" },
+        createdAt: "2026-03-20T00:00:00Z",
+      },
+    ]);
+
+    expect(execFileMock).toHaveBeenNthCalledWith(
+      2,
+      "gh",
+      ["api", "repos/octo/dispatch/issues/42/comments?per_page=100", "--paginate"],
       expect.anything(),
     );
   });

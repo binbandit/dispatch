@@ -1,5 +1,11 @@
 /* eslint-disable import/max-dependencies -- The side panel is an intentional composition root for PR detail tabs. */
-import type { GhPrDetail, GhPrReactions, GhReviewThread, RepoTarget } from "@/shared/ipc";
+import type {
+  GhIssueComment,
+  GhPrDetail,
+  GhPrReactions,
+  GhReviewThread,
+  RepoTarget,
+} from "@/shared/ipc";
 
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
@@ -35,7 +41,7 @@ interface SidePanelOverlayProps {
   open: boolean;
   pr: GhPrDetail;
   prNumber: number;
-  issueComments: Array<{ id: string; body: string; author: { login: string }; createdAt: string }>;
+  issueComments: GhIssueComment[];
   repo: string;
   highlightedLogin: string | null;
   onReviewClick: (login: string) => void;

@@ -1,5 +1,5 @@
 /* eslint-disable import/max-dependencies -- This timeline surface composes many focused conversation primitives. */
-import type { GhReactionGroup, GhReviewThread } from "@/shared/ipc";
+import type { GhIssueComment, GhReactionGroup, GhReviewThread } from "@/shared/ipc";
 
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
@@ -51,14 +51,14 @@ function isCurrentUserCommentAuthor(
 interface ConversationTabProps {
   prNumber: number;
   reviews: Array<{ author: { login: string }; state: string; submittedAt: string }>;
-  issueComments: Array<{ id: string; body: string; author: { login: string }; createdAt: string }>;
+  issueComments: GhIssueComment[];
   reviewThreads?: GhReviewThread[];
   repo: string;
   currentUserLogin?: string | null;
   onReviewClick: (login: string) => void;
   /** Navigate to a thread's file and scroll to the comment */
   onThreadClick?: (path: string, line: number | null) => void;
-  /** Reaction data for issue comments, keyed by comment databaseId */
+  /** Reaction data for issue comments, keyed by GraphQL node ID. */
   issueCommentReactions?: Record<string, GhReactionGroup[]>;
 }
 
@@ -155,6 +155,7 @@ export function ConversationTab({
                   <ContentEvent
                     key={event.key}
                     commentId={event.commentId}
+                    databaseId={event.databaseId}
                     login={event.login}
                     action={event.action}
                     time={event.time}
@@ -251,6 +252,7 @@ interface ContentTimelineEvent {
   type: "content";
   key: string;
   commentId: string;
+  databaseId: number;
   login: string;
   action: string;
   time: Date;
@@ -301,7 +303,7 @@ function buildTimeline({
   issueCommentReactions,
 }: {
   reviews: Array<{ author: { login: string }; state: string; submittedAt: string }>;
-  issueComments: Array<{ id: string; body: string; author: { login: string }; createdAt: string }>;
+  issueComments: GhIssueComment[];
   reviewThreads: GhReviewThread[];
   isBot: (login: string) => boolean;
   currentUserLogin?: string | null;
@@ -346,15 +348,16 @@ function buildTimeline({
   for (const comment of issueComments) {
     events.push({
       type: "content",
-      key: `comment-${comment.id}`,
-      commentId: comment.id,
+      key: `comment-${comment.nodeId}`,
+      commentId: comment.nodeId,
+      databaseId: comment.databaseId,
       login: comment.author.login,
       action: "commented",
       time: new Date(comment.createdAt),
       body: comment.body,
       isBot: isBot(comment.author.login),
       canEdit: isCurrentUserCommentAuthor(currentUserLogin, comment.author.login),
-      reactions: issueCommentReactions?.[comment.id],
+      reactions: issueCommentReactions?.[comment.nodeId],
     });
   }
 
@@ -505,6 +508,7 @@ function StatusEvent({
 
 export function ContentEvent({
   commentId,
+  databaseId,
   login,
   action,
   time,
@@ -521,6 +525,7 @@ export function ContentEvent({
   reactions,
 }: {
   commentId: string;
+  databaseId: number;
   login: string;
   action: string;
   time: Date;
@@ -549,7 +554,7 @@ export function ContentEvent({
       ipc("pr.editIssueComment", {
         ...repoTarget,
         prNumber,
-        commentId,
+        commentId: databaseId,
         body: editBodyText,
       }),
     onSuccess: () => {
@@ -772,7 +777,7 @@ export function ContentEvent({
 
       {contextMenu && (
         <ConvoContextMenu
-          commentId={commentId}
+          databaseId={databaseId}
           body={body}
           prNumber={prNumber}
           nwo={nwo}
@@ -791,7 +796,7 @@ export function ContentEvent({
 // ---------------------------------------------------------------------------
 
 function ConvoContextMenu({
-  commentId,
+  databaseId,
   body,
   prNumber,
   nwo,
@@ -800,7 +805,7 @@ function ConvoContextMenu({
   onEdit,
   onClose,
 }: {
-  commentId: string;
+  databaseId: number;
   body: string;
   prNumber: number;
   nwo: string;
@@ -838,7 +843,7 @@ function ConvoContextMenu({
     };
   }, [handleClick, handleEscape]);
 
-  const commentUrl = `https://github.com/${nwo}/pull/${prNumber}#issuecomment-${commentId}`;
+  const commentUrl = `https://github.com/${nwo}/pull/${prNumber}#issuecomment-${databaseId}`;
 
   return (
     <div

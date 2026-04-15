@@ -1,6 +1,7 @@
 import type {
   GhAnnotation,
   GhCheckRun,
+  GhIssueComment,
   GhPrDetail,
   GhPrEnrichment,
   GhPrListItemCore,
@@ -104,17 +105,12 @@ export interface PullRequestIpcApi {
   };
   "pr.comment": { args: RepoTarget & { prNumber: number; body: string }; result: void };
   "pr.editIssueComment": {
-    args: RepoTarget & { prNumber: number; commentId: string; body: string };
+    args: RepoTarget & { prNumber: number; commentId: number; body: string };
     result: void;
   };
   "pr.issueComments": {
     args: RepoTarget & { prNumber: number };
-    result: Array<{
-      id: string;
-      body: string;
-      author: { login: string };
-      createdAt: string;
-    }>;
+    result: GhIssueComment[];
   };
   "pr.contributors": {
     args: RepoTarget & { prNumber: number };
