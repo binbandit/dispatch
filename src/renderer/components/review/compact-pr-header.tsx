@@ -16,7 +16,7 @@ import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { getCompletedPullRequestLabel } from "@/renderer/lib/review/completed-pr-state";
 import { relativeTime } from "@/shared/format";
 import { useMutation } from "@tanstack/react-query";
-import { Clock, Copy, ExternalLink, Link, PanelRight, RefreshCw } from "lucide-react";
+import { Check, Clock, Copy, ExternalLink, Link, PanelRight, RefreshCw } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 /**
@@ -60,6 +60,7 @@ export function CompactPrHeader({
   const inputRef = useRef<HTMLInputElement>(null);
   const completedLabel = getCompletedPullRequestLabel(pr.state);
   const ageTier = useMemo(() => getPrAgeTier(pr.createdAt), [pr.createdAt]);
+  const approvedReviewers = getLatestApprovedReviews(pr.reviews);
 
   const titleMutation = useMutation({
     mutationFn: (title: string) =>
@@ -291,6 +292,12 @@ export function CompactPrHeader({
             </span>
           </>
         )}
+        {approvedReviewers.length > 0 && (
+          <>
+            <span className="text-text-ghost text-[9px]">·</span>
+            <ApprovalAvatarStack reviews={approvedReviewers} />
+          </>
+        )}
 
         {/* PR age indicator — color-coded by staleness */}
         <Tooltip>
@@ -358,4 +365,76 @@ function getPrAgeTier(createdAt: string): AgeTier {
   }
   // Stale — danger tint
   return { color: "var(--danger)", bg: "var(--danger-muted)", hasBadge: true };
+}
+
+// ---------------------------------------------------------------------------
+// Approval stack
+// ---------------------------------------------------------------------------
+
+function ApprovalAvatarStack({ reviews }: { reviews: Array<{ author: { login: string } }> }) {
+  const tooltipLabel = reviews.map((review) => review.author.login).join(", ");
+  const visibleReviews = reviews.slice(0, 3);
+  const overflowCount = reviews.length - visibleReviews.length;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <div
+            className="hover:bg-bg-raised inline-flex min-w-0 cursor-default items-center gap-1 rounded-full px-1.5 py-0.5"
+            title={tooltipLabel}
+          >
+            <Check
+              size={10}
+              className="text-success shrink-0"
+              strokeWidth={2.2}
+            />
+            <span className="font-mono text-[10px] font-semibold text-success">{reviews.length}</span>
+            <div className="relative inline-flex shrink-0">
+              {visibleReviews.map((review, index) => (
+                <span
+                  key={review.author.login}
+                  className={index > 0 ? "ml-[-6px]" : undefined}
+                  style={{ zIndex: visibleReviews.length - index }}
+                >
+                  <GitHubAvatar
+                    login={review.author.login}
+                    size={14}
+                    className="border-border-strong border-[1.5px] bg-bg-surface"
+                  />
+                </span>
+              ))}
+              {overflowCount > 0 && (
+                <span
+                  className="text-text-tertiary bg-bg-surface border-border-strong inline-flex h-[14px] w-[14px] items-center justify-center rounded-full border text-[9px] font-medium"
+                  style={{ marginLeft: "-6px", lineHeight: 1 }}
+                  aria-hidden="true"
+                >
+                  +{overflowCount}
+                </span>
+              )}
+            </div>
+          </div>
+        }
+      />
+      <TooltipPopup>Approved by {tooltipLabel}</TooltipPopup>
+    </Tooltip>
+  );
+}
+
+function getLatestApprovedReviews(
+  reviews: Array<{ author: { login: string }; state: string; submittedAt: string }>,
+) {
+  const latestByUser = new Map<
+    string,
+    { author: { login: string }; state: string; submittedAt: string }
+  >();
+  for (const review of reviews) {
+    const existing = latestByUser.get(review.author.login);
+    if (!existing || new Date(review.submittedAt) > new Date(existing.submittedAt)) {
+      latestByUser.set(review.author.login, review);
+    }
+  }
+
+  return [...latestByUser.values()].filter((review) => review.state === "APPROVED");
 }
