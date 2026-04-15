@@ -69,6 +69,10 @@ bun install
 bun run dev
 ```
 
+## User guides
+
+- [Review Page Keyboard Navigation](./REVIEW-KEYBOARD-NAVIGATION.md)
+
 On first launch, Dispatch checks for `git`, `gh`, and GitHub CLI authentication. If `gh` is missing or not logged in, GitHub-powered features will stay unavailable until that is fixed. If no workspaces are configured yet, the app walks you through adding a repository.
 
 ## Scripts

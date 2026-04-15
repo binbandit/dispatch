@@ -281,62 +281,64 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
         </div>
       )}
 
-      {/* File search */}
-      <div className="px-3 pt-2 pb-2">
-        <div className="border-border bg-bg-raised flex items-center gap-1.5 rounded-md border px-2 py-1">
-          <Search
-            size={11}
-            className="text-text-tertiary shrink-0"
-          />
-          <input
-            ref={searchRef}
-            data-review-focus-target="file-search"
-            aria-label="Filter files"
-            autoComplete="off"
-            name="file-filter"
-            spellCheck={false}
-            type="search"
-            value={fileSearch}
-            onChange={(e) => setFileSearch(e.target.value)}
-            placeholder="Filter files…"
-            className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-[11px] focus:outline-none"
-          />
-        </div>
-      </div>
-
-      {/* File list */}
-      {isLoadingDiff ? (
-        <FileTreeSkeleton />
-      ) : (
-        <div className="flex-1 overflow-y-auto">
-          {viewMode === "triage" ? (
-            <TriageView
-              sections={triageSections}
-              currentFileIndex={currentFileIndex}
-              onSelectFile={handleSelectFile}
-              viewedFiles={viewedFiles}
-              commentCounts={fileCommentCounts}
-              meta={triageMeta}
+      <div className="border-border-subtle focus-within:border-primary/45 mx-2 mb-2 flex min-h-0 flex-1 flex-col rounded-md border transition-[border-color,box-shadow] duration-[120ms] ease-out focus-within:shadow-[0_0_0_1px_rgba(212,136,58,0.18)]">
+        {/* File search */}
+        <div className="px-3 pt-2 pb-2">
+          <div className="border-border bg-bg-raised flex items-center gap-1.5 rounded-md border px-2 py-1">
+            <Search
+              size={11}
+              className="text-text-tertiary shrink-0"
             />
-          ) : (
-            <div className="p-2.5">
-              <FileTree
-                files={files}
+            <input
+              ref={searchRef}
+              data-review-focus-target="file-search"
+              aria-label="Filter files"
+              autoComplete="off"
+              name="file-filter"
+              spellCheck={false}
+              type="search"
+              value={fileSearch}
+              onChange={(e) => setFileSearch(e.target.value)}
+              placeholder="Filter files…"
+              className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-[11px] focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {/* File list */}
+        {isLoadingDiff ? (
+          <FileTreeSkeleton />
+        ) : (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            {viewMode === "triage" ? (
+              <TriageView
+                sections={triageSections}
                 currentFileIndex={currentFileIndex}
                 onSelectFile={handleSelectFile}
-                viewedFiles={selectedCommit ? new Set() : viewedFiles}
-                commentCounts={selectedCommit ? new Map() : fileCommentCounts}
-                nwo={nwo}
-                prNumber={prNumber}
-                onToggleViewed={selectedCommit || isCompletedPr ? undefined : handleToggleViewed}
-                onSetFilesViewed={
-                  selectedCommit || isCompletedPr ? undefined : handleSetFilesViewed
-                }
+                viewedFiles={viewedFiles}
+                commentCounts={fileCommentCounts}
+                meta={triageMeta}
               />
-            </div>
-          )}
-        </div>
-      )}
+            ) : (
+              <div className="p-2.5">
+                <FileTree
+                  files={files}
+                  currentFileIndex={currentFileIndex}
+                  onSelectFile={handleSelectFile}
+                  viewedFiles={selectedCommit ? new Set() : viewedFiles}
+                  commentCounts={selectedCommit ? new Map() : fileCommentCounts}
+                  nwo={nwo}
+                  prNumber={prNumber}
+                  onToggleViewed={selectedCommit || isCompletedPr ? undefined : handleToggleViewed}
+                  onSetFilesViewed={
+                    selectedCommit || isCompletedPr ? undefined : handleSetFilesViewed
+                  }
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Merge readiness card — hidden when viewing a specific commit */}
       {!selectedCommit &&

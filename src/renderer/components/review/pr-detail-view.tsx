@@ -652,14 +652,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
 
   const cycleFocusRegion = useCallback(
     (direction: "next" | "prev") => {
-      const targets = [
-        "file-search",
-        "file-tree",
-        "diff-viewer",
-        "panel-tabs",
-        PANEL_FOCUS_TARGET_BY_TAB[panelTab],
-        "review-actions",
-      ].filter(
+      const targets = ["file-tree", "diff-viewer", PANEL_FOCUS_TARGET_BY_TAB[panelTab]].filter(
         (target, index, allTargets) => allTargets.indexOf(target) === index,
       ) as ReviewFocusTarget[];
       const availableTargets = targets.filter((target) =>
@@ -671,11 +664,13 @@ function PrDetail({ prNumber }: { prNumber: number }) {
 
       const activeTarget = getActiveReviewFocusTarget();
       const normalizedActiveTarget =
-        activeTarget === "diff-search"
-          ? "diff-viewer"
-          : activeTarget === "panel-search"
-            ? PANEL_FOCUS_TARGET_BY_TAB[panelTab]
-            : activeTarget;
+        activeTarget === "file-search"
+          ? "file-tree"
+          : activeTarget === "diff-search"
+            ? "diff-viewer"
+            : activeTarget === "panel-search" || activeTarget === "panel-tabs"
+              ? PANEL_FOCUS_TARGET_BY_TAB[panelTab]
+              : activeTarget;
       const currentIndex = normalizedActiveTarget
         ? availableTargets.indexOf(normalizedActiveTarget)
         : -1;
@@ -693,8 +688,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       }
 
       focusReviewTargetSoon(nextTarget, {
-        preferDescendant: nextTarget === "panel-tabs" || nextTarget === "review-actions",
-        selectText: nextTarget === "file-search",
+        preferDescendant: nextTarget.startsWith("panel-"),
       });
     },
     [panelTab],
@@ -803,6 +797,11 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       handler: () => navigateDiffElement("[data-comment]", "prev"),
     },
     { ...getBinding("actions.togglePanel"), handler: togglePanel },
+    {
+      ...getBinding("actions.togglePanelAlternate"),
+      handler: togglePanel,
+      preventWhileTyping: true,
+    },
     { ...getBinding("actions.focusPanel"), handler: () => focusPanelContent() },
     { ...getBinding("actions.focusReviewBar"), handler: focusReviewActions },
     {
@@ -994,7 +993,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       >
         <div
           ref={diffAreaRef}
-          className="flex flex-1 flex-col overflow-hidden"
+          className="border-border-subtle focus-within:border-primary/45 flex flex-1 flex-col overflow-hidden rounded-md border transition-[border-color,box-shadow] duration-[120ms] ease-out focus-within:shadow-[0_0_0_1px_rgba(212,136,58,0.18)]"
         >
           <DiffToolbar
             currentFile={currentFile}

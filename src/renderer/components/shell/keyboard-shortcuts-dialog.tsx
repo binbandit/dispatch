@@ -43,6 +43,13 @@ const DISPLAY_ROWS: Array<{
   },
   { ids: ["navigation.openPr"], label: "Open PR", category: "Navigation" },
   {
+    ids: ["navigation.nextRegion", "navigation.prevRegion"],
+    label: "Next / previous review pane",
+    category: "Navigation",
+  },
+  { ids: ["navigation.focusFiles"], label: "Focus left review pane", category: "Navigation" },
+  { ids: ["navigation.focusDiff"], label: "Focus code view", category: "Navigation" },
+  {
     ids: ["navigation.prevFile", "navigation.nextFile"],
     label: "Previous / next file",
     category: "Navigation",
@@ -51,11 +58,39 @@ const DISPLAY_ROWS: Array<{
   // Actions
   { ids: ["actions.toggleViewed"], label: "Toggle file viewed", category: "Actions" },
   { ids: ["actions.nextUnreviewed"], label: "Next unreviewed file", category: "Actions" },
-  { ids: ["actions.togglePanel"], label: "Toggle side panel", category: "Actions" },
-  { ids: ["actions.openConversation"], label: "Open conversation", category: "Actions" },
+  {
+    ids: ["actions.togglePanel", "actions.togglePanelAlternate"],
+    label: "Toggle overview panel",
+    category: "Actions",
+  },
+  { ids: ["actions.focusPanel"], label: "Focus overview panel", category: "Actions" },
+  { ids: ["actions.openOverview"], label: "Open overview tab", category: "Actions" },
+  { ids: ["actions.openConversation"], label: "Open conversation tab", category: "Actions" },
+  { ids: ["actions.openCommits"], label: "Open commits tab", category: "Actions" },
+  { ids: ["actions.openChecks"], label: "Open checks tab", category: "Actions" },
+  {
+    ids: ["actions.nextComment", "actions.prevComment"],
+    label: "Next / previous comment",
+    category: "Actions",
+  },
+  {
+    ids: ["actions.nextUnresolvedThread"],
+    label: "Next unresolved thread",
+    category: "Actions",
+  },
+  { ids: ["actions.replyToThread"], label: "Reply to focused thread", category: "Actions" },
+  { ids: ["actions.resolveThread"], label: "Resolve focused thread", category: "Actions" },
+  { ids: ["actions.focusReviewBar"], label: "Focus review actions bar", category: "Actions" },
+  { ids: ["actions.requestChanges"], label: "Request changes", category: "Actions" },
+  { ids: ["actions.approve"], label: "Approve PR", category: "Actions" },
+  { ids: ["actions.merge"], label: "Merge PR", category: "Actions" },
   // Search
-  { ids: ["search.focusSearch"], label: "Focus search", category: "Search" },
-  { ids: ["search.commandPalette"], label: "Command palette", category: "Search" },
+  { ids: ["search.focusSearch"], label: "Search current pane", category: "Search" },
+  {
+    ids: ["search.commandPalette", "search.commandPaletteAlt"],
+    label: "Command palette",
+    category: "Search",
+  },
   // Views
   { ids: ["views.review"], label: "Review", category: "Views" },
   { ids: ["views.workflows"], label: "Workflows", category: "Views" },

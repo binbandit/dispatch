@@ -73,10 +73,9 @@ export function SidePanelOverlay({
 
   return (
     <div
-      className="bg-bg-surface flex shrink-0 flex-col"
+      className="bg-bg-surface border-border-subtle focus-within:border-primary/45 flex shrink-0 flex-col rounded-l-md border transition-[border-color,box-shadow] duration-[120ms] ease-out focus-within:shadow-[0_0_0_1px_rgba(212,136,58,0.18)]"
       style={{
         width: width === undefined ? "min(380px, 45%)" : `${width}px`,
-        borderLeft: "1px solid var(--border)",
       }}
     >
       {/* Header — 40px, tabs */}

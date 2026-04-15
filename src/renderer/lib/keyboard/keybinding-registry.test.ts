@@ -303,6 +303,7 @@ describe("shortcut categories", () => {
     const ids = actions.map((b) => b.id);
 
     expect(ids).toContain("actions.togglePanel");
+    expect(ids).toContain("actions.togglePanelAlternate");
     expect(ids).toContain("actions.openOverview");
     expect(ids).toContain("actions.openConversation");
     expect(ids).toContain("actions.openCommits");
@@ -402,5 +403,12 @@ describe("modifier combinations", () => {
     expect(approve?.modifiers).toEqual(["meta", "shift"]);
     expect(requestChanges?.modifiers).toEqual(["meta", "shift"]);
     expect(merge?.modifiers).toEqual(["meta", "shift"]);
+  });
+
+  it("supports an alternate modified panel toggle shortcut", () => {
+    const togglePanelAlternate = DEFAULT_KEYBINDINGS_MAP.get("actions.togglePanelAlternate");
+
+    expect(togglePanelAlternate?.key).toBe("\\");
+    expect(togglePanelAlternate?.modifiers).toEqual(["meta"]);
   });
 });

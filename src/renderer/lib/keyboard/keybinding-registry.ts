@@ -24,18 +24,23 @@ export const DEFAULT_KEYBINDINGS: ShortcutDefinition[] = [
   { id: "navigation.prevPr", key: "j", label: "Previous PR", category: "Navigation" },
   { id: "navigation.nextPr", key: "k", label: "Next PR", category: "Navigation" },
   { id: "navigation.openPr", key: "Enter", label: "Open PR", category: "Navigation" },
-  { id: "navigation.nextRegion", key: "Tab", label: "Next region", category: "Navigation" },
+  { id: "navigation.nextRegion", key: "Tab", label: "Next review pane", category: "Navigation" },
   {
     id: "navigation.prevRegion",
     key: "Tab",
     modifiers: ["shift"],
-    label: "Previous region",
+    label: "Previous review pane",
     category: "Navigation",
   },
   { id: "navigation.prevFile", key: "[", label: "Previous file", category: "Navigation" },
   { id: "navigation.nextFile", key: "]", label: "Next file", category: "Navigation" },
-  { id: "navigation.focusFiles", key: "f", label: "Focus files", category: "Navigation" },
-  { id: "navigation.focusDiff", key: "d", label: "Focus diff", category: "Navigation" },
+  {
+    id: "navigation.focusFiles",
+    key: "f",
+    label: "Focus left review pane",
+    category: "Navigation",
+  },
+  { id: "navigation.focusDiff", key: "d", label: "Focus code view", category: "Navigation" },
   {
     id: "navigation.toggleSidebar",
     key: "b",
@@ -47,7 +52,14 @@ export const DEFAULT_KEYBINDINGS: ShortcutDefinition[] = [
   { id: "navigation.nextHunk", key: "}", label: "Next hunk", category: "Navigation" },
 
   // Actions
-  { id: "actions.togglePanel", key: "i", label: "Toggle side panel", category: "Actions" },
+  { id: "actions.togglePanel", key: "i", label: "Toggle overview panel", category: "Actions" },
+  {
+    id: "actions.togglePanelAlternate",
+    key: "\\",
+    modifiers: ["meta"],
+    label: "Toggle overview panel (alternate)",
+    category: "Actions",
+  },
   {
     id: "actions.openConversation",
     key: "c",
@@ -76,11 +88,11 @@ export const DEFAULT_KEYBINDINGS: ShortcutDefinition[] = [
     label: "Open checks tab",
     category: "Actions",
   },
-  { id: "actions.focusPanel", key: "p", label: "Focus side panel", category: "Actions" },
+  { id: "actions.focusPanel", key: "p", label: "Focus overview panel", category: "Actions" },
   {
     id: "actions.focusReviewBar",
     key: "g",
-    label: "Focus review actions",
+    label: "Focus review actions bar",
     category: "Actions",
   },
   { id: "actions.toggleViewed", key: "v", label: "Toggle file viewed", category: "Actions" },
@@ -125,7 +137,7 @@ export const DEFAULT_KEYBINDINGS: ShortcutDefinition[] = [
   },
 
   // Search
-  { id: "search.focusSearch", key: "/", label: "Search current region", category: "Search" },
+  { id: "search.focusSearch", key: "/", label: "Search current pane", category: "Search" },
   {
     id: "search.commandPalette",
     key: "k",

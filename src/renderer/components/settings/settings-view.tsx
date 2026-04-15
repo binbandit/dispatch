@@ -154,8 +154,7 @@ function PrFetchSizeSection({
   savePref: (key: string, value: string) => void;
 }) {
   const parsedLimit = Number.parseInt(prFetchLimit, 10);
-  const isCustomActive =
-    Number.isFinite(parsedLimit) && !isPresetPrFetchLimit(parsedLimit);
+  const isCustomActive = Number.isFinite(parsedLimit) && !isPresetPrFetchLimit(parsedLimit);
   const [customDraft, setCustomDraft] = useState(isCustomActive ? String(parsedLimit) : "");
   const [isEditingCustom, setIsEditingCustom] = useState(false);
   const customInputRef = useRef<HTMLInputElement>(null);
@@ -230,7 +229,7 @@ function PrFetchSizeSection({
                 }
               }
             }}
-            className="border-[--border-accent] bg-bg-root text-text-primary rounded-md border px-3 py-2 text-center font-mono text-xs shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-[--accent]"
+            className="bg-bg-root text-text-primary rounded-md border border-[--border-accent] px-3 py-2 text-center font-mono text-xs shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-[--accent]"
           />
         ) : (
           <button
@@ -239,7 +238,7 @@ function PrFetchSizeSection({
             className={`cursor-pointer rounded-md border px-3 py-2 font-mono text-xs transition-colors ${
               isCustomActive
                 ? "text-text-primary border-[--border-accent] bg-[--accent-muted] shadow-sm"
-                : "border-border-subtle border-dashed bg-transparent text-text-ghost hover:text-text-tertiary hover:border-border"
+                : "border-border-subtle text-text-ghost hover:text-text-tertiary hover:border-border border-dashed bg-transparent"
             }`}
           >
             {isCustomActive ? parsedLimit : "Custom\u2026"}
@@ -252,9 +251,8 @@ function PrFetchSizeSection({
           className="text-accent-text mt-0.5 shrink-0"
         />
         <p className="text-text-ghost text-[10px] leading-[1.45]">
-          Higher limits show more pull requests per refresh. All keeps paging until GitHub
-          runs out of matching pull requests, so refreshes can take noticeably longer on
-          large repositories.
+          Higher limits show more pull requests per refresh. All keeps paging until GitHub runs out
+          of matching pull requests, so refreshes can take noticeably longer on large repositories.
         </p>
       </div>
     </section>
@@ -666,6 +664,10 @@ export function SettingsView() {
               <h2 className="text-text-primary text-base font-semibold">Keyboard Shortcuts</h2>
               <p className="text-text-tertiary mt-0.5 text-xs">
                 Customize keyboard shortcuts. Click a binding to record a new key.
+              </p>
+              <p className="text-text-ghost mt-1 text-[11px] leading-[1.45]">
+                Review shortcuts cover the left review pane, code view, overview panel, comments,
+                and review actions. Changes here take effect immediately across the app.
               </p>
 
               {KEYBINDING_CATEGORIES.map((category) => (
