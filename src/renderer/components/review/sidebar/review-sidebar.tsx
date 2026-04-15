@@ -10,7 +10,7 @@ import { ipc } from "@/renderer/lib/app/ipc";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { isCompletedPullRequest } from "@/renderer/lib/review/completed-pr-state";
 import { getDiffFilePath, parseDiff, type DiffFile } from "@/renderer/lib/review/diff-parser";
-import { useFileNav } from "@/renderer/lib/review/file-nav-context";
+import { useFileNavStore } from "@/renderer/lib/review/file-nav-context";
 import { summarizePrChecks } from "@/renderer/lib/review/pr-check-status";
 import { classifyFiles } from "@/renderer/lib/review/triage-classifier";
 import { useQuery } from "@tanstack/react-query";
@@ -32,13 +32,11 @@ interface ReviewSidebarProps {
 
 export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarProps) {
   const { repoTarget, nwo, cwd } = useWorkspace();
-  const {
-    currentFileIndex,
-    setCurrentFileIndex,
-    setCurrentFilePath,
-    selectedCommit,
-    setSelectedCommit,
-  } = useFileNav();
+  const currentFileIndex = useFileNavStore((s) => s.currentFileIndex);
+  const setCurrentFileIndex = useFileNavStore((s) => s.setCurrentFileIndex);
+  const setCurrentFilePath = useFileNavStore((s) => s.setCurrentFilePath);
+  const selectedCommit = useFileNavStore((s) => s.selectedCommit);
+  const setSelectedCommit = useFileNavStore((s) => s.setSelectedCommit);
 
   // Diff data (shared query key with PrDetailView — React Query dedupes)
   const diffQuery = useQuery({

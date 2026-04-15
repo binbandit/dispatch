@@ -24,7 +24,7 @@ import { openExternal } from "@/renderer/lib/app/open-external";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useRouter } from "@/renderer/lib/app/router";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
-import { useFileNav } from "@/renderer/lib/review/file-nav-context";
+import { useFileNavStore } from "@/renderer/lib/review/file-nav-context";
 import { useQuery } from "@tanstack/react-query";
 import {
   Check,
@@ -365,11 +365,10 @@ export function FileGroup({ onSelect }: { onSelect: () => void }) {
 }
 
 function useFileNavSafe() {
-  try {
-    return useFileNav();
-  } catch {
-    return null;
-  }
+  // Only select the actions needed — avoids re-rendering on unrelated state changes
+  const setCurrentFileIndex = useFileNavStore((s) => s.setCurrentFileIndex);
+  const setCurrentFilePath = useFileNavStore((s) => s.setCurrentFilePath);
+  return { setCurrentFileIndex, setCurrentFilePath };
 }
 
 // ---------------------------------------------------------------------------

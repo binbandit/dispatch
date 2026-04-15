@@ -15,6 +15,7 @@ import { getErrorMessage } from "@/renderer/lib/app/error-message";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
+import { useFileNavStore } from "@/renderer/lib/review/file-nav-context";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, GitMerge, Pencil, X, XCircle } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
@@ -41,8 +42,6 @@ interface SidePanelOverlayProps {
   onReviewClick: (login: string) => void;
   onThreadClick?: (path: string, line: number | null) => void;
   diffSnippet: string;
-  activeTab: PanelTab;
-  onTabChange: (tab: PanelTab) => void;
   reviewThreads?: GhReviewThread[];
   reactions?: GhPrReactions;
   canEdit?: boolean;
@@ -60,14 +59,13 @@ export function SidePanelOverlay({
   onReviewClick,
   onThreadClick,
   diffSnippet,
-  activeTab,
-  onTabChange,
   reviewThreads,
   reactions,
   canEdit,
   width,
 }: SidePanelOverlayProps) {
-  const setActiveTab = onTabChange;
+  const activeTab = useFileNavStore((s) => s.panelTab);
+  const setActiveTab = useFileNavStore((s) => s.setPanelTab);
 
   if (!open) {
     return null;

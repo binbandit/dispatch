@@ -31,7 +31,7 @@ import {
   isCompletedPullRequest,
 } from "@/renderer/lib/review/completed-pr-state";
 import { getDiffFilePath, parseDiff, type DiffFile } from "@/renderer/lib/review/diff-parser";
-import { useFileNav } from "@/renderer/lib/review/file-nav-context";
+import { useFileNavStore } from "@/renderer/lib/review/file-nav-context";
 import { ensureLanguage, ensureTheme, inferLanguage } from "@/renderer/lib/review/highlighter";
 import {
   buildReviewCommentsMap,
@@ -77,20 +77,18 @@ export function PrDetailView({ prNumber }: PrDetailViewProps) {
 
 function PrDetail({ prNumber }: { prNumber: number }) {
   const { cwd, nwo, repo, repoTarget } = useWorkspace();
-  const {
-    currentFileIndex,
-    currentFilePath: storedCurrentFilePath,
-    setCurrentFileIndex,
-    setCurrentFilePath,
-    selectedCommit,
-    setSelectedCommit,
-    diffMode,
-    setDiffMode,
-    panelOpen,
-    setPanelOpen,
-    panelTab,
-    setPanelTab,
-  } = useFileNav();
+  // Granular store selectors — only re-render when the specific value changes
+  const currentFileIndex = useFileNavStore((s) => s.currentFileIndex);
+  const storedCurrentFilePath = useFileNavStore((s) => s.currentFilePath);
+  const selectedCommit = useFileNavStore((s) => s.selectedCommit);
+  const diffMode = useFileNavStore((s) => s.diffMode);
+  const panelOpen = useFileNavStore((s) => s.panelOpen);
+  // panelTab intentionally NOT subscribed — only SidePanelOverlay needs it
+  const setCurrentFileIndex = useFileNavStore((s) => s.setCurrentFileIndex);
+  const setCurrentFilePath = useFileNavStore((s) => s.setCurrentFilePath);
+  const setSelectedCommit = useFileNavStore((s) => s.setSelectedCommit);
+  const setDiffMode = useFileNavStore((s) => s.setDiffMode);
+  const setPanelOpen = useFileNavStore((s) => s.setPanelOpen);
   const defaultDiffView = usePreference("defaultDiffView");
   const [viewModeOverride, setViewModeOverride] = useState<DiffMode | null>(null);
   const viewMode: DiffMode =
@@ -490,7 +488,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         }
       } else {
         // No inline comments — open the panel and highlight the review
-        setPanelTab("conversation");
+        useFileNavStore.getState().setPanelTab("conversation");
         setPanelOpen(true);
         setHighlightedComment({ login, expiresAt: Date.now() + 2000 });
         if (highlightTimerRef.current) {
@@ -628,7 +626,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     {
       ...getBinding("actions.openConversation"),
       handler: () => {
-        setPanelTab("conversation");
+        useFileNavStore.getState().setPanelTab("conversation");
         setPanelOpen(true);
       },
     },
@@ -883,8 +881,6 @@ function PrDetail({ prNumber }: { prNumber: number }) {
           onReviewClick={handleReviewClick}
           onThreadClick={handleThreadClick}
           diffSnippet={rawDiff ?? ""}
-          activeTab={panelTab}
-          onTabChange={setPanelTab}
           reviewThreads={reviewThreadsQuery.data}
           reactions={reactionsQuery.data}
           canEdit={canPush}

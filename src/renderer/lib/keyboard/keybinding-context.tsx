@@ -61,19 +61,22 @@ export const useKeybindingStore = create<KeybindingState>()((set, get) => ({
 }));
 
 // Load authoritative value from SQLite on app start
-if (typeof (globalThis as Record<string, unknown>).api !== "undefined")
-  ipc("preferences.get", { key: PREF_KEY })
-    .then((value) => {
-      if (!value) return;
-      try {
-        const parsed = JSON.parse(value) as KeybindingOverrides;
-        useKeybindingStore.setState({ overrides: parsed });
-        if (typeof localStorage !== "undefined") localStorage.setItem(STORAGE_KEY, value);
-      } catch {
-        // Invalid JSON in DB — ignore
-      }
-    })
-    .catch(() => {});
+if (typeof (globalThis as Record<string, unknown>).api !== "undefined") {
+  const initResult = ipc("preferences.get", { key: PREF_KEY });
+  if (initResult && typeof initResult.then === "function")
+    initResult
+      .then((value) => {
+        if (!value) return;
+        try {
+          const parsed = JSON.parse(value) as KeybindingOverrides;
+          useKeybindingStore.setState({ overrides: parsed });
+          if (typeof localStorage !== "undefined") localStorage.setItem(STORAGE_KEY, value);
+        } catch {
+          // Invalid JSON in DB — ignore
+        }
+      })
+      .catch(() => {});
+}
 
 export function useKeybindings() {
   return useKeybindingStore(useShallow((s) => s));

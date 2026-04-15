@@ -5,7 +5,7 @@ import { GitHubAvatar } from "@/renderer/components/shared/github-avatar";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { useRouter } from "@/renderer/lib/app/router";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
-import { useFileNav } from "@/renderer/lib/review/file-nav-context";
+import { useFileNavStore } from "@/renderer/lib/review/file-nav-context";
 import { summarizePrChecks } from "@/renderer/lib/review/pr-check-status";
 import { relativeTime } from "@/shared/format";
 import { useQuery } from "@tanstack/react-query";
@@ -36,7 +36,8 @@ export function getDedupedReviews(
 
 export function PanelCommitsContent({ prNumber }: { prNumber: number }) {
   const { repoTarget, nwo } = useWorkspace();
-  const { selectedCommit, setSelectedCommit } = useFileNav();
+  const selectedCommit = useFileNavStore((s) => s.selectedCommit);
+  const setSelectedCommit = useFileNavStore((s) => s.setSelectedCommit);
 
   const commitsQuery = useQuery({
     queryKey: ["pr", "commits", nwo, prNumber],

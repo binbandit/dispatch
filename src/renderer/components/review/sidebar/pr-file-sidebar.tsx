@@ -4,7 +4,7 @@ import { ipc } from "@/renderer/lib/app/ipc";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { isCompletedPullRequest } from "@/renderer/lib/review/completed-pr-state";
 import { getDiffFilePath, parseDiff, type DiffFile } from "@/renderer/lib/review/diff-parser";
-import { useFileNav } from "@/renderer/lib/review/file-nav-context";
+import { useFileNavStore } from "@/renderer/lib/review/file-nav-context";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { useCallback, useMemo } from "react";
@@ -23,7 +23,9 @@ interface PrFileSidebarProps {
 
 export function PrFileSidebar({ prNumber, onBack }: PrFileSidebarProps) {
   const { repoTarget, nwo } = useWorkspace();
-  const { currentFileIndex, setCurrentFileIndex, setCurrentFilePath } = useFileNav();
+  const currentFileIndex = useFileNavStore((s) => s.currentFileIndex);
+  const setCurrentFileIndex = useFileNavStore((s) => s.setCurrentFileIndex);
+  const setCurrentFilePath = useFileNavStore((s) => s.setCurrentFilePath);
 
   const detailQuery = useQuery({
     queryKey: ["pr", "detail", nwo, prNumber],

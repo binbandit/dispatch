@@ -225,8 +225,8 @@ if (initial.mode === "system" && typeof globalThis.matchMedia === "function") {
   setupSystemThemeListener();
 }
 
-if (typeof (globalThis as Record<string, unknown>).api !== "undefined")
-  ipc("preferences.getAll", {
+if (typeof (globalThis as Record<string, unknown>).api !== "undefined") {
+  const initResult = ipc("preferences.getAll", {
     keys: [
       "themeStyle",
       "colorMode",
@@ -235,7 +235,8 @@ if (typeof (globalThis as Record<string, unknown>).api !== "undefined")
       "codeThemeLight",
       LEGACY_SINGLE_CODE_THEME_PREFERENCE_KEY,
     ],
-  })
+  });
+  if (initResult && typeof initResult.then === "function") initResult
     .then((prefs) => {
       const state = useThemeStore.getState();
       const storage = safeLocalStorage();
@@ -306,6 +307,7 @@ if (typeof (globalThis as Record<string, unknown>).api !== "undefined")
       });
     })
     .catch(() => {});
+}
 
 // ---------------------------------------------------------------------------
 // Backward-compatible hook
