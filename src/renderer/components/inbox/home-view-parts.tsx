@@ -1,11 +1,12 @@
 /* eslint-disable import/max-dependencies -- This module intentionally groups the home dashboard's presentational rows and badges. */
-import type { Workspace } from "@/shared/ipc";
+import type { GhPrDetail, RepoInfo, Workspace } from "@/shared/ipc";
 
 import { Kbd } from "@/components/ui/kbd";
 import { MenuItem, MenuPopup, MenuSeparator } from "@/components/ui/menu";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { formatAuthorName } from "@/renderer/hooks/preferences/use-display-name";
+import { getErrorMessage } from "@/renderer/lib/app/error-message";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { openExternal } from "@/renderer/lib/app/open-external";
 import { queryClient } from "@/renderer/lib/app/query-client";
@@ -17,8 +18,10 @@ import {
   type PrSection,
   type SortOption,
 } from "@/renderer/lib/inbox/home-prs";
+import { resolveMergeStrategy } from "@/renderer/lib/review/merge-strategy";
+import { summarizePrChecks } from "@/renderer/lib/review/pr-check-status";
 import { ContextMenu } from "@base-ui/react/context-menu";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ArrowUpDown,
   Check,
@@ -517,25 +520,87 @@ function PrRow({
     owner: pr.pullRequestRepository.split("/")[0] ?? "",
     repo: pr.pullRequestRepository.split("/")[1] ?? "",
   };
+  const repoInfoQuery = useQuery({
+    queryKey: ["repo", "info", pr.pullRequestRepository],
+    queryFn: () => ipc("repo.info", repoTarget),
+    staleTime: 300_000,
+    enabled: isShipSection,
+  });
 
   const mergeMutation = useMutation({
-    mutationFn: () =>
-      ipc("pr.merge", {
+    mutationFn: async () => {
+      const repoInfo: RepoInfo =
+        repoInfoQuery.data ??
+        (await queryClient.fetchQuery<RepoInfo>({
+          queryKey: ["repo", "info", pr.pullRequestRepository],
+          queryFn: () => ipc("repo.info", repoTarget),
+          staleTime: 300_000,
+        }));
+      const detail = await queryClient.fetchQuery<GhPrDetail>({
+        queryKey: ["pr", "detail", pr.pullRequestRepository, pr.number],
+        queryFn: () => ipc("pr.detail", { ...repoTarget, prNumber: pr.number }),
+        staleTime: 60_000,
+      });
+      const checkSummary = summarizePrChecks(detail.statusCheckRollup);
+      const allChecksPassing =
+        checkSummary.failed === 0 && checkSummary.pending === 0 && checkSummary.total > 0;
+      const requirementsMet =
+        detail.reviewDecision === "APPROVED" &&
+        allChecksPassing &&
+        detail.mergeable === "MERGEABLE";
+      const resolved = resolveMergeStrategy({
+        hasMergeQueue: repoInfo.hasMergeQueue,
+        requirementsMet,
+        canAdmin: repoInfo.canPush,
+        strategy: "squash",
+      });
+      const result = await ipc("pr.merge", {
         ...repoTarget,
         prNumber: pr.number,
-        strategy: "squash",
-      }),
-    onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ["pr"] });
-      toastManager.add({
-        title: result.queued ? `PR #${pr.number} added to merge queue` : `PR #${pr.number} merged`,
-        type: "success",
+        strategy: resolved.strategy,
+        admin: resolved.admin,
+        auto: resolved.auto,
+        hasMergeQueue: repoInfo.hasMergeQueue,
       });
+
+      return { requirementsMet, resolved, result };
+    },
+    onSuccess: ({ requirementsMet, resolved, result }) => {
+      queryClient.invalidateQueries({ queryKey: ["pr"] });
+
+      if (resolved.auto) {
+        if (requirementsMet) {
+          if (result.queued) {
+            toastManager.add({
+              title: `PR #${pr.number} queued for merge`,
+              type: "success",
+            });
+          } else {
+            toastManager.add({
+              title: `PR #${pr.number} merged`,
+              description: "Branch deleted.",
+              type: "success",
+            });
+          }
+        } else {
+          toastManager.add({
+            title: `Auto-merge enabled for PR #${pr.number}`,
+            description: "Will merge when checks pass and approvals are received",
+            type: "success",
+          });
+        }
+      } else {
+        toastManager.add({
+          title: `PR #${pr.number} merged`,
+          description: "Branch deleted.",
+          type: "success",
+        });
+      }
     },
     onError: (error) => {
       toastManager.add({
         title: "Merge failed",
-        description: String(error.message),
+        description: getErrorMessage(error),
         type: "error",
       });
     },
