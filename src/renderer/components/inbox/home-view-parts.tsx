@@ -11,13 +11,16 @@ import { openExternal } from "@/renderer/lib/app/open-external";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import {
   getDashboardPrKey,
+  SORT_OPTIONS,
   type DashboardPr,
   type EnrichedDashboardPr,
   type PrSection,
+  type SortOption,
 } from "@/renderer/lib/inbox/home-prs";
 import { ContextMenu } from "@base-ui/react/context-menu";
 import { useMutation } from "@tanstack/react-query";
 import {
+  ArrowUpDown,
   Check,
   ChevronDown,
   Copy,
@@ -866,6 +869,87 @@ function StatusTagIcon({ icon }: { icon: StatusTag["icon"] }) {
       );
     }
   }
+}
+
+export function SortDropdown({
+  value,
+  onChange,
+}: {
+  value: SortOption;
+  onChange: (value: SortOption) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const activeLabel = SORT_OPTIONS.find((o) => o.value === value)?.label ?? "Sort";
+
+  return (
+    <div
+      ref={containerRef}
+      className="relative shrink-0"
+      onBlur={(e) => {
+        if (!containerRef.current?.contains(e.relatedTarget as Node)) {
+          setOpen(false);
+        }
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-label={`Sort pull requests: ${activeLabel}`}
+        className={`border-border bg-bg-surface hover:border-border-strong hover:bg-bg-raised flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1.5 transition-[background-color,border-color,color,box-shadow] ${open ? "border-border-strong bg-bg-raised" : ""}`}
+      >
+        <ArrowUpDown
+          size={13}
+          className="text-text-tertiary shrink-0"
+          aria-hidden="true"
+        />
+        <span className="text-text-secondary text-[12px] font-medium">{activeLabel}</span>
+        <ChevronDown
+          size={11}
+          className={`text-text-ghost transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden="true"
+        />
+      </button>
+
+      {open && (
+        <div
+          className="border-border-strong bg-bg-elevated absolute top-[calc(100%+6px)] right-0 z-[100] flex w-[180px] flex-col overflow-hidden rounded-lg border shadow-lg"
+          role="listbox"
+          aria-label="Sort order"
+        >
+          <div className="p-1">
+            {SORT_OPTIONS.map((option) => {
+              const isActive = option.value === value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  role="option"
+                  aria-selected={isActive}
+                  onClick={() => {
+                    onChange(option.value);
+                    setOpen(false);
+                  }}
+                  className={`flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-xs transition-colors ${isActive ? "bg-accent-muted text-text-primary" : "text-text-secondary hover:bg-bg-raised hover:text-text-primary"}`}
+                >
+                  <span className="min-w-0 flex-1 font-medium">{option.label}</span>
+                  {isActive && (
+                    <Check
+                      size={12}
+                      className="text-accent-text shrink-0"
+                      aria-hidden="true"
+                    />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function KbdHint({ keys, label }: { keys: string[]; label: string }) {

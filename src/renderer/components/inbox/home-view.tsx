@@ -22,9 +22,11 @@ import {
   categorizeHomePrs,
   filterHomePrSections,
   getDashboardPrKey,
+  sortPrSections,
   type DashboardPr,
   type EnrichedDashboardPr,
   type SectionId,
+  type SortOption,
   preferWorkspacePrs,
 } from "@/renderer/lib/inbox/home-prs";
 import { getPrSearchPresets } from "@/renderer/lib/inbox/pr-search-presets";
@@ -38,7 +40,7 @@ import { useQuery } from "@tanstack/react-query";
 import { RefreshCw, Search } from "lucide-react";
 import { useCallback, useMemo, useRef, useState } from "react";
 
-import { KbdHint, PrSectionView, RepoSelector } from "./home-view-parts";
+import { KbdHint, PrSectionView, RepoSelector, SortDropdown } from "./home-view-parts";
 
 // ---------------------------------------------------------------------------
 // HomeView
@@ -51,6 +53,13 @@ export function HomeView() {
   const repoName = repo;
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [sortOption, setSortOptionLocal] = useState<SortOption>(
+    () => (localStorage.getItem("home.sortOption") as SortOption) ?? "updated",
+  );
+  const setSortOption = useCallback((value: SortOption) => {
+    setSortOptionLocal(value);
+    localStorage.setItem("home.sortOption", value);
+  }, []);
   const [collapsedSections, setCollapsedSections] = useState<Set<SectionId>>(
     new Set(["completed"]),
   );
@@ -181,10 +190,10 @@ export function HomeView() {
     [currentUser, nwo, pullRequestRepository, repoName],
   );
 
-  // Search filter
+  // Search filter + sort
   const filteredSections = useMemo(
-    () => filterHomePrSections(sections, searchQuery, searchContext),
-    [searchContext, searchQuery, sections],
+    () => sortPrSections(filterHomePrSections(sections, searchQuery, searchContext), sortOption),
+    [searchContext, searchQuery, sections, sortOption],
   );
   const filteredCount = useMemo(
     () => filteredSections.reduce((sum, section) => sum + section.items.length, 0),
@@ -537,6 +546,11 @@ export function HomeView() {
                   actionRef={autocompleteRef}
                 />
               </div>
+
+              <SortDropdown
+                value={sortOption}
+                onChange={setSortOption}
+              />
 
               <button
                 type="button"
