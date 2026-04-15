@@ -144,6 +144,22 @@ export interface PullRequestIpcApi {
     };
     result: void;
   };
+  "pr.submitReviewWithComments": {
+    args: RepoTarget & {
+      prNumber: number;
+      event: "APPROVE" | "REQUEST_CHANGES" | "COMMENT";
+      body?: string;
+      comments: Array<{
+        path: string;
+        line: number;
+        side?: "LEFT" | "RIGHT";
+        startLine?: number;
+        startSide?: "LEFT" | "RIGHT";
+        body: string;
+      }>;
+    };
+    result: void;
+  };
   "pr.reactions": { args: RepoTarget & { prNumber: number }; result: GhPrReactions };
   "pr.addReaction": {
     args: RepoTarget & { subjectId: string; content: GhReactionContent };

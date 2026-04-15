@@ -1590,6 +1590,90 @@ export async function submitReview(args: {
   invalidatePrCaches(resolved.nwo, args.prNumber);
 }
 
+export async function submitReviewWithComments(args: {
+  cwd: string | null;
+  owner: string;
+  repo: string;
+  prNumber: number;
+  event: ReviewEvent;
+  body?: string;
+  comments: Array<{
+    path: string;
+    line: number;
+    side?: "LEFT" | "RIGHT";
+    startLine?: number;
+    startSide?: "LEFT" | "RIGHT";
+    body: string;
+  }>;
+}): Promise<void> {
+  const { writeFileSync, unlinkSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  const { tmpdir } = await import("node:os");
+
+  const target: RepoTarget = { cwd: args.cwd, owner: args.owner, repo: args.repo };
+  const resolved = await resolveOpenPullRequest(target, args.prNumber);
+
+  const { stdout: commitSha } = await ghExec(
+    [
+      "pr",
+      "view",
+      String(args.prNumber),
+      "--json",
+      "headRefOid",
+      "--jq",
+      ".headRefOid",
+      ...resolved.repoFlag,
+    ],
+    { cwd: resolved.cwd },
+  );
+
+  const { owner, repo } = await getPullRequestRepo(target);
+
+  const payload: Record<string, unknown> = {
+    commit_id: commitSha.trim(),
+    event: args.event,
+    comments: args.comments.map((c) => {
+      const comment: Record<string, unknown> = {
+        path: c.path,
+        line: c.line,
+        side: c.side ?? "RIGHT",
+        body: c.body,
+      };
+      if (c.startLine && c.startLine !== c.line) {
+        comment.start_line = c.startLine;
+        comment.start_side = c.startSide ?? comment.side;
+      }
+      return comment;
+    }),
+  };
+  if (args.body) {
+    payload.body = args.body;
+  }
+
+  const tmpFile = join(tmpdir(), `dispatch-review-${Date.now()}.json`);
+  try {
+    writeFileSync(tmpFile, JSON.stringify(payload));
+    await ghExec(
+      [
+        "api",
+        `repos/${owner}/${repo}/pulls/${args.prNumber}/reviews`,
+        "-X",
+        "POST",
+        "--input",
+        tmpFile,
+      ],
+      { cwd: resolved.cwd, timeout: 30_000 },
+    );
+  } finally {
+    try {
+      unlinkSync(tmpFile);
+    } catch {
+      // Temp file cleanup is best-effort
+    }
+  }
+  invalidatePrCaches(resolved.nwo, args.prNumber);
+}
+
 const REACTION_GROUPS_FRAGMENT = `
   reactionGroups {
     content

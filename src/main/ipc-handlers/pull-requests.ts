@@ -31,6 +31,7 @@ export const pullRequestHandlers: Pick<
   | "pr.unresolveThread"
   | "pr.createComment"
   | "pr.submitReview"
+  | "pr.submitReviewWithComments"
   | "pr.reactions"
   | "pr.addReaction"
   | "pr.removeReaction"
@@ -91,6 +92,9 @@ export const pullRequestHandlers: Pick<
   },
   "pr.submitReview": async (args) => {
     await ghCli.submitReview(args);
+  },
+  "pr.submitReviewWithComments": async (args) => {
+    await ghCli.submitReviewWithComments(args);
   },
   "pr.reactions": (args) => ghCli.getPrReactions(args, args.prNumber),
   "pr.addReaction": async (args) => {

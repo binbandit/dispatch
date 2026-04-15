@@ -3,12 +3,14 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { toastManager } from "@/components/ui/toast";
 import { ReviewMarkdownComposer } from "@/renderer/components/review/comments/review-markdown-composer";
+import { usePreference } from "@/renderer/hooks/preferences/use-preference";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { inferLanguage } from "@/renderer/lib/review/highlighter";
+import { usePendingReviewActions } from "@/renderer/lib/review/pending-review-store";
 import { useMutation } from "@tanstack/react-query";
-import { CornerDownLeft } from "lucide-react";
+import { CornerDownLeft, Plus } from "lucide-react";
 import { useState } from "react";
 
 /**
@@ -39,6 +41,9 @@ export function CommentComposer({
 }: CommentComposerProps) {
   const { repoTarget } = useWorkspace();
   const [body, setBody] = useState("");
+  const reviewMode = usePreference("reviewCommentMode");
+  const isBatched = reviewMode === "batched";
+  const { addComment } = usePendingReviewActions();
 
   const createMutation = useMutation({
     mutationFn: (args: {
@@ -65,6 +70,19 @@ export function CommentComposer({
 
   function handleSubmit() {
     if (!body.trim()) {
+      return;
+    }
+    if (isBatched) {
+      addComment(prNumber, {
+        filePath,
+        line,
+        side,
+        startLine,
+        startSide: startLine && startLine !== line ? side : undefined,
+        body: body.trim(),
+      });
+      toastManager.add({ title: "Comment added to pending review", type: "success" });
+      onClose();
       return;
     }
     createMutation.mutate({
@@ -124,7 +142,7 @@ export function CommentComposer({
       />
       <div className="border-border-subtle flex items-center justify-between gap-2 border-t px-3 py-2.5">
         <span className="text-text-ghost font-mono text-[10px]">
-          {modKey}+Enter to submit · Esc to cancel
+          {modKey}+Enter to {isBatched ? "add" : "submit"} · Esc to cancel
         </span>
         <div className="flex items-center gap-1.5">
           <Button
@@ -148,10 +166,12 @@ export function CommentComposer({
           >
             {createMutation.isPending ? (
               <Spinner className="h-3 w-3" />
+            ) : isBatched ? (
+              <Plus size={11} />
             ) : (
               <CornerDownLeft size={11} />
             )}
-            Comment
+            {isBatched ? "Add to review" : "Comment"}
           </Button>
         </div>
       </div>

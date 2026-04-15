@@ -7,6 +7,7 @@ import { Check, Eye, GitMerge, MessageSquare } from "lucide-react";
 
 import { ApproveBarButton } from "./approve-bar-button";
 import { MergeBarButton } from "./merge-bar-button";
+import { PendingReviewBarButton } from "./pending-review-bar-button";
 import { RequestChangesBarButton } from "./request-changes-bar-button";
 import { UpdateBranchPill } from "./update-branch-pill";
 
@@ -190,6 +191,12 @@ export function FloatingReviewBar({
 
       {/* Action buttons */}
       <div style={{ display: "flex", alignItems: "center", gap: compactBar ? "2px" : "3px" }}>
+        <PendingReviewBarButton
+          repoTarget={repoTarget}
+          prNumber={prNumber}
+          compact={compactBar}
+          dense={denseBar}
+        />
         {!isAuthor && (
           <>
             <RequestChangesBarButton
