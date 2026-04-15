@@ -34,9 +34,12 @@ import {
 } from "@/shared/experimental-features";
 import {
   DEFAULT_PR_FETCH_LIMIT,
+  PR_FETCH_LIMIT_MAX,
+  PR_FETCH_LIMIT_MIN,
   PR_FETCH_LIMIT_OPTIONS,
   PR_FETCH_LIMIT_PREFERENCE_KEY,
   PR_FETCH_LIMIT_UNLIMITED,
+  isPresetPrFetchLimit,
   normalizePrFetchLimit,
 } from "@/shared/pr-fetch-limit";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -56,7 +59,7 @@ import {
   Trash2,
   TriangleAlert,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import { BotSettings } from "./bot-settings";
 import { KeyRecorder } from "./key-recorder";
@@ -141,6 +144,121 @@ const KEYBINDING_CATEGORIES: ShortcutCategory[] = ["Navigation", "Actions", "Sea
 interface AiProviderTestState {
   kind: "success" | "error";
   message: string;
+}
+
+function PrFetchSizeSection({
+  prFetchLimit,
+  savePref,
+}: {
+  prFetchLimit: string;
+  savePref: (key: string, value: string) => void;
+}) {
+  const parsedLimit = Number.parseInt(prFetchLimit, 10);
+  const isCustomActive =
+    Number.isFinite(parsedLimit) && !isPresetPrFetchLimit(parsedLimit);
+  const [customDraft, setCustomDraft] = useState(isCustomActive ? String(parsedLimit) : "");
+  const [isEditingCustom, setIsEditingCustom] = useState(false);
+  const customInputRef = useRef<HTMLInputElement>(null);
+
+  function commitCustomValue(raw: string) {
+    const parsed = Number.parseInt(raw, 10);
+    if (Number.isFinite(parsed) && parsed >= PR_FETCH_LIMIT_MIN) {
+      const clamped = Math.min(parsed, PR_FETCH_LIMIT_MAX);
+      savePref(PR_FETCH_LIMIT_PREFERENCE_KEY, String(clamped));
+      setCustomDraft(String(clamped));
+    }
+    setIsEditingCustom(false);
+  }
+
+  function activateCustomInput() {
+    setIsEditingCustom(true);
+    // Use rAF to ensure React renders the input before focusing
+    requestAnimationFrame(() => {
+      customInputRef.current?.focus();
+      customInputRef.current?.select();
+    });
+  }
+
+  return (
+    <section className="mt-8">
+      <h3 className="text-text-primary text-sm font-medium">Pull Request Fetch Size</h3>
+      <p className="text-text-tertiary mt-0.5 text-xs">
+        How many pull requests Dispatch asks GitHub for on each refresh.
+      </p>
+      <div className="mt-3 grid grid-cols-3 gap-1.5">
+        {PR_FETCH_LIMIT_OPTIONS.map((option) => {
+          const isActive = prFetchLimit === String(option);
+          return (
+            <button
+              key={option}
+              type="button"
+              onClick={() => {
+                savePref(PR_FETCH_LIMIT_PREFERENCE_KEY, String(option));
+                setIsEditingCustom(false);
+              }}
+              className={`cursor-pointer rounded-md border px-3 py-2 font-mono text-xs transition-colors ${
+                isActive
+                  ? "text-text-primary border-[--border-accent] bg-[--accent-muted] shadow-sm"
+                  : "border-border bg-bg-raised text-text-tertiary hover:text-text-secondary hover:bg-[--bg-elevated]"
+              }`}
+            >
+              {option === PR_FETCH_LIMIT_UNLIMITED ? "All" : option}
+            </button>
+          );
+        })}
+        {isEditingCustom ? (
+          <input
+            ref={customInputRef}
+            aria-label="Custom pull request fetch limit"
+            autoComplete="off"
+            inputMode="numeric"
+            name="custom-pr-fetch-limit"
+            type="number"
+            min={PR_FETCH_LIMIT_MIN}
+            max={PR_FETCH_LIMIT_MAX}
+            spellCheck={false}
+            value={customDraft}
+            onChange={(e) => setCustomDraft(e.target.value)}
+            onBlur={() => commitCustomValue(customDraft)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                commitCustomValue(customDraft);
+              } else if (e.key === "Escape") {
+                setIsEditingCustom(false);
+                if (!isCustomActive) {
+                  setCustomDraft("");
+                }
+              }
+            }}
+            className="border-[--border-accent] bg-bg-root text-text-primary rounded-md border px-3 py-2 text-center font-mono text-xs shadow-sm outline-none focus-visible:ring-1 focus-visible:ring-[--accent]"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={activateCustomInput}
+            className={`cursor-pointer rounded-md border px-3 py-2 font-mono text-xs transition-colors ${
+              isCustomActive
+                ? "text-text-primary border-[--border-accent] bg-[--accent-muted] shadow-sm"
+                : "border-border-subtle border-dashed bg-transparent text-text-ghost hover:text-text-tertiary hover:border-border"
+            }`}
+          >
+            {isCustomActive ? parsedLimit : "Custom\u2026"}
+          </button>
+        )}
+      </div>
+      <div className="border-border bg-bg-raised mt-3 flex items-start gap-2 rounded-md border px-3 py-2">
+        <Info
+          size={12}
+          className="text-accent-text mt-0.5 shrink-0"
+        />
+        <p className="text-text-ghost text-[10px] leading-[1.45]">
+          Higher limits show more pull requests per refresh. All keeps paging until GitHub
+          runs out of matching pull requests, so refreshes can take noticeably longer on
+          large repositories.
+        </p>
+      </div>
+    </section>
+  );
 }
 
 export function SettingsView() {
@@ -748,42 +866,10 @@ export function SettingsView() {
                 </p>
               </section>
 
-              <section className="mt-8">
-                <h3 className="text-text-primary text-sm font-medium">Pull Request Fetch Size</h3>
-                <p className="text-text-tertiary mt-0.5 text-xs">
-                  How many pull requests Dispatch asks GitHub for on each refresh.
-                </p>
-                <div className="mt-3 grid grid-cols-5 gap-1.5">
-                  {PR_FETCH_LIMIT_OPTIONS.map((option) => {
-                    const isActive = prFetchLimit === String(option);
-                    return (
-                      <button
-                        key={option}
-                        type="button"
-                        onClick={() => savePref(PR_FETCH_LIMIT_PREFERENCE_KEY, String(option))}
-                        className={`cursor-pointer rounded-md border px-3 py-2 font-mono text-xs transition-colors ${
-                          isActive
-                            ? "text-text-primary border-[--border-accent] bg-[--accent-muted] shadow-sm"
-                            : "border-border bg-bg-raised text-text-tertiary hover:text-text-secondary hover:bg-[--bg-elevated]"
-                        }`}
-                      >
-                        {option === PR_FETCH_LIMIT_UNLIMITED ? "All" : option}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="border-border bg-bg-raised mt-3 flex items-start gap-2 rounded-md border px-3 py-2">
-                  <Info
-                    size={12}
-                    className="text-accent-text mt-0.5 shrink-0"
-                  />
-                  <p className="text-text-ghost text-[10px] leading-[1.45]">
-                    Higher limits show more pull requests per refresh. All keeps paging until GitHub
-                    runs out of matching pull requests, so refreshes can take noticeably longer on
-                    large repositories.
-                  </p>
-                </div>
-              </section>
+              <PrFetchSizeSection
+                prFetchLimit={prFetchLimit}
+                savePref={savePref}
+              />
 
               {/* Polling intervals */}
               <section className="mt-8">
