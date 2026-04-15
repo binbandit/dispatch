@@ -174,6 +174,7 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
   nwoRef.current = nwo;
   const routeRef = useRef(route);
   routeRef.current = route;
+  const lastReviewPrRef = useRef<number | null>(route.view === "review" ? route.prNumber : null);
 
   const schedulePersist = useCallback(() => {
     if (!resumeReady) return;
@@ -185,19 +186,23 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
     saveStateTimerRef.current = globalThis.setTimeout(() => {
       const currentRoute = routeRef.current;
       const currentNwo = nwoRef.current;
+      if (currentRoute.view === "review" && currentRoute.prNumber !== null) {
+        lastReviewPrRef.current = currentRoute.prNumber;
+      }
       const fnState = useFileNavStore.getState().getSnapshot();
       const isReview = currentRoute.view === "review";
+      const savedPrNumber = isReview ? currentRoute.prNumber : lastReviewPrRef.current;
 
       const nextState: Omit<ReviewResumeState, "updatedAt"> = {
         workspace: currentNwo,
         view: currentRoute.view,
-        prNumber: isReview ? currentRoute.prNumber : null,
-        currentFilePath: isReview ? fnState.currentFilePath : null,
-        currentFileIndex: isReview ? fnState.currentFileIndex : 0,
-        diffMode: isReview ? fnState.diffMode : "all",
-        panelOpen: isReview ? fnState.panelOpen : true,
-        panelTab: isReview ? fnState.panelTab : "overview",
-        selectedCommit: isReview ? fnState.selectedCommit : null,
+        prNumber: savedPrNumber,
+        currentFilePath: fnState.currentFilePath,
+        currentFileIndex: fnState.currentFileIndex,
+        diffMode: fnState.diffMode,
+        panelOpen: fnState.panelOpen,
+        panelTab: fnState.panelTab,
+        selectedCommit: fnState.selectedCommit,
       };
 
       const serialized = JSON.stringify(nextState);
@@ -216,11 +221,17 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
     if (!resumeReady || route.view !== "review") return;
 
     if (selectedPr === null) {
+      lastReviewPrRef.current = null;
       useFileNavStore.getState().reset();
       return;
     }
 
-    if (resumeState?.view === "review" && resumeState.prNumber === selectedPr) {
+    if (lastReviewPrRef.current === selectedPr) {
+      return;
+    }
+
+    if (resumeState?.prNumber === selectedPr) {
+      lastReviewPrRef.current = selectedPr;
       useFileNavStore.getState().reset({
         currentFileIndex: resumeState.currentFileIndex,
         currentFilePath: resumeState.currentFilePath,
@@ -232,6 +243,7 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
       return;
     }
 
+    lastReviewPrRef.current = selectedPr;
     useFileNavStore.getState().reset();
   }, [route.view, resumeReady, resumeState, selectedPr]);
 
