@@ -53,6 +53,8 @@ export type DiffMode = "unified" | "split" | "full-file";
 
 interface DiffViewerProps {
   file: DiffFile;
+  oldLineBlameRef?: string | null;
+  newLineBlameRef?: string;
   highlighter?: Highlighter | null;
   language?: string;
   comments?: Map<string, ReviewComment[]>;
@@ -110,6 +112,8 @@ function countMatchesInText(text: string, query: string): number {
 
 export function DiffViewer({
   file,
+  oldLineBlameRef = null,
+  newLineBlameRef = "HEAD",
   highlighter,
   language,
   comments = new Map(),
@@ -462,6 +466,8 @@ export function DiffViewer({
         /* Unified diff mode — plain DOM (like Better Hub, one file at a time) */
         <UnifiedDiffView
           rows={activeRows}
+          oldLineBlameRef={oldLineBlameRef}
+          newLineBlameRef={newLineBlameRef}
           highlighter={highlighter ?? null}
           language={language ?? "text"}
           shikiTheme={shikiTheme}
@@ -720,6 +726,8 @@ function renderLineContent(
 
 function UnifiedDiffView({
   rows,
+  oldLineBlameRef,
+  newLineBlameRef,
   highlighter,
   language,
   shikiTheme,
@@ -746,6 +754,8 @@ function UnifiedDiffView({
   composerSuggestionText,
 }: {
   rows: FlatRow[];
+  oldLineBlameRef: string | null;
+  newLineBlameRef: string;
   highlighter: Highlighter | null;
   language: string;
   shikiTheme: { light: string; dark: string };
@@ -801,6 +811,8 @@ function UnifiedDiffView({
             <DiffLineRow
               key={row.key}
               line={row.line}
+              oldLineBlameRef={oldLineBlameRef}
+              newLineBlameRef={newLineBlameRef}
               highlighter={highlighter}
               language={language}
               shikiTheme={shikiTheme}
@@ -932,6 +944,8 @@ function renderSupportingRow({
 
 function DiffLineRow({
   line,
+  oldLineBlameRef,
+  newLineBlameRef,
   highlighter,
   language,
   shikiTheme,
@@ -950,6 +964,8 @@ function DiffLineRow({
   activeSearchRef,
 }: {
   line: FlatLine;
+  oldLineBlameRef: string | null;
+  newLineBlameRef: string;
   highlighter: Highlighter | null;
   language: string;
   shikiTheme: { light: string; dark: string };
@@ -990,8 +1006,9 @@ function DiffLineRow({
   const commentTarget = getCommentTarget(line);
   const lineNum = commentTarget?.line ?? null;
   const canCommentOnLine = commentingEnabled && commentTarget !== null;
-  const blameLine = line.newLineNumber;
-  const showBlameButton = blameLine !== null && line.type !== "del";
+  const blameLine = line.type === "del" ? line.oldLineNumber : line.newLineNumber;
+  const blameRef = line.type === "del" ? oldLineBlameRef : newLineBlameRef;
+  const showBlameButton = blameLine !== null && blameRef !== null;
   const showLineActions = showBlameButton || (canCommentOnLine && !isComposerActive);
 
   const rowBg = isSelected
@@ -1072,7 +1089,7 @@ function DiffLineRow({
                 <BlameButton
                   className={lineActionButtonClassName}
                   file={filePath}
-                  gitRef="HEAD"
+                  gitRef={blameRef}
                   line={blameLine}
                 />
               )}

@@ -8,8 +8,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock(import("@/renderer/components/review/diff/blame-popover"), () => ({
-  BlameButton: ({ line }: { line: number }) => (
-    <div data-testid={`blame-button-${line}`}>blame {line}</div>
+  BlameButton: ({ line, gitRef }: { line: number; gitRef: string }) => (
+    <div
+      data-git-ref={gitRef}
+      data-testid={`blame-button-${line}`}
+    >
+      blame {line}
+    </div>
   ),
 }));
 
@@ -111,6 +116,20 @@ describe("DiffViewer", () => {
     expect(screen.getByTestId("blame-button-3")).toBeInTheDocument();
     expect(screen.getByTestId("blame-button-10")).toBeInTheDocument();
     expect(screen.getByTestId("blame-button-11")).toBeInTheDocument();
+  });
+
+  it("renders blame actions for deleted diff lines with the old-side ref", () => {
+    const file = parseDiff(DELETED_FILE_DIFF)[0]!;
+
+    render(
+      <DiffViewer
+        file={file}
+        oldLineBlameRef="main~1"
+      />,
+    );
+
+    expect(screen.getByTestId("blame-button-1")).toHaveAttribute("data-git-ref", "main~1");
+    expect(screen.getByTestId("blame-button-2")).toHaveAttribute("data-git-ref", "main~1");
   });
 
   it("allows opening the comment composer on deleted lines", () => {

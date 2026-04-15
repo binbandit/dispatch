@@ -25,6 +25,7 @@ import { queryClient } from "@/renderer/lib/app/query-client";
 import { useTheme } from "@/renderer/lib/app/theme-context";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { useKeybindings } from "@/renderer/lib/keyboard/keybinding-context";
+import { resolveDiffBlameRefs } from "@/renderer/lib/review/blame-refs";
 import {
   getCompletedPullRequestLabel,
   getCompletedPullRequestTimestamp,
@@ -235,6 +236,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   });
   const lastSha = lastShaQuery.data ?? null;
   const headSha = detailQuery.data?.headRefOid ?? "";
+  const baseRefName = detailQuery.data?.baseRefName ?? null;
 
   // Incremental diff
   const incrementalDiffQuery = useQuery({
@@ -249,6 +251,23 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     staleTime: 60_000,
   });
 
+  const mergeBaseQuery = useQuery({
+    queryKey: ["git", "mergeBase", cwd, baseRefName, headSha],
+    queryFn: () => {
+      if (!cwd) {
+        throw new Error("Merge-base requested without a workspace path.");
+      }
+
+      if (!baseRefName || !headSha) {
+        throw new Error("Merge-base requested without both refs.");
+      }
+
+      return ipc("git.mergeBase", { cwd, refA: baseRefName, refB: headSha });
+    },
+    enabled: !selectedCommit && cwd !== null && Boolean(baseRefName) && Boolean(headSha),
+    staleTime: 60_000,
+  });
+
   // Parse diff — commit diff takes priority when selected
   const rawDiff = selectedCommit
     ? commitDiffQuery.data
@@ -257,6 +276,14 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       : diffQuery.data;
 
   const isLoadingDiff = selectedCommit ? commitDiffQuery.isLoading : diffQuery.isLoading;
+  const blameRefs = resolveDiffBlameRefs({
+    diffMode,
+    selectedCommit,
+    lastReviewedSha: lastSha,
+    headSha,
+    baseRefName,
+    mergeBaseSha: mergeBaseQuery.data ?? null,
+  });
 
   const files: DiffFile[] = useMemo(() => {
     if (!rawDiff) {
@@ -1039,6 +1066,8 @@ function PrDetail({ prNumber }: { prNumber: number }) {
             <DiffViewer
               key={`${selectedCommit?.oid ?? headSha ?? "head"}:${activeFilePath}:${viewMode}`}
               file={currentFile}
+              oldLineBlameRef={blameRefs.oldLineRef}
+              newLineBlameRef={blameRefs.newLineRef}
               highlighter={highlighter}
               language={inferLanguage(getDiffFilePath(currentFile))}
               comments={selectedCommit ? emptyCommentsMap : commentsMap}

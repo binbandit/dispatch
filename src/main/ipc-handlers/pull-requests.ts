@@ -41,6 +41,7 @@ export const pullRequestHandlers: Pick<
   | "checks.logs"
   | "checks.rerunFailed"
   | "checks.annotations"
+  | "mergeQueue.list"
 > = {
   "pr.list": (args) => ghCli.listPrsCore(args, args.filter, args.state, args.forceRefresh),
   "pr.listEnrichment": (args) =>
@@ -117,4 +118,5 @@ export const pullRequestHandlers: Pick<
     await ghCli.rerunFailedJobs(args, args.runId);
   },
   "checks.annotations": (args) => ghCli.getCheckAnnotations(args, args.prNumber),
+  "mergeQueue.list": (args) => ghCli.listMergeQueueEntries(args),
 };

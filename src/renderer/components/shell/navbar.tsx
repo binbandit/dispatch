@@ -29,6 +29,7 @@ import {
   ExternalLink,
   GitBranch,
   GitPullRequest,
+  ListOrdered,
   LogOut,
   Plus,
   Tag,
@@ -59,10 +60,20 @@ export function Navbar({
   const collapseNavLabels = useMediaQuery({ max: 1100 });
   const collapseChromeLabels = useMediaQuery({ max: 940 });
 
+  const { nwo, repoTarget } = useWorkspace();
+
   const navToReview = useCallback(() => navigate({ view: "review", prNumber: null }), [navigate]);
   const navToWorkflows = useCallback(() => navigate({ view: "workflows" }), [navigate]);
   const navToMetrics = useCallback(() => navigate({ view: "metrics" }), [navigate]);
   const navToReleases = useCallback(() => navigate({ view: "releases" }), [navigate]);
+  const navToMergeQueue = useCallback(() => navigate({ view: "merge-queue" }), [navigate]);
+
+  const repoInfoQuery = useQuery({
+    queryKey: ["repo", "info", nwo],
+    queryFn: () => ipc("repo.info", { ...repoTarget }),
+    staleTime: 300_000,
+  });
+  const hasMergeQueue = repoInfoQuery.data?.hasMergeQueue ?? false;
 
   // Fetch authenticated GitHub user for avatar
   const userQuery = useQuery({
@@ -139,6 +150,15 @@ export function Navbar({
           active={route.view === "releases"}
           onClick={navToReleases}
         />
+        {hasMergeQueue && (
+          <NavTab
+            label="Queue"
+            icon={<ListOrdered size={14} />}
+            compact={collapseNavLabels}
+            active={route.view === "merge-queue"}
+            onClick={navToMergeQueue}
+          />
+        )}
         {!collapseChromeLabels && route.view === "review" && route.prNumber && (
           <>
             <span className="text-text-ghost mx-1 text-[11px]">/</span>

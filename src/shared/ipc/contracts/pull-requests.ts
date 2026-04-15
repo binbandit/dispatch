@@ -9,6 +9,7 @@ import type {
   GhReviewComment,
   GhReviewRequest,
   GhReviewThread,
+  MergeQueueEntry,
   RepoTarget,
 } from "../../ipc";
 
@@ -188,4 +189,6 @@ export interface PullRequestIpcApi {
   "checks.logs": { args: RepoTarget & { runId: number }; result: string };
   "checks.rerunFailed": { args: RepoTarget & { runId: number }; result: void };
   "checks.annotations": { args: RepoTarget & { prNumber: number }; result: GhAnnotation[] };
+
+  "mergeQueue.list": { args: RepoTarget; result: MergeQueueEntry[] };
 }

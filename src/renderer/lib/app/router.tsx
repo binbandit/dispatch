@@ -7,6 +7,7 @@ export type Route =
   | { view: "workflows"; runId?: number; fromPr?: number }
   | { view: "metrics" }
   | { view: "releases" }
+  | { view: "merge-queue" }
   | { view: "settings" };
 
 interface RouterState {

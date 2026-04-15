@@ -11,7 +11,7 @@ export interface ReviewResumeSelectedCommit {
 
 export interface ReviewResumeState {
   workspace: string;
-  view: "review" | "workflows" | "metrics" | "releases" | "settings";
+  view: "review" | "workflows" | "metrics" | "releases" | "merge-queue" | "settings";
   prNumber: number | null;
   currentFilePath: string | null;
   currentFileIndex: number;

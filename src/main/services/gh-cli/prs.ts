@@ -9,6 +9,7 @@ import type {
   GhReactionGroup,
   GhReviewComment,
   GhReviewThread,
+  MergeQueueEntry,
   MergeStrategy,
   RepoTarget,
 } from "../../../shared/ipc";
@@ -31,12 +32,14 @@ import {
   getOrLoadCached,
   getPullRequestRepo,
   getPullRequestRepoFullName,
+  getRepoInfo,
   getUpstreamArgs,
   genericCache,
   ghExec,
   invalidateCacheKey,
   invalidatePrListCaches,
   parseJsonOutput,
+  parseRepoFullName,
   prEnrichmentCache,
   prListCache,
   resolvePrListLimit,
@@ -1141,6 +1144,86 @@ export async function getMergeQueueStatus(
     };
   } catch {
     return null;
+  }
+}
+
+export async function listMergeQueueEntries(
+  cwdOrTarget: string | RepoTarget,
+): Promise<MergeQueueEntry[]> {
+  const resolved = resolveTarget(cwdOrTarget);
+  try {
+    const info = await getRepoInfo(cwdOrTarget);
+    if (!info.hasMergeQueue) {
+      return [];
+    }
+    const mergeQueueRepo =
+      info.isFork && info.parent
+        ? parseRepoFullName(info.parent)
+        : parseRepoFullName(info.nameWithOwner);
+    const { owner, repo } = mergeQueueRepo;
+    const branch = info.defaultBranch;
+
+    const { stdout } = await ghExec(
+      [
+        "api",
+        "graphql",
+        "-f",
+        `owner=${owner}`,
+        "-f",
+        `repo=${repo}`,
+        "-f",
+        `branch=${branch}`,
+        "-f",
+        `query=query($owner: String!, $repo: String!, $branch: String!) {
+          repository(owner: $owner, name: $repo) {
+            mergeQueue(branch: $branch) {
+              entries(first: 100) {
+                nodes {
+                  position
+                  state
+                  enqueuedAt
+                  estimatedTimeToMerge
+                  pullRequest {
+                    number
+                    title
+                    headRefName
+                    author { login avatarUrl }
+                  }
+                }
+              }
+            }
+          }
+        }`,
+      ],
+      { cwd: resolved.cwd, timeout: 15_000 },
+    );
+
+    const data = JSON.parse(stdout) as {
+      data?: {
+        repository?: {
+          mergeQueue?: {
+            entries?: {
+              nodes?: Array<{
+                position: number;
+                state: MergeQueueEntry["state"];
+                enqueuedAt: string;
+                estimatedTimeToMerge: number | null;
+                pullRequest: {
+                  number: number;
+                  title: string;
+                  headRefName: string;
+                  author: { login: string; avatarUrl: string };
+                };
+              }>;
+            };
+          } | null;
+        };
+      };
+    };
+
+    return data.data?.repository?.mergeQueue?.entries?.nodes ?? [];
+  } catch {
+    return [];
   }
 }
 

@@ -52,6 +52,19 @@ export async function blame(args: {
   return { sha, author, date, summary };
 }
 
+export async function getMergeBase(
+  cwd: string,
+  refA: string,
+  refB: string,
+): Promise<string | null> {
+  try {
+    const { stdout } = await execFile("git", ["merge-base", refA, refB], { cwd });
+    return stdout || null;
+  } catch {
+    return null;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // File history
 // ---------------------------------------------------------------------------

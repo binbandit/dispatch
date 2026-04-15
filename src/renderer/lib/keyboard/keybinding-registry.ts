@@ -172,6 +172,7 @@ export const DEFAULT_KEYBINDINGS: ShortcutDefinition[] = [
   { id: "views.workflows", key: "2", label: "Workflows", category: "Views" },
   { id: "views.metrics", key: "3", label: "Metrics", category: "Views" },
   { id: "views.releases", key: "4", label: "Releases", category: "Views" },
+  { id: "views.mergeQueue", key: "5", label: "Merge queue", category: "Views" },
   { id: "views.shortcuts", key: "?", label: "Keyboard shortcuts", category: "Views" },
   {
     id: "views.settings",

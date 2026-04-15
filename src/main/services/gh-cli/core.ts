@@ -523,6 +523,7 @@ export function getRepoInfo(cwdOrTarget: string | RepoTarget): Promise<RepoInfo>
       }>(stdout);
       const canPush = ["ADMIN", "MAINTAIN", "WRITE"].includes(data.viewerPermission);
 
+      const defaultBranch = data.defaultBranchRef?.name ?? "main";
       let hasMergeQueue = false;
       try {
         const mergeQueueRepo =
@@ -530,7 +531,6 @@ export function getRepoInfo(cwdOrTarget: string | RepoTarget): Promise<RepoInfo>
             ? { owner: data.parent.owner.login, repo: data.parent.name }
             : parseRepoFullName(data.nameWithOwner);
         const { owner, repo } = mergeQueueRepo;
-        const defaultBranch = data.defaultBranchRef?.name ?? "main";
         const { stdout: gqlOut } = await ghExec(
           [
             "api",
@@ -561,6 +561,7 @@ export function getRepoInfo(cwdOrTarget: string | RepoTarget): Promise<RepoInfo>
         parent: data.parent ? `${data.parent.owner.login}/${data.parent.name}` : null,
         canPush,
         hasMergeQueue,
+        defaultBranch,
       };
     },
   });

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { getDevRepoStatus, parseAheadBehindCounts } from "./git-cli";
+import { getDevRepoStatus, getMergeBase, parseAheadBehindCounts } from "./git-cli";
 import { execFile } from "./shell";
 
 vi.mock(import("./shell"), () => ({
@@ -84,5 +84,27 @@ describe("getDevRepoStatus", () => {
       aheadCount: 0,
       behindCount: 0,
     });
+  });
+});
+
+describe("getMergeBase", () => {
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it("returns the merge-base sha when git resolves one", async () => {
+    execFileMock.mockResolvedValueOnce({ stdout: "abc123", stderr: "" });
+
+    await expect(getMergeBase("/repo", "main", "feature")).resolves.toBe("abc123");
+
+    expect(execFileMock).toHaveBeenCalledWith("git", ["merge-base", "main", "feature"], {
+      cwd: "/repo",
+    });
+  });
+
+  it("returns null when git cannot resolve a merge-base", async () => {
+    execFileMock.mockRejectedValueOnce(new Error("missing ref"));
+
+    await expect(getMergeBase("/repo", "main", "feature")).resolves.toBeNull();
   });
 });

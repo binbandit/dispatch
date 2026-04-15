@@ -431,6 +431,20 @@ export interface RepoInfo {
   parent: string | null;
   canPush: boolean;
   hasMergeQueue: boolean;
+  defaultBranch: string;
+}
+
+export interface MergeQueueEntry {
+  position: number;
+  state: "QUEUED" | "AWAITING_CHECKS" | "MERGEABLE" | "UNMERGEABLE" | "LOCKED";
+  enqueuedAt: string;
+  estimatedTimeToMerge: number | null;
+  pullRequest: {
+    number: number;
+    title: string;
+    headRefName: string;
+    author: { login: string; avatarUrl: string };
+  };
 }
 
 export interface EnvStatus {

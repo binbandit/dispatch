@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { CommandPalette } from "@/renderer/components/inbox/command-palette";
 import { HomeView } from "@/renderer/components/inbox/home-view";
+import { MergeQueueView } from "@/renderer/components/inbox/merge-queue-view";
 import { MetricsView } from "@/renderer/components/inbox/metrics-view";
 import { PrDetailView } from "@/renderer/components/review/pr-detail-view";
 import { ReviewSidebar } from "@/renderer/components/review/sidebar/review-sidebar";
@@ -61,6 +62,9 @@ export function AppLayout() {
     }
     if (resumeState.view === "releases") {
       return { view: "releases" };
+    }
+    if (resumeState.view === "merge-queue") {
+      return { view: "merge-queue" };
     }
     return { view: "settings" };
   }, [resumeState]);
@@ -141,6 +145,7 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
     { ...getBinding("views.workflows"), handler: () => navigate({ view: "workflows" }) },
     { ...getBinding("views.metrics"), handler: () => navigate({ view: "metrics" }) },
     { ...getBinding("views.releases"), handler: () => navigate({ view: "releases" }) },
+    { ...getBinding("views.mergeQueue"), handler: () => navigate({ view: "merge-queue" }) },
     { ...getBinding("views.settings"), handler: toggleSettings },
   ]);
   useNotificationPolling();
@@ -354,6 +359,8 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
         {route.view === "metrics" && <MetricsView />}
 
         {route.view === "releases" && <ReleasesView />}
+
+        {route.view === "merge-queue" && <MergeQueueView />}
 
         {route.view === "settings" && <SettingsView />}
       </main>
