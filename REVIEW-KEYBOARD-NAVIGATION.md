@@ -22,30 +22,36 @@ The fastest way to move around is:
 
 Use these keys constantly while reviewing:
 
-| Shortcut | What it does |
-| --- | --- |
-| `Tab` | Move to the next review pane |
-| `Shift+Tab` | Move to the previous review pane |
-| `f` | Focus the left review pane |
-| `d` | Focus the code view |
-| `p` | Focus the overview panel |
-| `g` | Focus the floating review actions |
-| `i` | Toggle the overview panel |
-| `Cmd+\\` | Toggle the overview panel |
-| `Cmd+B` | Toggle the app sidebar |
+| Shortcut    | What it does                      |
+| ----------- | --------------------------------- |
+| `Tab`       | Move to the next review pane      |
+| `Shift+Tab` | Move to the previous review pane  |
+| `f`         | Focus the left review pane        |
+| `d`         | Focus the code view               |
+| `p`         | Focus the overview panel          |
+| `g`         | Focus the floating review actions |
+| `i`         | Toggle the overview panel         |
+| `Cmd+\\`    | Toggle the overview panel         |
+| `Cmd+B`     | Toggle the app sidebar            |
 
 ## File navigation
 
 These shortcuts help you move through the PR itself:
 
-| Shortcut | What it does |
-| --- | --- |
-| `]` | Next file |
-| `[` | Previous file |
-| `n` | Jump to the next unreviewed file |
-| `v` | Toggle the current file as viewed |
-| `{` | Previous hunk |
-| `}` | Next hunk |
+| Shortcut | What it does                      |
+| -------- | --------------------------------- |
+| `]`      | Next file                         |
+| `[`      | Previous file                     |
+| `n`      | Jump to the next unreviewed file  |
+| `v`      | Toggle the current file as viewed |
+| `{`      | Previous hunk                     |
+| `}`      | Next hunk                         |
+
+Within the focused left review pane, Dispatch also supports vim-style movement:
+
+- `j` and `k` move up and down through triage items or file tree rows
+- `h` and `l` collapse and expand sections or move across overview panel tabs
+- `Enter` opens the focused file or activates the focused section
 
 ## Searching
 
@@ -67,16 +73,17 @@ Search behavior by region:
 
 You can jump directly to the main side panel tabs:
 
-| Shortcut | What it does |
-| --- | --- |
-| `Cmd+Shift+O` | Open Overview |
+| Shortcut      | What it does      |
+| ------------- | ----------------- |
+| `Cmd+Shift+O` | Open Overview     |
 | `Cmd+Shift+C` | Open Conversation |
-| `Cmd+Shift+T` | Open Commits |
-| `Cmd+Shift+X` | Open Checks |
+| `Cmd+Shift+T` | Open Commits      |
+| `Cmd+Shift+X` | Open Checks       |
 
 Once the overview panel is focused, use:
 
 - `ArrowLeft` and `ArrowRight` to move between tabs
+- `h` and `l` to move between tabs with vim-style keys
 - `/` to search within the current tab, when that tab supports search
 - `Escape` to close the panel
 
@@ -84,13 +91,13 @@ Once the overview panel is focused, use:
 
 Dispatch supports keyboard review of threads in both the diff and conversation panel.
 
-| Shortcut | What it does |
-| --- | --- |
-| `c` | Next comment |
-| `Shift+C` | Previous comment |
-| `u` | Jump to the next unresolved thread |
-| `r` | Reply to the focused thread |
-| `e` | Resolve the focused thread |
+| Shortcut  | What it does                       |
+| --------- | ---------------------------------- |
+| `c`       | Next comment                       |
+| `Shift+C` | Previous comment                   |
+| `u`       | Jump to the next unresolved thread |
+| `r`       | Reply to the focused thread        |
+| `e`       | Resolve the focused thread         |
 
 Tips:
 
@@ -102,11 +109,11 @@ Tips:
 
 The review actions live in the floating review bar at the bottom of the review page.
 
-| Shortcut | What it does |
-| --- | --- |
-| `Cmd+Shift+A` | Arm approve |
+| Shortcut      | What it does         |
+| ------------- | -------------------- |
+| `Cmd+Shift+A` | Arm approve          |
 | `Cmd+Shift+R` | Open request changes |
-| `Cmd+Shift+M` | Arm merge |
+| `Cmd+Shift+M` | Arm merge            |
 
 Important safety behavior:
 
