@@ -17,7 +17,13 @@ import {
   PR_FETCH_LIMIT_PREFERENCE_KEY,
   normalizePrFetchLimit,
 } from "../../../shared/pr-fetch-limit";
-import { cacheDisplayNames, getPreference } from "../../db/repository";
+import {
+  cacheDisplayNames,
+  getCachedUserProfile,
+  getPreference,
+  getStaleUserProfile,
+  saveUserProfile,
+} from "../../db/repository";
 import { trackFromMain } from "../analytics";
 import { type ExecResult, execFile } from "../shell";
 
@@ -241,39 +247,56 @@ function getUserProfileBase(login: string): Promise<Omit<GhUserProfile, "repoCon
     "}",
   ].join(" ");
 
+  const persisted = getCachedUserProfile(normalizedLogin);
+  if (persisted) {
+    setCache(genericCache, cacheKey, { data: persisted.profile, ttl: USER_TRUST_CACHE_TTL_MS });
+    return Promise.resolve(persisted.profile);
+  }
+
+  const stalePersisted = getStaleUserProfile(normalizedLogin);
+
   return getOrLoadCached({
     cache: genericCache,
     key: cacheKey,
     ttl: USER_TRUST_CACHE_TTL_MS,
     loader: async () => {
-      const { stdout } = await ghExec(["api", `users/${encodeURIComponent(login)}`, "--jq", jq], {
-        timeout: 15_000,
-      });
-      const profile =
-        parseJsonOutput<Omit<GhUserProfile, "organizations" | "repoContributions">>(stdout);
-
-      // Fetch organizations separately.
-      // The public endpoint (users/{login}/orgs) only returns public memberships.
-      // For the authenticated user, use the authenticated endpoint (user/orgs)
-      // Which includes private org memberships.
-      let organizations: GhUserProfile["organizations"] = [];
       try {
-        const viewer = await getAuthenticatedUser();
-        const orgEndpoint =
-          viewer && viewer.login.toLowerCase() === login.toLowerCase()
-            ? "user/orgs"
-            : `users/${encodeURIComponent(login)}/orgs`;
+        const { stdout } = await ghExec(["api", `users/${encodeURIComponent(login)}`, "--jq", jq], {
+          timeout: 15_000,
+        });
+        const profile =
+          parseJsonOutput<Omit<GhUserProfile, "organizations" | "repoContributions">>(stdout);
 
-        const { stdout: orgStdout } = await ghExec(
-          ["api", orgEndpoint, "--jq", "[.[] | {login: .login, avatarUrl: .avatar_url}]"],
-          { timeout: 10_000 },
-        );
-        organizations = parseJsonOutput<GhUserProfile["organizations"]>(orgStdout);
-      } catch {
-        // Org fetch can fail for bots or private orgs — non-critical
+        // Fetch organizations separately.
+        // The public endpoint (users/{login}/orgs) only returns public memberships.
+        // For the authenticated user, use the authenticated endpoint (user/orgs)
+        // Which includes private org memberships.
+        let organizations: GhUserProfile["organizations"] = [];
+        try {
+          const viewer = await getAuthenticatedUser();
+          const orgEndpoint =
+            viewer && viewer.login.toLowerCase() === login.toLowerCase()
+              ? "user/orgs"
+              : `users/${encodeURIComponent(login)}/orgs`;
+
+          const { stdout: orgStdout } = await ghExec(
+            ["api", orgEndpoint, "--jq", "[.[] | {login: .login, avatarUrl: .avatar_url}]"],
+            { timeout: 10_000 },
+          );
+          organizations = parseJsonOutput<GhUserProfile["organizations"]>(orgStdout);
+        } catch {
+          // Org fetch can fail for bots or private orgs — non-critical
+        }
+
+        const hydratedProfile = { ...profile, organizations, repoContributions: null };
+        saveUserProfile(normalizedLogin, hydratedProfile);
+        return hydratedProfile;
+      } catch (error) {
+        if (stalePersisted) {
+          return stalePersisted.profile;
+        }
+        throw error;
       }
-
-      return { ...profile, organizations, repoContributions: null };
     },
   }) as Promise<Omit<GhUserProfile, "repoContributions">>;
 }

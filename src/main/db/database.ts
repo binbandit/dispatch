@@ -145,6 +145,12 @@ export function initDatabase(): Database.Database {
       cached_at     TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS user_profile_cache (
+      login         TEXT    PRIMARY KEY,
+      data          TEXT    NOT NULL,
+      cached_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE TABLE IF NOT EXISTS review_resume_state (
       workspace              TEXT    PRIMARY KEY,
       view                   TEXT    NOT NULL,

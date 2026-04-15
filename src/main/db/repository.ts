@@ -3,6 +3,7 @@ import type {
   AiTriageCacheEntry,
   GhPrDetail,
   GhPrListItem,
+  GhUserProfile,
   PrActivityState,
 } from "../../shared/ipc";
 import type {
@@ -870,6 +871,92 @@ export function getDisplayNames(logins: string[]): Map<string, string> {
     map.set(row.login, row.name);
   }
   return map;
+}
+
+// ---------------------------------------------------------------------------
+// User Profiles (1-day cache)
+// ---------------------------------------------------------------------------
+
+const USER_PROFILE_TTL_HOURS = 24;
+
+export interface UserProfileCacheEntry {
+  profile: Omit<GhUserProfile, "repoContributions">;
+  cachedAt: string;
+}
+
+export function getCachedUserProfile(login: string): UserProfileCacheEntry | null {
+  const db = getDatabase();
+  const row = db
+    .prepare(`
+      SELECT data, cached_at
+      FROM user_profile_cache
+      WHERE login = ?
+        AND cached_at > datetime('now', '-${USER_PROFILE_TTL_HOURS} hours')
+    `)
+    .get(login) as
+    | {
+        data: string;
+        cached_at: string;
+      }
+    | undefined;
+
+  if (!row) {
+    return null;
+  }
+
+  const profile = parseCachedJson<Omit<GhUserProfile, "repoContributions">>(row.data);
+  if (!profile) {
+    return null;
+  }
+
+  return {
+    profile,
+    cachedAt: row.cached_at,
+  };
+}
+
+export function getStaleUserProfile(login: string): UserProfileCacheEntry | null {
+  const db = getDatabase();
+  const row = db
+    .prepare(`
+      SELECT data, cached_at
+      FROM user_profile_cache
+      WHERE login = ?
+    `)
+    .get(login) as
+    | {
+        data: string;
+        cached_at: string;
+      }
+    | undefined;
+
+  if (!row) {
+    return null;
+  }
+
+  const profile = parseCachedJson<Omit<GhUserProfile, "repoContributions">>(row.data);
+  if (!profile) {
+    return null;
+  }
+
+  return {
+    profile,
+    cachedAt: row.cached_at,
+  };
+}
+
+export function saveUserProfile(
+  login: string,
+  profile: Omit<GhUserProfile, "repoContributions">,
+): void {
+  const db = getDatabase();
+  db.prepare(`
+    INSERT INTO user_profile_cache (login, data, cached_at)
+    VALUES (?, ?, datetime('now'))
+    ON CONFLICT(login) DO UPDATE SET
+      data = excluded.data,
+      cached_at = excluded.cached_at
+  `).run(login, JSON.stringify(profile));
 }
 
 // ---------------------------------------------------------------------------

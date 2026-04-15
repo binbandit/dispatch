@@ -8,6 +8,9 @@ vi.mock("../../../shared/pr-fetch-limit", () => ({
 vi.mock("../../db/repository", () => ({
   getPreference: vi.fn(() => null),
   cacheDisplayNames: vi.fn(),
+  getCachedUserProfile: vi.fn(() => null),
+  getStaleUserProfile: vi.fn(() => null),
+  saveUserProfile: vi.fn(),
 }));
 
 vi.mock("../shell", () => ({
@@ -15,6 +18,7 @@ vi.mock("../shell", () => ({
   resolveExecutablePath: vi.fn(),
 }));
 
+import { getCachedUserProfile, getStaleUserProfile, saveUserProfile } from "../../db/repository";
 import { execFile } from "../shell";
 import {
   buildFilterArgs,
@@ -30,10 +34,15 @@ import {
 } from "./core";
 
 const execFileMock = vi.mocked(execFile);
+const getCachedUserProfileMock = vi.mocked(getCachedUserProfile);
+const getStaleUserProfileMock = vi.mocked(getStaleUserProfile);
+const saveUserProfileMock = vi.mocked(saveUserProfile);
 
 beforeEach(() => {
   vi.clearAllMocks();
   invalidateAllCaches();
+  getCachedUserProfileMock.mockReturnValue(null);
+  getStaleUserProfileMock.mockReturnValue(null);
 });
 
 describe("parseJsonOutput", () => {
@@ -267,6 +276,35 @@ describe("invalidateAllCaches", () => {
 });
 
 describe("getUserProfile", () => {
+  it("returns persisted author profiles before hitting GitHub", async () => {
+    getCachedUserProfileMock.mockReturnValue({
+      profile: {
+        login: "octocat",
+        name: "The Octocat",
+        avatarUrl: "https://example.com/octocat.png",
+        bio: "Cached profile.",
+        company: "@github",
+        location: "San Francisco",
+        followers: 120,
+        following: 5,
+        publicRepos: 42,
+        createdAt: "2020-01-01T00:00:00Z",
+        organizations: [{ login: "github", avatarUrl: "https://example.com/org.png" }],
+      },
+      cachedAt: "2026-04-15T00:00:00Z",
+    });
+
+    const profile = await getUserProfile("octocat");
+
+    expect(profile).toMatchObject({
+      login: "octocat",
+      name: "The Octocat",
+      organizations: [{ login: "github", avatarUrl: "https://example.com/org.png" }],
+      repoContributions: null,
+    });
+    expect(execFileMock).not.toHaveBeenCalled();
+  });
+
   it("includes prior repository contributions when repo context is available", async () => {
     execFileMock
       .mockResolvedValueOnce({
@@ -321,6 +359,20 @@ describe("getUserProfile", () => {
     expect(profile.organizations).toEqual([
       { login: "github", avatarUrl: "https://example.com/org.png" },
     ]);
+    expect(saveUserProfileMock).toHaveBeenCalledWith("octocat", {
+      login: "octocat",
+      name: "The Octocat",
+      avatarUrl: "https://example.com/octocat.png",
+      bio: "Testing profile history.",
+      company: "@github",
+      location: "San Francisco",
+      followers: 120,
+      following: 5,
+      publicRepos: 42,
+      createdAt: "2020-01-01T00:00:00Z",
+      organizations: [{ login: "github", avatarUrl: "https://example.com/org.png" }],
+      repoContributions: null,
+    });
     expect(execFileMock).toHaveBeenCalledTimes(4);
     expect(execFileMock.mock.calls[3]?.[1]).toContain(
       "authoredPullRequestsQuery=repo:octo/dispatch is:pr author:octocat",
@@ -373,5 +425,34 @@ describe("getUserProfile", () => {
 
     expect(second).toEqual(first);
     expect(execFileMock).toHaveBeenCalledTimes(4);
+  });
+
+  it("falls back to stale persisted author profiles when GitHub is unavailable", async () => {
+    getStaleUserProfileMock.mockReturnValue({
+      profile: {
+        login: "octocat",
+        name: "The Octocat",
+        avatarUrl: "https://example.com/octocat.png",
+        bio: "Cached fallback.",
+        company: "@github",
+        location: "San Francisco",
+        followers: 120,
+        following: 5,
+        publicRepos: 42,
+        createdAt: "2020-01-01T00:00:00Z",
+        organizations: [{ login: "github", avatarUrl: "https://example.com/org.png" }],
+      },
+      cachedAt: "2026-04-13T00:00:00Z",
+    });
+    execFileMock.mockRejectedValueOnce(new Error("network down"));
+
+    const profile = await getUserProfile("octocat");
+
+    expect(profile).toMatchObject({
+      login: "octocat",
+      bio: "Cached fallback.",
+      repoContributions: null,
+    });
+    expect(execFileMock).toHaveBeenCalledTimes(1);
   });
 });
