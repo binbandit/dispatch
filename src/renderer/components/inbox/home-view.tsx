@@ -515,11 +515,8 @@ export function HomeView() {
 
                     if (e.key === "Escape") {
                       e.preventDefault();
-                      if (searchQuery) {
-                        setSearchQuery("");
-                      } else {
-                        (e.target as HTMLElement).blur();
-                      }
+                      setAutocompleteOpen(false);
+                      (e.target as HTMLElement).blur();
                     }
                   }}
                 />
