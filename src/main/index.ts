@@ -193,10 +193,39 @@ const TOKEN_TTL = 300_000;
  * Enterprise hosts pass through unchanged.
  */
 function resolveGitHubHost(hostname: string): string {
-  if (hostname.endsWith(".githubusercontent.com") || hostname === "github.com") {
+  const normalized = hostname.toLowerCase();
+  const isGitHubCdnHost =
+    normalized === "github.com" ||
+    normalized.endsWith(".github.com") ||
+    normalized.endsWith(".githubusercontent.com") ||
+    normalized.endsWith(".githubassets.com") ||
+    (normalized.endsWith(".amazonaws.com") && normalized.includes("github"));
+
+  if (isGitHubCdnHost) {
     return "github.com";
   }
   return hostname;
+}
+
+function isGitHubMediaRequest(
+  resourceType: string,
+  url: URL,
+): boolean {
+  const path = url.pathname.toLowerCase();
+  const imageExtensions = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif", ".bmp"];
+  const videoExtensions = [".mp4", ".mov", ".webm", ".m4v", ".mkv", ".avi"];
+  const isMediaResourceType = resourceType === "image" || resourceType === "media";
+  const hasMediaExtension = [...imageExtensions, ...videoExtensions].some((extension) =>
+    path.endsWith(extension),
+  );
+
+  return (
+    isMediaResourceType ||
+    hasMediaExtension ||
+    path.includes("/avatars/") ||
+    path.includes("/storage/") ||
+    path.includes("/user-attachments/")
+  );
 }
 
 async function getGhToken(host: string): Promise<string | null> {
@@ -230,21 +259,15 @@ function setupMediaAuth(): void {
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ["https://*/*"] },
     (details, callback) => {
-      // Intercept image and video/media requests (avatars, PR body images & videos)
-      const isMedia =
-        details.resourceType === "image" ||
-        details.resourceType === "media" ||
-        details.url.endsWith(".png") ||
-        details.url.endsWith(".jpg") ||
-        details.url.endsWith(".jpeg") ||
-        details.url.endsWith(".gif") ||
-        details.url.endsWith(".webp") ||
-        details.url.endsWith(".mp4") ||
-        details.url.endsWith(".mov") ||
-        details.url.endsWith(".webm") ||
-        details.url.includes("/avatars/") ||
-        details.url.includes("/storage/") ||
-        details.url.includes("/user-attachments/");
+      let targetUrl: URL;
+      try {
+        targetUrl = new URL(details.url);
+      } catch {
+        callback({ cancel: false });
+        return;
+      }
+
+      const isMedia = isGitHubMediaRequest(details.resourceType, targetUrl);
 
       if (!isMedia) {
         callback({ cancel: false });
@@ -253,8 +276,7 @@ function setupMediaAuth(): void {
 
       // Resolve the GitHub host for token lookup (maps CDN domains like
       // Avatars.githubusercontent.com → github.com, leaves enterprise hosts as-is).
-      const url = new URL(details.url);
-      const tokenHost = resolveGitHubHost(url.hostname);
+      const tokenHost = resolveGitHubHost(targetUrl.hostname);
 
       getGhToken(tokenHost)
         .then((token) => {

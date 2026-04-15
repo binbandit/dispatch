@@ -70,4 +70,15 @@ describe("MarkdownBody", () => {
     ).toBeInTheDocument();
     expect(alert?.querySelector("details")).not.toBeNull();
   });
+
+  it("does not pass ReactMarkdown internal props to image elements", () => {
+    const { getByRole } = render(
+      <MarkdownBody
+        content="![attachment](https://github.com/user-attachments/assets/example.png)"
+      />,
+    );
+    const image = getByRole("img", { name: "attachment" });
+
+    expect(image).not.toHaveAttribute("node");
+  });
 });

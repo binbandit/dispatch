@@ -9,6 +9,7 @@ import {
 } from "@/renderer/lib/review/highlighter";
 import { AlertCircle, Info, Lightbulb, OctagonAlert, TriangleAlert } from "lucide-react";
 import { Children, isValidElement, useMemo } from "react";
+import type { ComponentPropsWithoutRef } from "react";
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGemoji from "remark-gemoji";
@@ -151,13 +152,19 @@ export function MarkdownBody({ content, repo, className = "" }: MarkdownBodyProp
         components={{
           // Images: no-referrer to avoid leaking origin, lazy load
           img({ src, alt, ...rest }) {
+            const imgProps = {
+              ...(rest as ComponentPropsWithoutRef<"img"> & { node?: unknown; sourcePos?: unknown }),
+            };
+            delete imgProps.node;
+            delete imgProps.sourcePos;
+
             return (
               <img
                 src={src}
                 alt={alt ?? ""}
                 referrerPolicy="no-referrer"
                 loading="lazy"
-                {...rest}
+                {...imgProps}
               />
             );
           },
