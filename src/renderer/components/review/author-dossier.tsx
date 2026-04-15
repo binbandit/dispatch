@@ -7,8 +7,13 @@ import {
   formatAuthorName,
   useDisplayNameFormat,
 } from "@/renderer/hooks/preferences/use-display-name";
+import { usePreference } from "@/renderer/hooks/preferences/use-preference";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { relativeTime } from "@/shared/format";
+import {
+  isTrustedContributorSystemEnabled,
+  TRUSTED_CONTRIBUTOR_SYSTEM_PREFERENCE_KEY,
+} from "@/shared/trusted-contributors";
 import { useQuery } from "@tanstack/react-query";
 import { Building2, Calendar, GitPullRequest, MapPin, Users } from "lucide-react";
 import { useState } from "react";
@@ -35,6 +40,10 @@ interface AuthorDossierProps {
 
 export function AuthorDossier({ login, author, createdAt, repo, prNumber }: AuthorDossierProps) {
   const nameFormat = useDisplayNameFormat();
+  const trustedContributorPreference = usePreference(TRUSTED_CONTRIBUTOR_SYSTEM_PREFERENCE_KEY);
+  const trustedContributorSystemEnabled = isTrustedContributorSystemEnabled(
+    trustedContributorPreference,
+  );
   const [trustModalOpen, setTrustModalOpen] = useState(false);
 
   const profileQuery = useQuery({
@@ -45,8 +54,9 @@ export function AuthorDossier({ login, author, createdAt, repo, prNumber }: Auth
   });
 
   const profile = profileQuery.data;
-  const breakdown = profile ? computeTrustBreakdown(profile) : null;
-  const { score, label, color } = computeTrustSignal(breakdown?.total);
+  const breakdown =
+    trustedContributorSystemEnabled && profile ? computeTrustBreakdown(profile) : null;
+  const trustSignal = breakdown ? computeTrustSignal(breakdown.total) : null;
 
   return (
     <div
@@ -67,7 +77,7 @@ export function AuthorDossier({ login, author, createdAt, repo, prNumber }: Auth
             className="border-border-strong border"
           />
           {/* Score ring */}
-          {profile && (
+          {profile && trustSignal && (
             <svg
               width={36}
               height={36}
@@ -87,9 +97,9 @@ export function AuthorDossier({ login, author, createdAt, repo, prNumber }: Auth
                 cy={18}
                 r={16}
                 fill="none"
-                stroke={color}
+                stroke={trustSignal.color}
                 strokeWidth={2}
-                strokeDasharray={`${(score / 100) * 100.5} 100.5`}
+                strokeDasharray={`${(trustSignal.score / 100) * 100.5} 100.5`}
                 strokeLinecap="round"
               />
             </svg>
@@ -101,18 +111,18 @@ export function AuthorDossier({ login, author, createdAt, repo, prNumber }: Auth
             <span className="text-text-primary truncate text-xs font-medium">
               {formatAuthorName(author, nameFormat)}
             </span>
-            {profile && (
+            {profile && trustSignal && (
               <button
                 type="button"
                 className="shrink-0 cursor-pointer rounded-xs px-1.5 py-px text-[8px] font-bold tracking-[0.04em] uppercase transition-opacity hover:opacity-80"
                 style={{
-                  background: `color-mix(in srgb, ${color} 12%, transparent)`,
-                  color,
-                  border: `1px solid color-mix(in srgb, ${color} 20%, transparent)`,
+                  background: `color-mix(in srgb, ${trustSignal.color} 12%, transparent)`,
+                  color: trustSignal.color,
+                  border: `1px solid color-mix(in srgb, ${trustSignal.color} 20%, transparent)`,
                 }}
                 onClick={() => setTrustModalOpen(true)}
               >
-                {label}
+                {trustSignal.label}
               </button>
             )}
           </div>
@@ -185,14 +195,14 @@ export function AuthorDossier({ login, author, createdAt, repo, prNumber }: Auth
       )}
 
       {/* Trust breakdown modal */}
-      {profile && breakdown && (
+      {profile && breakdown && trustSignal && (
         <TrustBreakdownModal
           open={trustModalOpen}
           onOpenChange={setTrustModalOpen}
           profile={profile}
           breakdown={breakdown}
-          label={label}
-          color={color}
+          label={trustSignal.label}
+          color={trustSignal.color}
         />
       )}
     </div>

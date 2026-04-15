@@ -46,6 +46,10 @@ import {
   isSearchStatePersistenceEnabled,
   SEARCH_STATE_PERSISTENCE_PREFERENCE_KEY,
 } from "@/shared/search-state";
+import {
+  isTrustedContributorSystemEnabled,
+  TRUSTED_CONTRIBUTOR_SYSTEM_PREFERENCE_KEY,
+} from "@/shared/trusted-contributors";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   ArrowLeft,
@@ -129,6 +133,7 @@ const PREF_KEYS = [
   "disableFontLigatures",
   "reviewCommentMode",
   SEARCH_STATE_PERSISTENCE_PREFERENCE_KEY,
+  TRUSTED_CONTRIBUTOR_SYSTEM_PREFERENCE_KEY,
   ...EXPERIMENTAL_FEATURE_PREFERENCE_KEYS,
 ];
 
@@ -331,6 +336,9 @@ export function SettingsView() {
   const reviewCommentMode = prefs.reviewCommentMode ?? "immediate";
   const persistSearchState = isSearchStatePersistenceEnabled(
     prefs[SEARCH_STATE_PERSISTENCE_PREFERENCE_KEY],
+  );
+  const trustedContributorSystemEnabled = isTrustedContributorSystemEnabled(
+    prefs[TRUSTED_CONTRIBUTOR_SYSTEM_PREFERENCE_KEY],
   );
 
   const navSections = useMemo(
@@ -728,7 +736,7 @@ export function SettingsView() {
             <>
               <h2 className="text-text-primary text-base font-semibold">General</h2>
               <p className="text-text-tertiary mt-0.5 text-xs">
-                Configure merge behavior and polling intervals.
+                Configure review defaults, contributor signals, and polling intervals.
               </p>
 
               {/* Merge strategy */}
@@ -895,6 +903,33 @@ export function SettingsView() {
                       savePref(SEARCH_STATE_PERSISTENCE_PREFERENCE_KEY, checked ? "true" : "false")
                     }
                     aria-label="Remember search state"
+                  />
+                </label>
+              </section>
+
+              <section className="mt-8">
+                <h3 className="text-text-primary text-sm font-medium">Contributor Signals</h3>
+                <p className="text-text-tertiary mt-0.5 text-xs">
+                  Control whether Dispatch shows trusted contributor badges and trust breakdowns in
+                  pull request review sidebars.
+                </p>
+                <label className="mt-3 flex cursor-pointer items-center justify-between">
+                  <div>
+                    <span className="text-text-secondary text-xs">Trusted contributor system</span>
+                    <p className="text-text-ghost mt-0.5 text-[10px]">
+                      When off, author profiles still load, but Dispatch hides trust scores, labels,
+                      and the contributor breakdown modal.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={trustedContributorSystemEnabled}
+                    onCheckedChange={(checked) =>
+                      savePref(
+                        TRUSTED_CONTRIBUTOR_SYSTEM_PREFERENCE_KEY,
+                        checked ? "true" : "false",
+                      )
+                    }
+                    aria-label="Trusted contributor system"
                   />
                 </label>
               </section>
