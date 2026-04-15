@@ -8,7 +8,7 @@ import {
   type ThemeMode,
 } from "@/renderer/lib/review/highlighter";
 import { AlertCircle, Info, Lightbulb, OctagonAlert, TriangleAlert } from "lucide-react";
-import { useMemo } from "react";
+import { Children, isValidElement, useMemo } from "react";
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGemoji from "remark-gemoji";
@@ -65,10 +65,19 @@ function preprocess(md: string, repo?: string): string {
     );
     // GitHub alerts: > [!NOTE], > [!TIP], > [!IMPORTANT], > [!WARNING], > [!CAUTION]
     parts[i] = parts[i]!.replaceAll(
-      /^> \[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\n((?:> .*\n?)*)/gm,
+      /^> \[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\n((?:>.*\n?)*)/gm,
       (_m, type: string, body: string) => {
+        const alertType = type.toLowerCase();
         const cleanBody = body.replaceAll(/^> ?/gm, "").trim();
-        return `<div class="gh-alert gh-alert-${type.toLowerCase()}">\n<p class="gh-alert-title">${type}</p>\n\n${cleanBody}\n\n</div>\n`;
+        return [
+          `<div class="gh-alert gh-alert-${alertType}">`,
+          `<p class="gh-alert-title gh-alert-title-${alertType}">${type}</p>`,
+          "",
+          cleanBody,
+          "",
+          "</div>",
+          "",
+        ].join("\n");
       },
     );
   }
@@ -224,20 +233,31 @@ export function MarkdownBody({ content, repo, className = "" }: MarkdownBodyProp
           },
           // Render GitHub alert divs with icons
           div({ className: divClass, children, ...rest }) {
-            if (typeof divClass === "string" && divClass.startsWith("gh-alert")) {
+            if (typeof divClass === "string" && divClass.startsWith("gh-alert gh-alert-")) {
               const alertType = divClass.replace("gh-alert gh-alert-", "");
               const config = ALERT_CONFIG[alertType] ?? ALERT_CONFIG.note!;
+              const childNodes = Children.toArray(children);
+              const titleIndex = childNodes.findIndex(
+                (child) =>
+                  isValidElement<{ className?: string }>(child) &&
+                  typeof child.props.className === "string" &&
+                  child.props.className.includes("gh-alert-title"),
+              );
+              const titleChild = titleIndex >= 0 ? childNodes[titleIndex] : null;
+              const bodyChildren = childNodes.filter(
+                (child, index) =>
+                  index !== titleIndex && !(typeof child === "string" && child.trim().length === 0),
+              );
+
               return (
                 <div
-                  className={`my-3 rounded-md border-l-[3px] px-3 py-2 ${config.containerClass}`}
+                  className={`${divClass} border-border my-3 rounded-md border border-l-[3px] px-3 py-3 ${config.containerClass}`}
                   {...rest}
                 >
-                  <div
-                    className={`mb-1 flex items-center gap-1.5 text-[11px] font-semibold ${config.titleClass}`}
-                  >
-                    <config.icon size={14} />
-                    {children}
-                  </div>
+                  {titleChild}
+                  {bodyChildren.length > 0 ? (
+                    <div className="gh-alert-content">{bodyChildren}</div>
+                  ) : null}
                 </div>
               );
             }
@@ -252,8 +272,18 @@ export function MarkdownBody({ content, repo, className = "" }: MarkdownBodyProp
           },
           // Style the alert title paragraph
           p({ className: pClass, children, ...rest }) {
-            if (typeof pClass === "string" && pClass === "gh-alert-title") {
-              return null; // Title is handled by the div component above
+            if (typeof pClass === "string" && pClass.includes("gh-alert-title")) {
+              const alertType = pClass.match(/gh-alert-title-([a-z]+)/)?.[1] ?? "note";
+              const config = ALERT_CONFIG[alertType] ?? ALERT_CONFIG.note!;
+              return (
+                <p
+                  className={`${pClass} mb-2 flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.06em] uppercase ${config.titleClass}`}
+                  {...rest}
+                >
+                  <config.icon size={14} />
+                  {children}
+                </p>
+              );
             }
             return (
               <p
