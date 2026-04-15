@@ -191,7 +191,12 @@ function CreateReleaseDialog({ latestTag }: { latestTag?: string }) {
   return (
     <Dialog>
       <DialogTrigger
-        render={<Button size="xs" className="bg-primary text-primary-foreground hover:bg-accent-hover gap-1.5" />}
+        render={
+          <Button
+            size="xs"
+            className="bg-primary text-primary-foreground hover:bg-accent-hover gap-1.5"
+          />
+        }
       >
         <Plus size={14} />
         New Release
@@ -285,7 +290,16 @@ function CreateReleaseDialog({ latestTag }: { latestTag?: string }) {
           </div>
         </div>
         <DialogFooter variant="bare">
-          <DialogClose render={<Button size="xs" variant="ghost" />}>Cancel</DialogClose>
+          <DialogClose
+            render={
+              <Button
+                size="xs"
+                variant="ghost"
+              />
+            }
+          >
+            Cancel
+          </DialogClose>
           <DialogClose
             render={
               <Button

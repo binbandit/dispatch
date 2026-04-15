@@ -178,7 +178,7 @@ export function RunDetail({ repoTarget, runId }: RunDetailProps) {
             <Button
               size="xs"
               variant="outline"
-            className="text-destructive gap-1"
+              className="text-destructive gap-1"
               onClick={() => rerunFailedMutation.mutate()}
               disabled={rerunFailedMutation.isPending}
             >
