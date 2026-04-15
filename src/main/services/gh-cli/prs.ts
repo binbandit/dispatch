@@ -1154,6 +1154,28 @@ export async function replyToReviewComment(
   invalidatePrCaches(resolved.nwo, prNumber);
 }
 
+export async function updateReviewComment(
+  cwdOrTarget: string | RepoTarget,
+  prNumber: number,
+  commentId: number,
+  body: string,
+): Promise<void> {
+  const resolved = await resolveOpenPullRequest(cwdOrTarget, prNumber);
+  const { owner, repo } = await getPullRequestRepo(cwdOrTarget);
+  await ghExec(
+    [
+      "api",
+      `repos/${owner}/${repo}/pulls/comments/${commentId}`,
+      "-X",
+      "PATCH",
+      "-f",
+      `body=${body}`,
+    ],
+    { cwd: resolved.cwd, timeout: 15_000 },
+  );
+  invalidatePrCaches(resolved.nwo, prNumber);
+}
+
 export async function createPrComment(
   cwdOrTarget: string | RepoTarget,
   prNumber: number,
@@ -1164,6 +1186,28 @@ export async function createPrComment(
     cwd: resolved.cwd,
     timeout: 15_000,
   });
+  invalidatePrCaches(resolved.nwo, prNumber);
+}
+
+export async function updateIssueComment(
+  cwdOrTarget: string | RepoTarget,
+  prNumber: number,
+  commentId: string,
+  body: string,
+): Promise<void> {
+  const resolved = resolveTarget(cwdOrTarget);
+  const { owner, repo } = await getPullRequestRepo(cwdOrTarget);
+  await ghExec(
+    [
+      "api",
+      `repos/${owner}/${repo}/issues/comments/${commentId}`,
+      "-X",
+      "PATCH",
+      "-f",
+      `body=${body}`,
+    ],
+    { cwd: resolved.cwd, timeout: 15_000 },
+  );
   invalidatePrCaches(resolved.nwo, prNumber);
 }
 
@@ -1678,7 +1722,13 @@ const REACTION_GROUPS_FRAGMENT = `
   reactionGroups {
     content
     viewerHasReacted
-    reactors(first: 0) { totalCount }
+    reactors(first: 100) {
+      totalCount
+      nodes {
+        login
+        avatarUrl
+      }
+    }
   }
 `;
 
@@ -1722,7 +1772,13 @@ export async function getPrReactions(
   interface RawReactionGroup {
     content: string;
     viewerHasReacted: boolean;
-    reactors: { totalCount: number };
+    reactors: {
+      totalCount: number;
+      nodes?: Array<{
+        login: string;
+        avatarUrl?: string | null;
+      }>;
+    };
   }
   interface RawIssueComment {
     id: string;
@@ -1759,6 +1815,11 @@ export async function getPrReactions(
         content: group.content as GhReactionContent,
         count: group.reactors.totalCount,
         viewerHasReacted: group.viewerHasReacted,
+        reactors: (group.reactors.nodes ?? [])
+          .map((reactor) => ({
+            login: reactor.login,
+            avatarUrl: reactor.avatarUrl ?? undefined,
+          })),
       }));
   }
 

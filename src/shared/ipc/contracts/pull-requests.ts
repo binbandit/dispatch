@@ -96,6 +96,10 @@ export interface PullRequestIpcApi {
     result: void;
   };
   "pr.comment": { args: RepoTarget & { prNumber: number; body: string }; result: void };
+  "pr.editIssueComment": {
+    args: RepoTarget & { prNumber: number; commentId: string; body: string };
+    result: void;
+  };
   "pr.issueComments": {
     args: RepoTarget & { prNumber: number };
     result: Array<{
@@ -123,6 +127,10 @@ export interface PullRequestIpcApi {
     }>;
   };
   "pr.replyToComment": {
+    args: RepoTarget & { prNumber: number; commentId: number; body: string };
+    result: void;
+  };
+  "pr.editReviewComment": {
     args: RepoTarget & { prNumber: number; commentId: number; body: string };
     result: void;
   };

@@ -57,6 +57,7 @@ interface DiffViewerProps {
   comments?: Map<string, ReviewComment[]>;
   annotations?: Map<string, Annotation[]>;
   prNumber?: number;
+  currentUserLogin?: string | null;
   activeComposer?: CommentRange | null;
   onCommentRange?: (range: CommentRange) => void;
   onCloseComposer?: () => void;
@@ -113,6 +114,7 @@ export function DiffViewer({
   comments = new Map(),
   annotations = new Map(),
   prNumber,
+  currentUserLogin,
   activeComposer,
   onCommentRange,
   onCloseComposer,
@@ -851,6 +853,7 @@ function renderSupportingRow({
         <InlineComment
           comments={row.comments}
           prNumber={prNumber}
+          currentUserLogin={currentUserLogin}
           reviewActionsEnabled={reviewActionsEnabled}
           reviewThreadStateByRootCommentId={reviewThreadStateByRootCommentId}
           reviewCommentReactions={reviewCommentReactions}

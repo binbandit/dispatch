@@ -3,7 +3,7 @@ import type { ReviewComment } from "@/renderer/components/review/comments/inline
 import { toastManager } from "@/components/ui/toast";
 import { openExternal } from "@/renderer/lib/app/open-external";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
-import { Copy, ExternalLink, MessageSquare, Reply } from "lucide-react";
+import { Copy, Edit3, ExternalLink, MessageSquare, Reply } from "lucide-react";
 import { useCallback, useEffect, useRef } from "react";
 
 export function CommentContextMenu({
@@ -11,12 +11,16 @@ export function CommentContextMenu({
   position,
   onClose,
   onReply,
+  canEdit,
+  onEdit,
   prNumber,
 }: {
   comment: ReviewComment;
   position: { x: number; y: number };
   onClose: () => void;
   onReply?: () => void;
+  canEdit?: boolean;
+  onEdit?: () => void;
   prNumber?: number;
 }) {
   const { nwo } = useWorkspace();
@@ -63,6 +67,16 @@ export function CommentContextMenu({
           label="Reply"
           onClick={() => {
             onReply();
+            onClose();
+          }}
+        />
+      )}
+      {canEdit && onEdit && (
+        <ContextMenuItem
+          icon={<Edit3 size={12} />}
+          label="Edit"
+          onClick={() => {
+            onEdit();
             onClose();
           }}
         />

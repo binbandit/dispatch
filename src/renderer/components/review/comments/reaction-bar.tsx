@@ -113,24 +113,36 @@ export function ReactionBar({ reactions, subjectId }: ReactionBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-1">
       {visible.map((r) => (
-        <button
-          key={r.content}
-          type="button"
-          onClick={() => handleToggle(r.content)}
-          className="inline-flex cursor-pointer items-center gap-[3px] rounded-full border transition-colors"
-          style={{
-            padding: "1px 6px",
-            fontSize: "11px",
-            lineHeight: "18px",
-            background: r.viewerHasReacted ? "var(--accent-muted)" : "var(--bg-raised)",
-            borderColor: r.viewerHasReacted ? "var(--border-accent)" : "var(--border)",
-            color: r.viewerHasReacted ? "var(--accent-text)" : "var(--text-secondary)",
-          }}
-          title={`${r.content.toLowerCase().replace("_", " ")}${r.viewerHasReacted ? " (you)" : ""}`}
-        >
-          <span style={{ fontSize: "12px" }}>{REACTION_EMOJI[r.content]}</span>
-          <span className="font-mono text-[10px] font-medium">{r.count}</span>
-        </button>
+        <Tooltip key={r.content}>
+          <TooltipTrigger
+            render={
+              <button
+                type="button"
+                onClick={() => handleToggle(r.content)}
+                className="inline-flex cursor-pointer items-center gap-[3px] rounded-full border transition-colors"
+                style={{
+                  padding: "1px 6px",
+                  fontSize: "11px",
+                  lineHeight: "18px",
+                  background: r.viewerHasReacted ? "var(--accent-muted)" : "var(--bg-raised)",
+                  borderColor: r.viewerHasReacted ? "var(--border-accent)" : "var(--border)",
+                  color: r.viewerHasReacted ? "var(--accent-text)" : "var(--text-secondary)",
+                }}
+              >
+                <span style={{ fontSize: "12px" }}>{REACTION_EMOJI[r.content]}</span>
+                <span className="font-mono text-[10px] font-medium">{r.count}</span>
+              </button>
+            }
+          />
+          <TooltipPopup
+            side="top"
+            align="start"
+            sideOffset={6}
+            className="!min-w-48 !max-w-56 !p-0"
+          >
+            <ReactionTooltip reaction={r} />
+          </TooltipPopup>
+        </Tooltip>
       ))}
 
       {/* Add reaction button */}
@@ -175,10 +187,60 @@ function getMergedReactions(
   }
 
   for (const [content, override] of optimistic) {
-    map.set(content, { content, ...override });
+    const existing = map.get(content) ?? {
+      content,
+      count: 0,
+      viewerHasReacted: false,
+      reactors: [],
+    };
+    map.set(content, {
+      ...existing,
+      content,
+      count: override.count,
+      viewerHasReacted: override.viewerHasReacted,
+    });
   }
 
   return [...map.values()];
+}
+
+function ReactionTooltip({ reaction }: { reaction: GhReactionGroup }) {
+  const maxVisible = 6;
+  const users = reaction.reactors ?? [];
+  const visibleUsers = users.slice(0, maxVisible);
+  const remainingCount = Math.max(0, reaction.count - visibleUsers.length);
+
+  return (
+    <div style={{ width: "14rem", padding: "8px 10px" }}>
+      <div className="text-text-primary mb-1 text-xs font-medium">
+        {REACTION_EMOJI[reaction.content]} {reaction.count} reaction
+        {reaction.count === 1 ? "" : "s"}
+      </div>
+
+      {visibleUsers.length > 0 ? (
+        <div className="space-y-1">
+          {visibleUsers.map((reactor) => (
+            <div
+              key={reactor.login}
+              className="truncate text-[11px] text-text-secondary"
+              style={{ maxWidth: "100%" }}
+            >
+              {reactor.login}
+            </div>
+          ))}
+          {remainingCount > 0 && (
+            <div className="text-text-tertiary text-[10px] pt-1">
+              +{remainingCount} more
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="text-text-tertiary text-[11px]">
+          {reaction.count > 0 ? "Could not load reactor details." : "No reactions"}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function ReactionPicker({

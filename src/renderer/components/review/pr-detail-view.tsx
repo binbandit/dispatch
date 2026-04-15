@@ -835,6 +835,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               comments={selectedCommit ? emptyCommentsMap : commentsMap}
               annotations={selectedCommit ? emptyAnnotationsMap : annotationsMap}
               prNumber={prNumber}
+              currentUserLogin={currentUser}
               activeComposer={reviewControlsEnabled ? activeComposer : null}
               onCommentRange={reviewControlsEnabled ? setActiveComposer : undefined}
               onCloseComposer={reviewControlsEnabled ? () => setActiveComposer(null) : undefined}
@@ -883,6 +884,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
           diffSnippet={rawDiff ?? ""}
           reviewThreads={reviewThreadsQuery.data}
           reactions={reactionsQuery.data}
+          currentUserLogin={currentUser}
           canEdit={canPush}
           width={panelWidth}
         />

@@ -254,6 +254,11 @@ export interface GhReviewThread {
   }>;
 }
 
+export interface GhReactionActor {
+  login: string;
+  avatarUrl?: string | null;
+}
+
 export type GhReactionContent =
   | "THUMBS_UP"
   | "THUMBS_DOWN"
@@ -268,6 +273,7 @@ export interface GhReactionGroup {
   content: GhReactionContent;
   count: number;
   viewerHasReacted: boolean;
+  reactors: GhReactionActor[];
 }
 
 export interface GhPrReactions {

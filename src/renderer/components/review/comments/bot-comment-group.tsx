@@ -10,6 +10,7 @@ export function BotCommentGroup({
   comments,
   toggleMinimized,
   isBot,
+  currentUserLogin,
   shouldAutoCollapseBot,
   isCommentMinimized,
   reviewCommentReactions,
@@ -17,6 +18,7 @@ export function BotCommentGroup({
   comments: ReviewComment[];
   toggleMinimized: (commentId: string, autoMinimized?: boolean) => void;
   isBot: (login: string) => boolean;
+  currentUserLogin?: string | null;
   shouldAutoCollapseBot: (login: string) => boolean;
   isCommentMinimized: (commentId: string, autoMinimized?: boolean) => boolean;
   reviewCommentReactions?: Record<string, GhReactionGroup[]>;
@@ -80,6 +82,7 @@ export function BotCommentGroup({
                 toggleMinimized(String(comment.id), shouldAutoCollapseBot(comment.user.login))
               }
               isBot={isBot}
+              canEdit={currentUserLogin !== null && currentUserLogin === comment.user.login}
               reactions={reviewCommentReactions?.[String(comment.id)]}
             />
           </div>

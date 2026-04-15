@@ -21,6 +21,8 @@ export const pullRequestHandlers: Pick<
   | "pr.comments"
   | "pr.replyToComment"
   | "pr.comment"
+  | "pr.editIssueComment"
+  | "pr.editReviewComment"
   | "pr.issueComments"
   | "pr.contributors"
   | "pr.searchUsers"
@@ -75,6 +77,9 @@ export const pullRequestHandlers: Pick<
   "pr.comment": async (args) => {
     await ghCli.createPrComment(args, args.prNumber, args.body);
   },
+  "pr.editIssueComment": async (args) => {
+    await ghCli.updateIssueComment(args, args.prNumber, args.commentId, args.body);
+  },
   "pr.issueComments": (args) => ghCli.getIssueComments(args, args.prNumber),
   "pr.contributors": (args) => ghCli.getPrContributors(args, args.prNumber),
   "pr.searchUsers": (args) => ghCli.searchUsers(args, args.query),
@@ -89,6 +94,9 @@ export const pullRequestHandlers: Pick<
   },
   "pr.createComment": async (args) => {
     await ghCli.createReviewComment(args);
+  },
+  "pr.editReviewComment": async (args) => {
+    await ghCli.updateReviewComment(args, args.prNumber, args.commentId, args.body);
   },
   "pr.submitReview": async (args) => {
     await ghCli.submitReview(args);

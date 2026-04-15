@@ -36,6 +36,7 @@ export interface ReviewComment {
 interface InlineCommentProps {
   comments: ReviewComment[];
   prNumber?: number;
+  currentUserLogin?: string | null;
   repo?: string;
   reviewActionsEnabled?: boolean;
   /** Thread metadata keyed by root review comment databaseId */
@@ -47,6 +48,7 @@ interface InlineCommentProps {
 export function InlineComment({
   comments,
   prNumber,
+  currentUserLogin,
   repo,
   reviewActionsEnabled = true,
   reviewThreadStateByRootCommentId,
@@ -79,6 +81,7 @@ export function InlineComment({
             root={root}
             replies={threadReplies}
             prNumber={prNumber}
+            currentUserLogin={currentUserLogin}
             reviewActionsEnabled={reviewActionsEnabled}
             showBorder={i > 0}
             toggleMinimized={toggleMinimized}
@@ -101,6 +104,7 @@ export function InlineComment({
               )
               .join("|")}
             comments={botEntries}
+            currentUserLogin={currentUserLogin}
             toggleMinimized={toggleMinimized}
             isBot={isBot}
             shouldAutoCollapseBot={shouldAutoCollapseBot}

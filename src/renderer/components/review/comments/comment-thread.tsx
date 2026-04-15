@@ -38,6 +38,7 @@ export function CommentThread({
   root,
   replies,
   prNumber,
+  currentUserLogin,
   reviewActionsEnabled,
   showBorder,
   toggleMinimized,
@@ -50,6 +51,7 @@ export function CommentThread({
   root: ReviewComment;
   replies: ReviewComment[];
   prNumber?: number;
+  currentUserLogin?: string | null;
   reviewActionsEnabled: boolean;
   showBorder: boolean;
   toggleMinimized: (commentId: string, autoMinimized?: boolean) => void;
@@ -162,6 +164,7 @@ export function CommentThread({
             reviewThreadState={threadState}
             reviewActionsEnabled={reviewActionsEnabled}
             isBot={isBot}
+            canEdit={currentUserLogin !== null && currentUserLogin === root.user.login}
             reactions={reviewCommentReactions?.[String(root.id)]}
           />
           {replies.map((reply) => (
@@ -182,6 +185,7 @@ export function CommentThread({
                 }
                 reviewActionsEnabled={reviewActionsEnabled}
                 isBot={isBot}
+                canEdit={currentUserLogin !== null && currentUserLogin === reply.user.login}
                 reactions={reviewCommentReactions?.[String(reply.id)]}
               />
             </div>

@@ -45,6 +45,7 @@ interface SidePanelOverlayProps {
   reviewThreads?: GhReviewThread[];
   reactions?: GhPrReactions;
   canEdit?: boolean;
+  currentUserLogin?: string | null;
   /** Panel width in pixels. When provided, overrides the default fixed width. */
   width?: number;
 }
@@ -62,6 +63,7 @@ export function SidePanelOverlay({
   reviewThreads,
   reactions,
   canEdit,
+  currentUserLogin,
   width,
 }: SidePanelOverlayProps) {
   const activeTab = useFileNavStore((s) => s.panelTab);
@@ -154,6 +156,7 @@ export function SidePanelOverlay({
           onReviewClick={onReviewClick}
           onThreadClick={onThreadClick}
           issueCommentReactions={reactions?.issueComments}
+          currentUserLogin={currentUserLogin}
         />
       ) : (
         <div

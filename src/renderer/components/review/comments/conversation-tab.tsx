@@ -26,6 +26,7 @@ import {
   ExternalLink,
   MessageCircle,
   MessageSquare,
+  Pencil,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -42,6 +43,7 @@ interface ConversationTabProps {
   issueComments: Array<{ id: string; body: string; author: { login: string }; createdAt: string }>;
   reviewThreads?: GhReviewThread[];
   repo: string;
+  currentUserLogin?: string | null;
   onReviewClick: (login: string) => void;
   /** Navigate to a thread's file and scroll to the comment */
   onThreadClick?: (path: string, line: number | null) => void;
@@ -55,6 +57,7 @@ export function ConversationTab({
   issueComments,
   reviewThreads,
   repo,
+  currentUserLogin,
   onReviewClick,
   onThreadClick,
   issueCommentReactions,
@@ -67,6 +70,7 @@ export function ConversationTab({
     issueComments,
     reviewThreads: reviewThreads ?? [],
     isBot,
+    currentUserLogin,
     issueCommentReactions,
   });
 
@@ -105,6 +109,7 @@ export function ConversationTab({
                     filePath={event.filePath}
                     repo={repo}
                     isBot={event.isBot}
+                    canEdit={event.canEdit}
                     autoCollapse={shouldAutoCollapseBot(event.login)}
                     prNumber={prNumber}
                     onClick={() => onReviewClick(event.login)}
@@ -187,6 +192,7 @@ interface ContentTimelineEvent {
   body: string;
   filePath?: string;
   isBot: boolean;
+  canEdit: boolean;
   reactions?: GhReactionGroup[];
 }
 
@@ -204,12 +210,14 @@ function buildTimeline({
   issueComments,
   reviewThreads,
   isBot,
+  currentUserLogin,
   issueCommentReactions,
 }: {
   reviews: Array<{ author: { login: string }; state: string; submittedAt: string }>;
   issueComments: Array<{ id: string; body: string; author: { login: string }; createdAt: string }>;
   reviewThreads: GhReviewThread[];
   isBot: (login: string) => boolean;
+  currentUserLogin?: string | null;
   issueCommentReactions?: Record<string, GhReactionGroup[]>;
 }): TimelineEvent[] {
   const events: TimelineEvent[] = [];
@@ -258,6 +266,7 @@ function buildTimeline({
       time: new Date(comment.createdAt),
       body: comment.body,
       isBot: isBot(comment.author.login),
+      canEdit: currentUserLogin === comment.author.login,
       reactions: issueCommentReactions?.[comment.id],
     });
   }
@@ -416,6 +425,7 @@ export function ContentEvent({
   filePath,
   repo,
   isBot: isBotUser,
+  canEdit,
   autoCollapse,
   prNumber,
   onClick,
@@ -431,6 +441,7 @@ export function ContentEvent({
   filePath?: string;
   repo: string;
   isBot: boolean;
+  canEdit: boolean;
   autoCollapse: boolean;
   prNumber: number;
   onClick: () => void;
@@ -438,10 +449,60 @@ export function ContentEvent({
   onToggleMinimized: () => void;
   reactions?: GhReactionGroup[];
 }) {
-  const { nwo } = useWorkspace();
+  const { nwo, repoTarget } = useWorkspace();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editBody, setEditBody] = useState(body);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   const severity = isBotUser ? parseBotSeverity(body) : null;
+  const trimmedEditBody = editBody.trim();
+
+  const editMutation = useMutation({
+    mutationFn: ({ body: editBodyText }: { body: string }) =>
+      ipc("pr.editIssueComment", {
+        ...repoTarget,
+        prNumber,
+        commentId,
+        body: editBodyText,
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pr", "issueComments"] });
+      toastManager.add({ title: "Comment updated", type: "success" });
+      setIsEditing(false);
+    },
+    onError: (error) => {
+      toastManager.add({
+        title: "Update failed",
+        description: error instanceof Error ? error.message : "Could not save the edited comment.",
+        type: "error",
+      });
+    },
+  });
+
+  const canSaveEdit =
+    Boolean(trimmedEditBody) && trimmedEditBody !== body && !editMutation.isPending;
+
+  function handleStartEdit() {
+    setEditBody(body);
+    setIsEditing(true);
+    setContextMenu(null);
+    if (minimized) {
+      onToggleMinimized();
+    }
+  }
+
+  function handleEditSubmit() {
+    if (!canSaveEdit) {
+      return;
+    }
+
+    editMutation.mutate({ body: trimmedEditBody });
+  }
+
+  function handleEditCancel() {
+    setIsEditing(false);
+    setEditBody(body);
+  }
 
   return (
     <div
@@ -552,21 +613,65 @@ export function ContentEvent({
                 className="text-xs leading-relaxed"
                 style={{ color: "var(--text-secondary)" }}
               >
-                <CollapsibleDescription maxHeight={200}>
-                  <MarkdownBody
-                    content={body}
-                    repo={repo}
-                  />
-                </CollapsibleDescription>
+                {isEditing ? (
+                  <div className="space-y-2">
+                    <ReviewMarkdownComposer
+                      autoFocus
+                      compact
+                      onChange={setEditBody}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && canSaveEdit) {
+                          e.preventDefault();
+                          handleEditSubmit();
+                        }
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          handleEditCancel();
+                        }
+                      }}
+                      placeholder="Edit comment…"
+                      prNumber={prNumber}
+                      rows={3}
+                      value={editBody}
+                    />
+                    <div className="flex items-center justify-end gap-1.5 pt-2">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-[11px]"
+                        onClick={handleEditCancel}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        className="text-[11px]"
+                        disabled={!canSaveEdit}
+                        onClick={handleEditSubmit}
+                      >
+                        {editMutation.isPending ? <Spinner className="h-3 w-3" /> : "Save"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <CollapsibleDescription maxHeight={200}>
+                    <MarkdownBody
+                      content={body}
+                      repo={repo}
+                    />
+                  </CollapsibleDescription>
+                )}
               </div>
             </div>
-            <div style={{ padding: "0 12px 8px" }}>
-              <ReactionBar
-                reactions={reactions ?? []}
-                subjectId={commentId}
-                prNumber={prNumber}
-              />
-            </div>
+            {!isEditing && (
+              <div style={{ padding: "0 12px 8px" }}>
+                <ReactionBar
+                  reactions={reactions ?? []}
+                  subjectId={commentId}
+                  prNumber={prNumber}
+                />
+              </div>
+            )}
           </>
         )}
 
@@ -587,6 +692,8 @@ export function ContentEvent({
           prNumber={prNumber}
           nwo={nwo}
           position={contextMenu}
+          canEdit={canEdit && !isBotUser}
+          onEdit={handleStartEdit}
           onClose={() => setContextMenu(null)}
         />
       )}
@@ -604,6 +711,8 @@ function ConvoContextMenu({
   prNumber,
   nwo,
   position,
+  canEdit,
+  onEdit,
   onClose,
 }: {
   commentId: string;
@@ -611,6 +720,8 @@ function ConvoContextMenu({
   prNumber: number;
   nwo: string;
   position: { x: number; y: number };
+  canEdit?: boolean;
+  onEdit?: () => void;
   onClose: () => void;
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
@@ -665,6 +776,17 @@ function ConvoContextMenu({
         }}
       />
       <ConvoMenuItem
+        icon={<Pencil size={12} />}
+        label="Edit"
+        onClick={() => {
+          if (canEdit && onEdit) {
+            onEdit();
+          }
+          onClose();
+        }}
+        disabled={!canEdit}
+      />
+      <ConvoMenuItem
         icon={<Copy size={12} />}
         label="Copy link"
         onClick={() => {
@@ -703,11 +825,17 @@ function ConvoMenuItem({
   icon,
   label,
   onClick,
+  disabled,
 }: {
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
+  disabled?: boolean;
 }) {
+  if (disabled) {
+    return null;
+  }
+
   return (
     <button
       type="button"
