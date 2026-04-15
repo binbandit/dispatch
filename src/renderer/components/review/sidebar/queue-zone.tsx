@@ -68,7 +68,7 @@ export function QueueZone({ queuePrs, activePrNumber, onBack, onSelectPr }: Queu
         <button
           type="button"
           onClick={onBack}
-          className="text-text-tertiary hover:text-text-primary hover:bg-bg-raised flex cursor-pointer items-center gap-0.5 rounded-sm px-1 py-0.5 text-[11px] select-none"
+          className="text-text-tertiary hover:text-text-primary hover:bg-bg-raised flex cursor-pointer items-center gap-0.5 rounded-sm px-1 py-0.5 text-[10px] select-none"
         >
           <ArrowLeft size={12} />
           Queue

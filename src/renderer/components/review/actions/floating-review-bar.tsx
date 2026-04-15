@@ -84,7 +84,7 @@ export function FloatingReviewBar({
           display: "flex",
           alignItems: "center",
           gap: compactBar ? "6px" : "8px",
-          fontSize: "11px",
+          fontSize: "10px",
           color: "var(--text-secondary)",
           whiteSpace: "nowrap",
         }}
@@ -237,7 +237,7 @@ export function FloatingReviewBar({
 export const btnBase: React.CSSProperties = {
   padding: "5px 10px",
   borderRadius: "var(--radius-md)",
-  fontSize: "11px",
+  fontSize: "10px",
   fontWeight: 500,
   fontFamily: "var(--font-sans)",
   cursor: "pointer",

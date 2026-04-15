@@ -138,7 +138,7 @@ export function PendingReviewBarButton({
               borderBottom: "1px solid var(--border-subtle)",
             }}
           >
-            <span style={{ fontSize: "11px", fontWeight: 500, color: "var(--text-primary)" }}>
+            <span style={{ fontSize: "10px", fontWeight: 500, color: "var(--text-primary)" }}>
               Pending review ({pendingComments.length} comment
               {pendingComments.length === 1 ? "" : "s"})
             </span>
@@ -252,7 +252,7 @@ export function PendingReviewBarButton({
           <div style={{ padding: "10px" }}>
             <div
               style={{
-                fontSize: "11px",
+                fontSize: "10px",
                 fontWeight: 500,
                 color: "var(--text-primary)",
                 marginBottom: "6px",

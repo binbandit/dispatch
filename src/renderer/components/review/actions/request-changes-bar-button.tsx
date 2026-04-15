@@ -102,7 +102,7 @@ export function RequestChangesBarButton({
         >
           <div
             style={{
-              fontSize: "11px",
+              fontSize: "10px",
               fontWeight: 500,
               color: "var(--text-primary)",
               marginBottom: "6px",
