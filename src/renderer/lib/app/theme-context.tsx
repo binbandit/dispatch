@@ -6,7 +6,7 @@ import {
 import { create } from "zustand";
 import { useShallow } from "zustand/react/shallow";
 
-export type ThemeStyle = "default" | "neo-brutalism";
+export type ThemeStyle = "default";
 export type ColorMode = "dark" | "oled" | "light" | "system";
 type ResolvedTheme = "dark" | "light";
 
@@ -48,14 +48,18 @@ function migrateOldTheme(old: string): { style: ThemeStyle; mode: ColorMode } {
     case "oled":
       return { style: "default", mode: "oled" };
     case "neo-brutal-dark":
-      return { style: "neo-brutalism", mode: "dark" };
+      return { style: "default", mode: "dark" };
     case "neo-brutal-light":
-      return { style: "neo-brutalism", mode: "light" };
+      return { style: "default", mode: "light" };
     case "neo-brutal-oled":
-      return { style: "neo-brutalism", mode: "oled" };
+      return { style: "default", mode: "oled" };
     default:
       return { style: "default", mode: "dark" };
   }
+}
+
+function normalizeThemeStyle(style: string | null | undefined): ThemeStyle {
+  return style === "default" ? style : "default";
 }
 
 interface ThemeState {
@@ -83,24 +87,13 @@ function resolveMode(mode: ColorMode): ResolvedTheme {
   return mode;
 }
 
-function deriveThemeClass(style: ThemeStyle, mode: ColorMode, resolved: ResolvedTheme): string {
+function deriveThemeClass(_style: ThemeStyle, mode: ColorMode, resolved: ResolvedTheme): string {
   const isOled = mode === "oled";
-  if (style === "neo-brutalism") {
-    if (isOled) return "neo-brutal-oled";
-    return resolved === "dark" ? "neo-brutal-dark" : "neo-brutal-light";
-  }
   if (isOled) return "oled";
   return resolved;
 }
 
-const ALL_THEME_CLASSES = [
-  "dark",
-  "light",
-  "oled",
-  "neo-brutal-dark",
-  "neo-brutal-light",
-  "neo-brutal-oled",
-];
+const ALL_THEME_CLASSES = ["dark", "light", "oled"];
 
 function applyTheme(style: ThemeStyle, mode: ColorMode, resolved: ResolvedTheme) {
   if (typeof document === "undefined") return;
@@ -123,7 +116,7 @@ function readInitialValues(): { style: ThemeStyle; mode: ColorMode } {
   const savedStyle = storage.getItem(STYLE_STORAGE_KEY) as ThemeStyle | null;
   const savedMode = storage.getItem(MODE_STORAGE_KEY) as ColorMode | null;
   if (savedStyle && savedMode) {
-    return { style: savedStyle, mode: savedMode };
+    return { style: normalizeThemeStyle(savedStyle), mode: savedMode };
   }
   const oldTheme = storage.getItem(LEGACY_THEME_STORAGE_KEY);
   if (oldTheme) {
@@ -173,7 +166,7 @@ const initial = readInitialValues();
 const initialResolved = resolveMode(initial.mode);
 const legacyCodeTheme = safeLocalStorage()?.getItem(LEGACY_SINGLE_CODE_THEME_STORAGE_KEY);
 const initialDisableFontLigatures = readBooleanPreference(
-  safeLocalStorage()?.getItem(FONT_LIGATURES_STORAGE_KEY),
+  safeLocalStorage()?.getItem(FONT_LIGATURES_STORAGE_KEY) ?? null,
   false,
 );
 const initialCodeDark = readCodeThemePreference(
@@ -274,12 +267,12 @@ if (typeof (globalThis as Record<string, unknown>).api !== "undefined") {
         const state = useThemeStore.getState();
         const storage = safeLocalStorage();
         const dbFontLigatures = readBooleanPreference(
-          prefs[FONT_LIGATURES_PREFERENCE_KEY],
+          prefs[FONT_LIGATURES_PREFERENCE_KEY] ?? null,
           state.disableFontLigatures,
         );
 
         if (prefs.themeStyle && prefs.colorMode) {
-          const dbStyle = prefs.themeStyle as ThemeStyle;
+          const dbStyle = normalizeThemeStyle(prefs.themeStyle);
           const dbMode = prefs.colorMode as ColorMode;
           if (dbStyle !== state.themeStyle || dbMode !== state.colorMode) {
             const r = resolveMode(dbMode);

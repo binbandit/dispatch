@@ -19,9 +19,11 @@ vi.mock(import("@/renderer/lib/app/theme-context"), () => ({
     codeThemeDark: "github-dark-default",
     codeThemeLight: "github-light-default",
     resolvedTheme: "dark",
+    disableFontLigatures: false,
     setThemeStyle: vi.fn(),
     setColorMode: vi.fn(),
     setCodeTheme: vi.fn(),
+    setDisableFontLigatures: vi.fn(),
   }),
 }));
 
@@ -53,16 +55,18 @@ describe("MarkdownBody", () => {
     }
 
     expect(container.querySelector("blockquote")).toBeNull();
+    const alertElement = alert as HTMLElement;
+
     expect(
-      within(alert).getByRole("heading", {
+      within(alertElement).getByRole("heading", {
         name: /add filesystem browser to command palette for adding projects/i,
         level: 3,
       }),
     ).toBeInTheDocument();
-    expect(within(alert).getByText("NOTE")).toBeInTheDocument();
-    expect(within(alert).getByText(/macroscope summarized 6bad735/i)).toBeVisible();
+    expect(within(alertElement).getByText("NOTE")).toBeInTheDocument();
+    expect(within(alertElement).getByText(/macroscope summarized 6bad735/i)).toBeVisible();
     expect(
-      within(alert).getByRole("heading", { name: /filtered issues/i, level: 3 }),
+      within(alertElement).getByRole("heading", { name: /filtered issues/i, level: 3 }),
     ).toBeInTheDocument();
     expect(alert?.querySelector("details")).not.toBeNull();
   });

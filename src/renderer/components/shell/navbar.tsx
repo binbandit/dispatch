@@ -19,7 +19,6 @@ import { ipc } from "@/renderer/lib/app/ipc";
 import { openExternal } from "@/renderer/lib/app/open-external";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useRouter } from "@/renderer/lib/app/router";
-import { useTheme } from "@/renderer/lib/app/theme-context";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { resizeGitHubAvatarUrl } from "@/renderer/lib/shared/github-avatar";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -57,10 +56,8 @@ export function Navbar({
 }) {
   const isMac = globalThis.navigator?.platform?.includes("Mac") ?? false;
   const { route, navigate, toggleSettings } = useRouter();
-  const { themeStyle } = useTheme();
   const collapseNavLabels = useMediaQuery({ max: 1100 });
   const collapseChromeLabels = useMediaQuery({ max: 940 });
-  const isNeoBrutalTheme = themeStyle === "neo-brutalism";
 
   const navToReview = useCallback(() => navigate({ view: "review", prNumber: null }), [navigate]);
   const navToWorkflows = useCallback(() => navigate({ view: "workflows" }), [navigate]);
@@ -80,7 +77,7 @@ export function Navbar({
     <header
       className={cn(
         "border-border bg-bg-surface flex h-10 shrink-0 items-center overflow-hidden pr-3",
-        isNeoBrutalTheme ? "border-b-2" : "border-b",
+        "border-b",
       )}
       style={
         {
@@ -99,20 +96,11 @@ export function Navbar({
         title={collapseChromeLabels ? "Dispatch" : undefined}
         onClick={navToReview}
       >
-        <span
-          className={cn(
-            isNeoBrutalTheme && "overflow-hidden rounded-[2px] border-2 border-[--border]",
-          )}
-        >
+        <span>
           <DispatchLogo size={20} />
         </span>
         {!collapseChromeLabels && (
-          <span
-            className={cn(
-              "text-text-primary text-[13px] tracking-[-0.02em]",
-              isNeoBrutalTheme ? "font-extrabold uppercase" : "font-semibold",
-            )}
-          >
+          <span className="text-text-primary text-[13px] font-semibold tracking-[-0.02em]">
             Dispatch
           </span>
         )}
@@ -200,9 +188,7 @@ const UserMenu = memo(function UserMenu({
 }: {
   user: { login: string; avatarUrl: string; name: string | null } | null;
 }) {
-  const { themeStyle } = useTheme();
   const { nwo } = useWorkspace();
-  const isNeoBrutalTheme = themeStyle === "neo-brutalism";
 
   const accountsQuery = useQuery({
     queryKey: ["env", "accounts"],
@@ -228,9 +214,7 @@ const UserMenu = memo(function UserMenu({
         aria-label={user ? `Open account menu for ${user.login}` : "Open account menu"}
         className={cn(
           "ml-1 h-6 w-6 shrink-0 cursor-pointer overflow-hidden transition-[opacity,transform,box-shadow,border-color,background-color]",
-          isNeoBrutalTheme
-            ? "rounded-[4px] border-2 border-[--border] bg-[--bg-surface] shadow-[var(--shadow-sm)] hover:translate-x-px hover:translate-y-px hover:shadow-[1px_1px_0_var(--neo-brutal-shadow-color)]"
-            : "border-border-strong rounded-full border-[1.5px] hover:opacity-80",
+          "border-border-strong rounded-full border-[1.5px] hover:opacity-80",
         )}
       >
         {user ? (
@@ -393,12 +377,10 @@ const WorkspaceSwitcher = memo(function WorkspaceSwitcher({
 }: {
   compact?: boolean;
 }) {
-  const { themeStyle } = useTheme();
   const { nwo, repo, switchWorkspace } = useWorkspace();
   const { navigate } = useRouter();
   const [addRepoOpen, setAddRepoOpen] = useState(false);
   const repoName = repo;
-  const isNeoBrutalTheme = themeStyle === "neo-brutalism";
 
   const workspacesQuery = useQuery({
     queryKey: ["workspace", "list"],
@@ -415,9 +397,7 @@ const WorkspaceSwitcher = memo(function WorkspaceSwitcher({
         className={cn(
           "text-text-secondary flex shrink-0 cursor-pointer items-center px-2 py-1 text-xs transition-[background-color,color,transform,box-shadow,border-color]",
           compact ? "gap-1" : "gap-1.5",
-          isNeoBrutalTheme
-            ? "rounded-[4px] border-2 border-[--border] bg-[--bg-surface] shadow-[var(--shadow-sm)] hover:translate-x-px hover:translate-y-px hover:bg-[--bg-raised] hover:text-[--text-primary] hover:shadow-[1px_1px_0_var(--neo-brutal-shadow-color)]"
-            : "hover:bg-bg-raised hover:text-text-primary rounded-sm",
+          "hover:bg-bg-raised hover:text-text-primary rounded-sm",
         )}
       >
         <GitBranch
@@ -505,8 +485,6 @@ function NavTab({
   active?: boolean;
   onClick?: () => void;
 }) {
-  const { themeStyle } = useTheme();
-  const isNeoBrutalTheme = themeStyle === "neo-brutalism";
   const button = (
     <button
       type="button"
@@ -515,21 +493,16 @@ function NavTab({
       className={cn(
         "relative flex shrink-0 cursor-pointer items-center text-xs transition-colors",
         compact ? "gap-0 px-2 py-1.5" : "gap-1.5 px-2.5 py-1.5",
-        isNeoBrutalTheme ? "rounded-[2px]" : "rounded-sm",
+        "rounded-sm",
         active
-          ? cn("text-text-primary", isNeoBrutalTheme ? "font-bold" : "font-medium")
+          ? "text-text-primary font-medium"
           : "text-text-secondary hover:bg-bg-raised hover:text-text-primary font-[450]",
       )}
     >
       {icon}
       {!compact && label}
       {active && (
-        <div
-          className={cn(
-            "bg-primary pointer-events-none absolute right-2 bottom-[-7px] left-2",
-            isNeoBrutalTheme ? "h-[3px]" : "h-[1.5px] rounded-[1px]",
-          )}
-        />
+        <div className="bg-primary pointer-events-none absolute right-2 bottom-[-7px] left-2 h-[1.5px] rounded-[1px]" />
       )}
     </button>
   );
@@ -557,38 +530,23 @@ function IconButton({
   active?: boolean;
   title?: string;
 }) {
-  const { themeStyle } = useTheme();
-  const isNeoBrutalTheme = themeStyle === "neo-brutalism";
   const button = (
     <button
       type="button"
       onClick={onClick}
       className={cn(
         "relative flex h-[30px] w-[30px] cursor-pointer items-center justify-center transition-[background-color,color,transform,box-shadow,border-color]",
-        isNeoBrutalTheme
-          ? cn(
-              "rounded-[2px] border-2 shadow-[var(--shadow-sm)]",
-              active
-                ? "border-[--border] bg-[--bg-raised] text-[--text-primary]"
-                : "border-[--border] bg-[--bg-surface] text-[--text-secondary] hover:bg-[--bg-raised] hover:text-[--text-primary]",
-              "hover:translate-x-px hover:translate-y-px hover:shadow-[1px_1px_0_var(--neo-brutal-shadow-color)]",
-            )
-          : cn(
-              "rounded-sm",
-              active
-                ? "bg-bg-raised text-text-primary"
-                : "text-text-secondary hover:bg-bg-raised hover:text-text-primary",
-            ),
+        cn(
+          "rounded-sm",
+          active
+            ? "bg-bg-raised text-text-primary"
+            : "text-text-secondary hover:bg-bg-raised hover:text-text-primary",
+        ),
       )}
     >
       {icon}
       {active && (
-        <div
-          className={cn(
-            "bg-primary absolute bottom-[-7px] left-1/2 w-4 -translate-x-1/2",
-            isNeoBrutalTheme ? "h-[3px]" : "h-[1.5px] rounded-[1px]",
-          )}
-        />
+        <div className="bg-primary absolute bottom-[-7px] left-1/2 h-[1.5px] w-4 -translate-x-1/2 rounded-[1px]" />
       )}
     </button>
   );

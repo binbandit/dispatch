@@ -5,12 +5,6 @@ export const EXPERIMENTAL_FEATURES = [
     description:
       "Try a deeper black theme tuned for OLED displays before it becomes a standard appearance option.",
   },
-  {
-    key: "experimentalNeoBrutalismTheme",
-    label: "Neo-brutalism theme",
-    description:
-      "A bold, graphic theme with thick borders and hard shadows. Includes light, dark, and OLED variants.",
-  },
 ] as const;
 
 export type ExperimentalFeatureKey = (typeof EXPERIMENTAL_FEATURES)[number]["key"];

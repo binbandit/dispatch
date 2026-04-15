@@ -119,6 +119,7 @@ const PREF_KEYS = [
   "displayNameFormat",
   "aiAutoSuggest",
   "disableFontLigatures",
+  "reviewCommentMode",
   ...EXPERIMENTAL_FEATURE_PREFERENCE_KEYS,
 ];
 
@@ -178,11 +179,7 @@ export function SettingsView() {
   const aiConfig = aiConfigQuery.data;
   const aiEnabled = isAiEnabledPreference(prefs.aiEnabled);
   const oledThemeEnabled = isExperimentalFeatureEnabled(prefs.experimentalOledTheme);
-  const neoBrutalismEnabled = isExperimentalFeatureEnabled(prefs.experimentalNeoBrutalismTheme);
-  const themeStyleOptions = useMemo(
-    () => getThemeStyleOptions(neoBrutalismEnabled),
-    [neoBrutalismEnabled],
-  );
+  const themeStyleOptions = useMemo(() => getThemeStyleOptions(), []);
   const colorModeOptions = useMemo(() => getColorModeOptions(oledThemeEnabled), [oledThemeEnabled]);
 
   // Reset to defaults when current selection is no longer available
@@ -209,6 +206,7 @@ export function SettingsView() {
   const defaultDiffView = prefs.defaultDiffView ?? "unified";
   const defaultFileNav = prefs.defaultFileNav ?? "auto";
   const displayNameFormat = prefs.displayNameFormat ?? "name";
+  const reviewCommentMode = prefs.reviewCommentMode ?? "immediate";
 
   const navSections = useMemo(
     () => (aiEnabled ? NAV_SECTIONS_BASE : NAV_SECTIONS_BASE.filter((s) => s.id !== "ai")),
@@ -650,6 +648,39 @@ export function SettingsView() {
                     </button>
                   ))}
                 </div>
+              </section>
+
+              {/* Review comment mode */}
+              <section className="mt-8">
+                <h3 className="text-text-primary text-sm font-medium">Review Comment Mode</h3>
+                <p className="text-text-tertiary mt-0.5 text-xs">
+                  How inline review comments are submitted.
+                </p>
+                <div className="border-border bg-bg-raised mt-3 flex rounded-md border p-[2px]">
+                  {(
+                    [
+                      { value: "immediate", label: "Immediate" },
+                      { value: "batched", label: "Batched" },
+                    ] as const
+                  ).map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => savePref("reviewCommentMode", value)}
+                      className={`flex-1 cursor-pointer rounded-sm px-3 py-1.5 text-xs ${
+                        reviewCommentMode === value
+                          ? "bg-bg-elevated text-text-primary shadow-sm"
+                          : "text-text-tertiary hover:text-text-secondary"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-text-ghost mt-1.5 text-[10px]">
+                  Immediate posts each comment right away. Batched stacks comments and lets you
+                  submit them together as a review — like GitHub&apos;s review flow.
+                </p>
               </section>
 
               {/* Default file navigation */}

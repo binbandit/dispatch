@@ -40,9 +40,9 @@
             light: ["default", "light"],
             system: ["default", "system"],
             oled: ["default", "oled"],
-            "neo-brutal-dark": ["neo-brutalism", "dark"],
-            "neo-brutal-light": ["neo-brutalism", "light"],
-            "neo-brutal-oled": ["neo-brutalism", "oled"],
+            "neo-brutal-dark": ["default", "dark"],
+            "neo-brutal-light": ["default", "light"],
+            "neo-brutal-oled": ["default", "oled"],
           };
           var m = map[old] || ["default", "dark"];
           style = m[0];
@@ -57,26 +57,10 @@
             : mode === "light"
               ? "light"
               : "dark";
-        var cls =
-          style === "neo-brutalism"
-            ? isOled
-              ? "neo-brutal-oled"
-              : r === "dark"
-                ? "neo-brutal-dark"
-                : "neo-brutal-light"
-            : isOled
-              ? "oled"
-              : r;
+        var cls = isOled ? "oled" : r;
         var d = document.documentElement;
         var disableFontLigatures = localStorage.getItem("dispatch-disable-font-ligatures");
-        d.classList.remove(
-          "dark",
-          "light",
-          "oled",
-          "neo-brutal-dark",
-          "neo-brutal-light",
-          "neo-brutal-oled",
-        );
+        d.classList.remove("dark", "light", "oled");
         d.classList.add(cls);
         d.style.colorScheme = r;
         if (disableFontLigatures === "true") {
@@ -86,18 +70,7 @@
         }
         var themeMeta = document.querySelector('meta[name="theme-color"]');
         if (themeMeta) {
-          var themeColor =
-            cls === "light"
-              ? "#f5f1eb"
-              : cls === "oled"
-                ? "#000000"
-                : cls === "neo-brutal-dark" || cls === "neo-brutal-oled"
-                  ? cls === "neo-brutal-oled"
-                    ? "#000000"
-                    : "#111111"
-                  : cls === "neo-brutal-light"
-                    ? "#f5f0e8"
-                    : "#08080a";
+          var themeColor = cls === "light" ? "#f5f1eb" : cls === "oled" ? "#000000" : "#08080a";
           themeMeta.setAttribute("content", themeColor);
         }
       })();

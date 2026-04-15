@@ -12,19 +12,15 @@ describe("ExperimentalSettingsSection", () => {
 
     render(
       <ExperimentalSettingsSection
-        prefs={{ experimentalOledTheme: "false", experimentalNeoBrutalismTheme: "false" }}
+        prefs={{ experimentalOledTheme: "false" }}
         savePref={savePref}
       />,
     );
 
     expect(screen.getByText(/they may change or disappear between releases/i)).toBeInTheDocument();
     expect(screen.getByText("OLED theme")).toBeInTheDocument();
-    expect(screen.getByText("Neo-brutalism theme")).toBeInTheDocument();
 
     await user.click(screen.getByRole("switch", { name: /oled theme/i }));
     expect(savePref).toHaveBeenCalledWith("experimentalOledTheme", "true");
-
-    await user.click(screen.getByRole("switch", { name: /neo-brutalism theme/i }));
-    expect(savePref).toHaveBeenCalledWith("experimentalNeoBrutalismTheme", "true");
   });
 });
