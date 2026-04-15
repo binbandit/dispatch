@@ -17,6 +17,14 @@ const SEARCH_PRESETS: PrSearchPreset[] = [
     surfaces: ["home", "sidebar"],
   },
   {
+    id: "my-prs",
+    label: "My Pull Requests",
+    query: "is:mine state:open",
+    hint: "Your open pull requests",
+    preferredFilter: "mine",
+    surfaces: ["home"],
+  },
+  {
     id: "my-drafts",
     label: "My drafts",
     query: "is:mine is:draft",
