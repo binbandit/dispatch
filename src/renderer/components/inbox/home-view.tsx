@@ -513,6 +513,12 @@ export function HomeView() {
                       return;
                     }
 
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      setAutocompleteOpen(false);
+                      (e.target as HTMLElement).blur();
+                    }
+
                     if (e.key === "Escape") {
                       e.preventDefault();
                       setAutocompleteOpen(false);
