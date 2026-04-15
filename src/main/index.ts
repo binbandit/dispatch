@@ -207,10 +207,7 @@ function resolveGitHubHost(hostname: string): string {
   return hostname;
 }
 
-function isGitHubMediaRequest(
-  resourceType: string,
-  url: URL,
-): boolean {
+function isGitHubMediaRequest(resourceType: string, url: URL): boolean {
   const path = url.pathname.toLowerCase();
   const imageExtensions = [".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".avif", ".bmp"];
   const videoExtensions = [".mp4", ".mov", ".webm", ".m4v", ".mkv", ".avi"];
