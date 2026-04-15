@@ -9,6 +9,7 @@ import { getErrorMessage } from "@/renderer/lib/app/error-message";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useKeybindings } from "@/renderer/lib/keyboard/keybinding-context";
+import { formatKeybinding } from "@/renderer/lib/keyboard/keybinding-registry";
 import { useMutation } from "@tanstack/react-query";
 import { MessageSquare } from "lucide-react";
 import { useState } from "react";
@@ -30,6 +31,11 @@ export function RequestChangesBarButton({
   const [body, setBody] = useState("");
   const hasReviewBody = body.trim().length > 0;
   const { getBinding } = useKeybindings();
+  const requestChangesBinding = getBinding("actions.requestChanges");
+  const requestChangesShortcut = formatKeybinding(
+    requestChangesBinding.key,
+    requestChangesBinding.modifiers,
+  );
 
   const reviewMutation = useMutation({
     mutationFn: (reviewBody: string) =>
@@ -56,8 +62,9 @@ export function RequestChangesBarButton({
 
   useKeyboardShortcuts([
     {
-      ...getBinding("actions.requestChanges"),
+      ...requestChangesBinding,
       handler: () => setOpen((prev) => !prev),
+      preventWhileTyping: true,
       when: () => !open,
     },
   ]);
@@ -80,7 +87,9 @@ export function RequestChangesBarButton({
         <MessageSquare size={11} />
         {!dense && (compact ? "Request" : "Request Changes")}
         {!compact && (
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>r</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>
+            {requestChangesShortcut}
+          </span>
         )}
       </button>
       {open && (

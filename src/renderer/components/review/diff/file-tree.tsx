@@ -458,7 +458,8 @@ export function FileTree({
       {/* Tree — keyboard navigable */}
       <div
         ref={treeContainerRef}
-        className="flex flex-col focus:outline-none"
+        data-review-focus-target="file-tree"
+        className="focus:ring-border-accent/70 flex flex-col rounded-md focus:ring-1 focus:outline-none focus:ring-inset"
         tabIndex={0}
         role="tree"
         onKeyDown={handleTreeKeyDown}

@@ -289,6 +289,8 @@ describe("shortcut categories", () => {
     expect(ids).toContain("navigation.openPr");
     expect(ids).toContain("navigation.prevFile");
     expect(ids).toContain("navigation.nextFile");
+    expect(ids).toContain("navigation.focusFiles");
+    expect(ids).toContain("navigation.focusDiff");
     expect(ids).toContain("navigation.toggleSidebar");
     expect(ids).toContain("navigation.prevHunk");
     expect(ids).toContain("navigation.nextHunk");
@@ -299,7 +301,12 @@ describe("shortcut categories", () => {
     const ids = actions.map((b) => b.id);
 
     expect(ids).toContain("actions.togglePanel");
+    expect(ids).toContain("actions.openOverview");
     expect(ids).toContain("actions.openConversation");
+    expect(ids).toContain("actions.openCommits");
+    expect(ids).toContain("actions.openChecks");
+    expect(ids).toContain("actions.focusPanel");
+    expect(ids).toContain("actions.focusReviewBar");
     expect(ids).toContain("actions.toggleViewed");
     expect(ids).toContain("actions.nextUnreviewed");
     expect(ids).toContain("actions.requestChanges");
@@ -380,5 +387,15 @@ describe("modifier combinations", () => {
   it("supports multiple modifiers", () => {
     const binding = DEFAULT_KEYBINDINGS.find((b) => b.modifiers && b.modifiers.length > 1);
     expect(binding).toBeDefined();
+  });
+
+  it("uses deliberate modifier combos for dangerous review actions", () => {
+    const approve = DEFAULT_KEYBINDINGS_MAP.get("actions.approve");
+    const requestChanges = DEFAULT_KEYBINDINGS_MAP.get("actions.requestChanges");
+    const merge = DEFAULT_KEYBINDINGS_MAP.get("actions.merge");
+
+    expect(approve?.modifiers).toEqual(["meta", "shift"]);
+    expect(requestChanges?.modifiers).toEqual(["meta", "shift"]);
+    expect(merge?.modifiers).toEqual(["meta", "shift"]);
   });
 });

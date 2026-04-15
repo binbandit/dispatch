@@ -38,6 +38,10 @@ import {
   buildReviewThreadStateByRootCommentId,
   type ReviewThreadState,
 } from "@/renderer/lib/review/review-comments";
+import {
+  focusReviewTargetSoon,
+  type ReviewFocusTarget,
+} from "@/renderer/lib/review/review-focus-targets";
 import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, GitCommitHorizontal, GitMerge, XCircle } from "lucide-react";
@@ -63,6 +67,15 @@ const PANEL_DEFAULT_WIDTH = 380;
 const PANEL_MIN_WIDTH = 280;
 const PANEL_MAX_RATIO = 0.5;
 const PANEL_WIDTH_KEY = "dispatch-panel-width";
+const PANEL_FOCUS_TARGET_BY_TAB: Record<
+  "overview" | "conversation" | "commits" | "checks",
+  ReviewFocusTarget
+> = {
+  overview: "panel-overview",
+  conversation: "panel-conversation",
+  commits: "panel-commits",
+  checks: "panel-checks",
+};
 
 export function PrDetailView({ prNumber }: PrDetailViewProps) {
   if (!prNumber) {
@@ -83,7 +96,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const selectedCommit = useFileNavStore((s) => s.selectedCommit);
   const diffMode = useFileNavStore((s) => s.diffMode);
   const panelOpen = useFileNavStore((s) => s.panelOpen);
-  // panelTab intentionally NOT subscribed — only SidePanelOverlay needs it
+  const panelTab = useFileNavStore((s) => s.panelTab);
   const setCurrentFileIndex = useFileNavStore((s) => s.setCurrentFileIndex);
   const setCurrentFilePath = useFileNavStore((s) => s.setCurrentFilePath);
   const setSelectedCommit = useFileNavStore((s) => s.setSelectedCommit);
@@ -586,6 +599,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         const elTop = el.getBoundingClientRect().top - containerTop;
         if (elTop > 8) {
           el.scrollIntoView({ block: "center", behavior: "smooth" });
+          el.focus({ preventScroll: true });
           return;
         }
       }
@@ -594,18 +608,54 @@ function PrDetail({ prNumber }: { prNumber: number }) {
         const elTop = elements[i]!.getBoundingClientRect().top - containerTop;
         if (elTop < -8) {
           elements[i]!.scrollIntoView({ block: "center", behavior: "smooth" });
+          elements[i]!.focus({ preventScroll: true });
           return;
         }
       }
     }
   }, []);
 
+  const focusFileSearch = useCallback(() => {
+    focusReviewTargetSoon("file-search", { selectText: true });
+  }, []);
+
+  const focusFilesTree = useCallback(() => {
+    focusReviewTargetSoon("file-tree");
+  }, []);
+
+  const focusDiffViewer = useCallback(() => {
+    focusReviewTargetSoon("diff-viewer");
+  }, []);
+
+  const focusReviewActions = useCallback(() => {
+    focusReviewTargetSoon("review-actions", { preferDescendant: true });
+  }, []);
+
+  const focusPanelContent = useCallback(
+    (nextPanelTab = panelTab) => {
+      setPanelOpen(true);
+      focusReviewTargetSoon(PANEL_FOCUS_TARGET_BY_TAB[nextPanelTab], { preferDescendant: true });
+    },
+    [panelTab, setPanelOpen],
+  );
+
+  const openPanelTab = useCallback(
+    (nextPanelTab: "overview" | "conversation" | "commits" | "checks") => {
+      useFileNavStore.getState().setPanelTab(nextPanelTab);
+      focusPanelContent(nextPanelTab);
+    },
+    [focusPanelContent],
+  );
+
   // Keyboard shortcuts — centralized via useKeyboardShortcuts
   const { getBinding } = useKeybindings();
 
   useKeyboardShortcuts([
+    { ...getBinding("search.focusSearch"), handler: focusFileSearch },
     { ...getBinding("navigation.prevFile"), handler: goToPrevFile },
     { ...getBinding("navigation.nextFile"), handler: goToNextFile },
+    { ...getBinding("navigation.focusFiles"), handler: focusFilesTree },
+    { ...getBinding("navigation.focusDiff"), handler: focusDiffViewer },
     {
       ...getBinding("navigation.prevHunk"),
       handler: () => navigateDiffElement("[data-hunk]", "prev"),
@@ -623,12 +673,27 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       handler: () => navigateDiffElement("[data-comment]", "prev"),
     },
     { ...getBinding("actions.togglePanel"), handler: togglePanel },
+    { ...getBinding("actions.focusPanel"), handler: () => focusPanelContent() },
+    { ...getBinding("actions.focusReviewBar"), handler: focusReviewActions },
+    {
+      ...getBinding("actions.openOverview"),
+      handler: () => openPanelTab("overview"),
+      preventWhileTyping: true,
+    },
     {
       ...getBinding("actions.openConversation"),
-      handler: () => {
-        useFileNavStore.getState().setPanelTab("conversation");
-        setPanelOpen(true);
-      },
+      handler: () => openPanelTab("conversation"),
+      preventWhileTyping: true,
+    },
+    {
+      ...getBinding("actions.openCommits"),
+      handler: () => openPanelTab("commits"),
+      preventWhileTyping: true,
+    },
+    {
+      ...getBinding("actions.openChecks"),
+      handler: () => openPanelTab("checks"),
+      preventWhileTyping: true,
     },
     {
       ...getBinding("actions.closePanel"),

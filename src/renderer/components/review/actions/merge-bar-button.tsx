@@ -8,6 +8,7 @@ import { getErrorMessage } from "@/renderer/lib/app/error-message";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useKeybindings } from "@/renderer/lib/keyboard/keybinding-context";
+import { formatKeybinding } from "@/renderer/lib/keyboard/keybinding-registry";
 import { resolveMergeStrategy } from "@/renderer/lib/review/merge-strategy";
 import { summarizePrChecks } from "@/renderer/lib/review/pr-check-status";
 import { useMutation } from "@tanstack/react-query";
@@ -54,6 +55,8 @@ export function MergeBarButton({
   const [strategy, setStrategy] = useState<"squash" | "merge" | "rebase">("squash");
   const menuRef = useRef<HTMLDivElement>(null);
   const { getBinding } = useKeybindings();
+  const mergeBinding = getBinding("actions.merge");
+  const mergeShortcut = formatKeybinding(mergeBinding.key, mergeBinding.modifiers);
 
   const mergeMutation = useMutation({
     mutationFn: (args: { admin?: boolean } | void) => {
@@ -136,8 +139,9 @@ export function MergeBarButton({
 
   useKeyboardShortcuts([
     {
-      ...getBinding("actions.merge"),
+      ...mergeBinding,
       handler: () => mergeMutation.mutate(),
+      preventWhileTyping: true,
       when: () => !disabled && !mergeMutation.isPending && !menuOpen,
     },
   ]);
@@ -199,7 +203,9 @@ export function MergeBarButton({
           {mergeMutation.isPending ? <Spinner className="h-3 w-3" /> : <GitMerge size={11} />}
           {!dense && (compact ? "Ready" : "Merge when ready")}
           {!compact && (
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>m</span>
+            <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>
+              {mergeShortcut}
+            </span>
           )}
         </button>
         {canAdmin && (
@@ -292,7 +298,9 @@ export function MergeBarButton({
         {mergeMutation.isPending ? <Spinner className="h-3 w-3" /> : <GitMerge size={11} />}
         {!dense && (compact ? "Merge" : labels[strategy])}
         {!compact && (
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>m</span>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>
+            {mergeShortcut}
+          </span>
         )}
       </button>
       <button

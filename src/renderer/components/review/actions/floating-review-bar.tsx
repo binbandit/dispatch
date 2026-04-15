@@ -190,7 +190,10 @@ export function FloatingReviewBar({
       />
 
       {/* Action buttons */}
-      <div style={{ display: "flex", alignItems: "center", gap: compactBar ? "2px" : "3px" }}>
+      <div
+        data-review-focus-target="review-actions"
+        style={{ display: "flex", alignItems: "center", gap: compactBar ? "2px" : "3px" }}
+      >
         <PendingReviewBarButton
           repoTarget={repoTarget}
           prNumber={prNumber}

@@ -75,7 +75,10 @@ export function PanelCommitsContent({ prNumber }: { prNumber: number }) {
   const hasMultipleAuthors = uniqueAuthors.size > 1;
 
   return (
-    <div>
+    <div
+      data-review-focus-target="panel-commits"
+      tabIndex={-1}
+    >
       {selectedCommit && (
         <button
           type="button"
@@ -173,7 +176,10 @@ export function PanelChecksContent({ prNumber }: { prNumber: number }) {
   }
 
   return (
-    <div>
+    <div
+      data-review-focus-target="panel-checks"
+      tabIndex={-1}
+    >
       <div
         className="flex items-center gap-[5px] font-medium"
         style={{

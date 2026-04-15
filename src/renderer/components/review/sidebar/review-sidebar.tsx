@@ -290,6 +290,7 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
           />
           <input
             ref={searchRef}
+            data-review-focus-target="file-search"
             aria-label="Filter files"
             autoComplete="off"
             name="file-filter"

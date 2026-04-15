@@ -344,7 +344,10 @@ export function DiffViewer({
   return (
     <div
       ref={scrollRef}
-      className={`bg-bg-root relative flex-1 overflow-auto ${isDragging ? "select-none" : ""}`}
+      data-review-focus-target="diff-viewer"
+      className={`focus:ring-border-accent/70 bg-bg-root relative flex-1 overflow-auto rounded-sm focus:ring-1 focus:outline-none focus:ring-inset ${
+        isDragging ? "select-none" : ""
+      }`}
       style={{
         paddingBottom: bottomOverlayInset,
         scrollPaddingBottom: bottomOverlayInset,
@@ -433,6 +436,7 @@ export function DiffViewer({
           resolvedTheme={resolvedTheme}
           filePath={filePath}
           prNumber={prNumber}
+          currentUserLogin={currentUserLogin}
           reviewActionsEnabled={reviewActionsEnabled}
           reviewThreadStateByRootCommentId={reviewThreadStateByRootCommentId}
           reviewCommentReactions={reviewCommentReactions}
@@ -450,6 +454,7 @@ export function DiffViewer({
           resolvedTheme={resolvedTheme}
           filePath={filePath}
           prNumber={prNumber}
+          currentUserLogin={currentUserLogin}
           selectionRange={selectionRange}
           activeComposer={activeComposer ?? null}
           isDragging={isDragging}
@@ -485,6 +490,7 @@ function SplitDiffView({
   resolvedTheme,
   filePath,
   prNumber,
+  currentUserLogin,
   reviewActionsEnabled,
   reviewThreadStateByRootCommentId,
   reviewCommentReactions,
@@ -499,6 +505,7 @@ function SplitDiffView({
   resolvedTheme: ThemeMode;
   filePath: string;
   prNumber?: number;
+  currentUserLogin?: string | null;
   reviewActionsEnabled: boolean;
   reviewThreadStateByRootCommentId?: Map<number, ReviewThreadState>;
   reviewCommentReactions?: Record<string, GhReactionGroup[]>;
@@ -524,6 +531,7 @@ function SplitDiffView({
               row,
               prNumber,
               filePath,
+              currentUserLogin,
               reviewActionsEnabled,
               reviewThreadStateByRootCommentId,
               reviewCommentReactions,
@@ -552,8 +560,9 @@ function SplitDiffView({
               <tr key={row.key}>
                 <td
                   colSpan={5}
-                  className="border-border-subtle bg-diff-hunk-bg text-info h-6 border-y px-3 text-[11px]"
+                  className="border-border-subtle bg-diff-hunk-bg text-info h-6 border-y px-3 text-[11px] focus:outline-none"
                   data-hunk
+                  tabIndex={-1}
                 >
                   {row.left.content}
                 </td>
@@ -703,6 +712,7 @@ function UnifiedDiffView({
   resolvedTheme,
   filePath,
   prNumber,
+  currentUserLogin,
   selectionRange,
   activeComposer,
   isDragging,
@@ -728,6 +738,7 @@ function UnifiedDiffView({
   resolvedTheme: ThemeMode;
   filePath: string;
   prNumber?: number;
+  currentUserLogin?: string | null;
   selectionRange: { side: CommentSide; start: number; end: number } | null;
   activeComposer: CommentRange | null;
   isDragging: boolean;
@@ -852,6 +863,8 @@ function renderSupportingRow({
         key={row.key}
         data-comment-line={commentLine ?? undefined}
         data-comment
+        tabIndex={-1}
+        className="focus:ring-border-accent/70 rounded-md focus:ring-1 focus:outline-none focus:ring-inset"
       >
         <InlineComment
           comments={row.comments}
@@ -943,8 +956,9 @@ function DiffLineRow({
   if (line.type === "hunk-header") {
     return (
       <div
-        className="border-border-subtle bg-diff-hunk-bg text-info flex h-6 items-center border-y px-3 text-[11px]"
+        className="border-border-subtle bg-diff-hunk-bg text-info flex h-6 items-center border-y px-3 text-[11px] focus:outline-none"
         data-hunk
+        tabIndex={-1}
       >
         {line.content}
       </div>

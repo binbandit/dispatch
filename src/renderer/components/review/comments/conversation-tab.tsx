@@ -87,7 +87,11 @@ export function ConversationTab({
   const unresolvedCount = (reviewThreads ?? []).filter((t) => !t.isResolved).length;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div
+      className="flex min-h-0 flex-1 flex-col"
+      data-review-focus-target="panel-conversation"
+      tabIndex={-1}
+    >
       <div
         className="min-h-0 flex-1 overflow-y-auto"
         style={{ padding: "12px" }}

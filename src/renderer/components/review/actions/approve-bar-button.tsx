@@ -8,6 +8,7 @@ import { getErrorMessage } from "@/renderer/lib/app/error-message";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useKeybindings } from "@/renderer/lib/keyboard/keybinding-context";
+import { formatKeybinding } from "@/renderer/lib/keyboard/keybinding-registry";
 import { useMutation } from "@tanstack/react-query";
 import { Check } from "lucide-react";
 
@@ -30,6 +31,8 @@ export function ApproveBarButton({
 }) {
   const alreadyApproved = currentUserReview === "APPROVED" && !isReRequested;
   const { getBinding } = useKeybindings();
+  const approveBinding = getBinding("actions.approve");
+  const approveShortcut = formatKeybinding(approveBinding.key, approveBinding.modifiers);
 
   const reviewMutation = useMutation({
     mutationFn: () =>
@@ -49,8 +52,9 @@ export function ApproveBarButton({
 
   useKeyboardShortcuts([
     {
-      ...getBinding("actions.approve"),
+      ...approveBinding,
       handler: () => reviewMutation.mutate(),
+      preventWhileTyping: true,
       when: () => !alreadyApproved && !reviewMutation.isPending,
     },
   ]);
@@ -96,7 +100,9 @@ export function ApproveBarButton({
       {reviewMutation.isPending ? <Spinner className="h-3 w-3" /> : <Check size={11} />}
       {!dense && "Approve"}
       {!compact && (
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>a</span>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: "9px", opacity: 0.5 }}>
+          {approveShortcut}
+        </span>
       )}
     </button>
   );

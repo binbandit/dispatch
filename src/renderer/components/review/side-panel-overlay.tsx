@@ -92,6 +92,7 @@ export function SidePanelOverlay({
         <div
           className="flex flex-1 gap-0"
           role="tablist"
+          data-review-focus-target="panel-tabs"
           onKeyDown={(e) => {
             const tabs: PanelTab[] = ["overview", "conversation", "commits", "checks"];
             const idx = tabs.indexOf(activeTab);
@@ -151,8 +152,10 @@ export function SidePanelOverlay({
         />
       ) : (
         <div
+          data-review-focus-target={activeTab === "overview" ? "panel-overview" : undefined}
           className="flex-1 overflow-y-auto"
           style={{ padding: "14px" }}
+          tabIndex={activeTab === "overview" ? -1 : undefined}
         >
           {activeTab === "overview" && (
             <PanelOverviewContent
@@ -881,7 +884,10 @@ function PanelTabButton({
     <button
       type="button"
       onClick={onClick}
+      aria-selected={active}
       className="flex cursor-pointer items-center gap-[5px] select-none"
+      role="tab"
+      tabIndex={active ? 0 : -1}
       style={{
         padding: "0 10px",
         height: "40px",
