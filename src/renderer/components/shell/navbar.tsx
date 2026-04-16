@@ -42,6 +42,8 @@ import { memo, useCallback, useState } from "react";
 
 import { NotificationCenter } from "./notification-center";
 
+const NO_DRAG_STYLE = { WebkitAppRegion: "no-drag" } as React.CSSProperties;
+
 /**
  * Navbar — DISPATCH-DESIGN-SYSTEM.md § 8.1
  *
@@ -236,6 +238,7 @@ const UserMenu = memo(function UserMenu({
           "ml-1 h-6 w-6 shrink-0 cursor-pointer overflow-hidden transition-[opacity,transform,box-shadow,border-color,background-color]",
           "border-border-strong rounded-full border-[1.5px] hover:opacity-80",
         )}
+        style={NO_DRAG_STYLE}
       >
         {user ? (
           <img
@@ -419,6 +422,7 @@ const WorkspaceSwitcher = memo(function WorkspaceSwitcher({
           compact ? "gap-1" : "gap-1.5",
           "hover:bg-bg-raised hover:text-text-primary rounded-sm",
         )}
+        style={NO_DRAG_STYLE}
       >
         <GitBranch
           size={12}
@@ -518,6 +522,7 @@ function NavTab({
           ? "text-text-primary font-medium"
           : "text-text-secondary hover:bg-bg-raised hover:text-text-primary font-[450]",
       )}
+      style={NO_DRAG_STYLE}
     >
       {icon}
       {!compact && label}
@@ -563,6 +568,7 @@ function IconButton({
             : "text-text-secondary hover:bg-bg-raised hover:text-text-primary",
         ),
       )}
+      style={NO_DRAG_STYLE}
     >
       {icon}
       {active && (
