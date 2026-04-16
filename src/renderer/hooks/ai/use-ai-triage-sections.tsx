@@ -21,13 +21,13 @@ import { useEffect, useMemo } from "react";
 
 type AiTriageRunStatus = "idle" | "running" | "error";
 
-type AiTriageRunState = {
+interface AiTriageRunState {
   status: AiTriageRunStatus;
   runId: number;
   startedAt: number;
   snapshotKey: string;
   errorMessage?: string;
-};
+}
 
 export interface UseAiTriageSectionsArgs {
   nwo: string;

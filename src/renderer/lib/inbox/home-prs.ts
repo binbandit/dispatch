@@ -14,16 +14,21 @@ export const SORT_OPTIONS: { value: SortOption; label: string }[] = [
 
 function comparePrs(a: EnrichedDashboardPr, b: EnrichedDashboardPr, sort: SortOption): number {
   switch (sort) {
-    case "updated":
+    case "updated": {
       return new Date(b.pr.updatedAt).getTime() - new Date(a.pr.updatedAt).getTime();
-    case "oldest":
+    }
+    case "oldest": {
       return new Date(a.pr.updatedAt).getTime() - new Date(b.pr.updatedAt).getTime();
-    case "largest":
+    }
+    case "largest": {
       return b.pr.additions + b.pr.deletions - (a.pr.additions + a.pr.deletions);
-    case "smallest":
+    }
+    case "smallest": {
       return a.pr.additions + a.pr.deletions - (b.pr.additions + b.pr.deletions);
-    case "title":
+    }
+    case "title": {
       return a.pr.title.localeCompare(b.pr.title);
+    }
   }
 }
 
@@ -33,7 +38,7 @@ export function sortPrSections(sections: PrSection[], sort: SortOption): PrSecti
   }
   return sections.map((section) => ({
     ...section,
-    items: [...section.items].sort((a, b) => comparePrs(a, b, sort)),
+    items: [...section.items].toSorted((a, b) => comparePrs(a, b, sort)),
   }));
 }
 

@@ -16,7 +16,7 @@ describe("isAiEnabledPreference", () => {
   });
 
   it("returns true when value is undefined", () => {
-    expect(isAiEnabledPreference(undefined)).toBe(true);
+    expect(isAiEnabledPreference()).toBe(true);
   });
 
   it("returns true for any non-false string", () => {

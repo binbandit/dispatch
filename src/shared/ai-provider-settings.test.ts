@@ -120,7 +120,7 @@ describe("normalizeAiTaskSlot", () => {
     expect(normalizeAiTaskSlot("medium")).toBeNull();
     expect(normalizeAiTaskSlot("")).toBeNull();
     expect(normalizeAiTaskSlot(null)).toBeNull();
-    expect(normalizeAiTaskSlot(undefined)).toBeNull();
+    expect(normalizeAiTaskSlot()).toBeNull();
     expect(normalizeAiTaskSlot("  ")).toBeNull();
   });
 });

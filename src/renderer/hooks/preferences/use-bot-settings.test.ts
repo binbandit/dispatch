@@ -16,7 +16,7 @@ describe("parseJsonArray", () => {
   });
 
   it("returns empty for undefined", () => {
-    expect(parseJsonArray(undefined)).toEqual([]);
+    expect(parseJsonArray()).toEqual([]);
   });
 
   it("returns empty for empty string", () => {

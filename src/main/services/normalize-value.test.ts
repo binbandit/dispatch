@@ -26,7 +26,7 @@ describe("normalizeValue", () => {
   });
 
   it("returns null for undefined", () => {
-    expect(normalizeValue(undefined)).toBeNull();
+    expect(normalizeValue()).toBeNull();
   });
 
   it("returns null for non-string types", () => {

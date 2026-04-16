@@ -59,7 +59,7 @@ describe("hasNewPrActivity", () => {
   });
 
   it("returns false for undefined activityState", () => {
-    expect(hasNewPrActivity("2024-06-01T00:00:00Z", undefined)).toBe(false);
+    expect(hasNewPrActivity("2024-06-01T00:00:00Z")).toBe(false);
   });
 
   it("returns false for empty lastSeenUpdatedAt", () => {
@@ -67,11 +67,7 @@ describe("hasNewPrActivity", () => {
   });
 
   it("returns false for invalid date strings", () => {
-    expect(hasNewPrActivity("not-a-date", { lastSeenUpdatedAt: "2024-06-01T00:00:00Z" })).toBe(
-      false,
-    );
-    expect(hasNewPrActivity("2024-06-01T00:00:00Z", { lastSeenUpdatedAt: "not-a-date" })).toBe(
-      false,
-    );
+    expect(hasNewPrActivity("not-a-date", { lastSeenUpdatedAt: "2024-06-01T00:00:00Z" })).toBe(false);
+    expect(hasNewPrActivity("2024-06-01T00:00:00Z", { lastSeenUpdatedAt: "not-a-date" })).toBe(false);
   });
 });

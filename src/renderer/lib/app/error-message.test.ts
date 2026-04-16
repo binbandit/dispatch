@@ -24,7 +24,7 @@ describe("getErrorMessage", () => {
   });
 
   it("converts undefined to string", () => {
-    expect(getErrorMessage(undefined)).toBe("undefined");
+    expect(getErrorMessage()).toBe("undefined");
   });
 
   it("converts object to string", () => {

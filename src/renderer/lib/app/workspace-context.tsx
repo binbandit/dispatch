@@ -51,7 +51,7 @@ export const useWorkspaceStore = create<WorkspaceState>()((set, get) => ({
   },
 
   switchWorkspace: (next) => {
-    if (next.id === get().id) return;
+    if (next.id === get().id) {return;}
 
     void ipc("workspace.setActive", { id: next.id })
       .then(() => {
@@ -76,7 +76,7 @@ export function WorkspaceProvider({
     useWorkspaceStore.getState().setWorkspace(workspace);
   }, [workspace.id, workspace.owner, workspace.repo, workspace.path]);
 
-  if (!initialized) return null;
+  if (!initialized) {return null;}
   return <>{children}</>;
 }
 
