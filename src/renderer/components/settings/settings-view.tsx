@@ -48,9 +48,11 @@ import {
   SEARCH_STATE_PERSISTENCE_PREFERENCE_KEY,
 } from "@/shared/search-state";
 import {
+  getTopBarLabelMode,
+  getVisibleTopBarTabs,
   serializeVisibleTopBarTabs,
   setTopBarTabVisibility,
-  getVisibleTopBarTabs,
+  TOP_BAR_LABEL_MODE_PREFERENCE_KEY,
   TOP_BAR_VISIBLE_TABS_PREFERENCE_KEY,
   type OptionalTopBarTab,
 } from "@/shared/top-bar-tabs";
@@ -143,6 +145,7 @@ const PREF_KEYS = [
   "disableFontLigatures",
   "reviewCommentMode",
   SEARCH_STATE_PERSISTENCE_PREFERENCE_KEY,
+  TOP_BAR_LABEL_MODE_PREFERENCE_KEY,
   TOP_BAR_VISIBLE_TABS_PREFERENCE_KEY,
   TRUSTED_CONTRIBUTOR_SYSTEM_PREFERENCE_KEY,
   ...EXPERIMENTAL_FEATURE_PREFERENCE_KEYS,
@@ -179,6 +182,11 @@ const OPTIONAL_TOP_BAR_TAB_OPTIONS: Array<{
     description: "Show release management in the top bar.",
   },
 ];
+
+const TOP_BAR_LABEL_MODE_OPTIONS = [
+  { value: "icon-and-text", label: "Icons + text" },
+  { value: "icon-only", label: "Icons only" },
+] as const;
 
 interface AiProviderTestState {
   kind: "success" | "error";
@@ -365,6 +373,7 @@ export function SettingsView() {
   const persistSearchState = isSearchStatePersistenceEnabled(
     prefs[SEARCH_STATE_PERSISTENCE_PREFERENCE_KEY],
   );
+  const topBarLabelMode = getTopBarLabelMode(prefs[TOP_BAR_LABEL_MODE_PREFERENCE_KEY]);
   const visibleTopBarTabs = getVisibleTopBarTabs(prefs[TOP_BAR_VISIBLE_TABS_PREFERENCE_KEY]);
   const trustedContributorSystemEnabled = isTrustedContributorSystemEnabled(
     prefs[TRUSTED_CONTRIBUTOR_SYSTEM_PREFERENCE_KEY],
@@ -940,6 +949,26 @@ export function SettingsView() {
                 <h3 className="text-text-primary text-sm font-medium">Top Bar Tabs</h3>
                 <p className="text-text-tertiary mt-0.5 text-xs">
                   Choose which optional destinations appear next to Review and Workflows.
+                </p>
+                <div className="border-border bg-bg-raised mt-3 flex rounded-md border p-[2px]">
+                  {TOP_BAR_LABEL_MODE_OPTIONS.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => savePref(TOP_BAR_LABEL_MODE_PREFERENCE_KEY, value)}
+                      className={`flex-1 cursor-pointer rounded-sm px-3 py-1.5 text-xs ${
+                        topBarLabelMode === value
+                          ? "bg-bg-elevated text-text-primary shadow-sm"
+                          : "text-text-tertiary hover:text-text-secondary"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-text-ghost mt-1.5 text-[10px]">
+                  Icons + text uses the current responsive layout. Narrow windows may still collapse
+                  labels automatically to preserve space.
                 </p>
                 <div className="mt-3 flex flex-col gap-3">
                   {OPTIONAL_TOP_BAR_TAB_OPTIONS.map(({ id, label, description }) => (

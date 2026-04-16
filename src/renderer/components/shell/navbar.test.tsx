@@ -12,6 +12,9 @@ const { mockRoute, navigateMock } = vi.hoisted(() => ({
   navigateMock: vi.fn(),
 }));
 
+let collapseChromeLabels = false;
+let collapseNavLabels = true;
+
 vi.mock(import("@/renderer/lib/app/ipc"), () => ({
   ipc: vi.fn(),
 }));
@@ -61,7 +64,8 @@ vi.mock("@/components/ui/tooltip", () => ({
 }));
 
 vi.mock("@/hooks/use-media-query", () => ({
-  useMediaQuery: ({ max }: { max: number }) => max === 1100,
+  useMediaQuery: ({ max }: { max: number }) =>
+    max === 1100 ? collapseNavLabels : collapseChromeLabels,
 }));
 
 vi.mock("@/renderer/components/shared/add-repo-dialog", () => ({
@@ -116,11 +120,25 @@ function renderNavbar() {
   );
 }
 
-function mockNavbarIpc(topBarVisibleTabs: string | null = null) {
-  vi.mocked(ipc).mockImplementation((method) => {
+function mockNavbarIpc(args?: {
+  topBarLabelMode?: string | null;
+  topBarVisibleTabs?: string | null;
+}) {
+  const topBarLabelMode = args?.topBarLabelMode ?? null;
+  const topBarVisibleTabs = args?.topBarVisibleTabs ?? null;
+
+  vi.mocked(ipc).mockImplementation((method, params) => {
+    const preferenceKey = (params as { key?: string } | undefined)?.key;
+
     switch (method) {
       case "preferences.get": {
-        return Promise.resolve(topBarVisibleTabs);
+        if (preferenceKey === "topBarLabelMode") {
+          return Promise.resolve(topBarLabelMode);
+        }
+        if (preferenceKey === "topBarVisibleTabs") {
+          return Promise.resolve(topBarVisibleTabs);
+        }
+        return Promise.resolve(null);
       }
       case "repo.info": {
         return Promise.resolve({
@@ -162,6 +180,8 @@ describe("Navbar", () => {
     navigateMock.mockReset();
     mockRoute.view = "review";
     mockRoute.prNumber = null;
+    collapseChromeLabels = false;
+    collapseNavLabels = true;
     mockNavbarIpc();
   });
 
@@ -176,7 +196,7 @@ describe("Navbar", () => {
   });
 
   it("hides optional tabs when the user disables them in settings", async () => {
-    mockNavbarIpc("[]");
+    mockNavbarIpc({ topBarVisibleTabs: "[]" });
 
     renderNavbar();
 
@@ -188,7 +208,7 @@ describe("Navbar", () => {
 
   it("keeps a hidden tab visible while that route is active", async () => {
     mockRoute.view = "metrics";
-    mockNavbarIpc("[]");
+    mockNavbarIpc({ topBarVisibleTabs: "[]" });
 
     renderNavbar();
 
@@ -196,5 +216,27 @@ describe("Navbar", () => {
     await waitFor(() => {
       expect(screen.queryByRole("button", { name: "Releases" })).not.toBeInTheDocument();
     });
+  });
+
+  it("renders icon-only tabs when the user prefers that mode", async () => {
+    collapseNavLabels = false;
+    mockNavbarIpc({ topBarLabelMode: "icon-only" });
+
+    renderNavbar();
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Review" }).textContent).toBe("");
+    });
+  });
+
+  it("keeps text labels when the user prefers icons with text and space allows it", async () => {
+    collapseNavLabels = false;
+    mockNavbarIpc({ topBarLabelMode: "icon-and-text" });
+
+    renderNavbar();
+
+    const reviewButton = await screen.findByRole("button", { name: "Review" });
+
+    expect(reviewButton).toHaveTextContent("Review");
   });
 });

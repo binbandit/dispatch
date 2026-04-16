@@ -22,7 +22,12 @@ import { queryClient } from "@/renderer/lib/app/query-client";
 import { useRouter } from "@/renderer/lib/app/router";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { resizeGitHubAvatarUrl } from "@/renderer/lib/shared/github-avatar";
-import { getVisibleTopBarTabs, TOP_BAR_VISIBLE_TABS_PREFERENCE_KEY } from "@/shared/top-bar-tabs";
+import {
+  getTopBarLabelMode,
+  getVisibleTopBarTabs,
+  TOP_BAR_LABEL_MODE_PREFERENCE_KEY,
+  TOP_BAR_VISIBLE_TABS_PREFERENCE_KEY,
+} from "@/shared/top-bar-tabs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   BarChart3,
@@ -65,8 +70,11 @@ export function Navbar({
   const collapseChromeLabels = useMediaQuery({ max: 940 });
 
   const { nwo, repoTarget } = useWorkspace();
+  const topBarLabelModePreference = usePreference(TOP_BAR_LABEL_MODE_PREFERENCE_KEY);
   const visibleTopBarTabsPreference = usePreference(TOP_BAR_VISIBLE_TABS_PREFERENCE_KEY);
+  const topBarLabelMode = getTopBarLabelMode(topBarLabelModePreference);
   const visibleTopBarTabs = getVisibleTopBarTabs(visibleTopBarTabsPreference);
+  const compactNavTabs = topBarLabelMode === "icon-only" || collapseNavLabels;
 
   const navToReview = useCallback(() => navigate({ view: "review", prNumber: null }), [navigate]);
   const navToWorkflows = useCallback(() => navigate({ view: "workflows" }), [navigate]);
@@ -133,14 +141,14 @@ export function Navbar({
         <NavTab
           label="Review"
           icon={<GitPullRequest size={14} />}
-          compact={collapseNavLabels}
+          compact={compactNavTabs}
           active={route.view === "review"}
           onClick={navToReview}
         />
         <NavTab
           label="Workflows"
           icon={<Zap size={14} />}
-          compact={collapseNavLabels}
+          compact={compactNavTabs}
           active={route.view === "workflows"}
           onClick={navToWorkflows}
         />
@@ -148,7 +156,7 @@ export function Navbar({
           <NavTab
             label="Metrics"
             icon={<BarChart3 size={14} />}
-            compact={collapseNavLabels}
+            compact={compactNavTabs}
             active={route.view === "metrics"}
             onClick={navToMetrics}
           />
@@ -157,7 +165,7 @@ export function Navbar({
           <NavTab
             label="Releases"
             icon={<Tag size={14} />}
-            compact={collapseNavLabels}
+            compact={compactNavTabs}
             active={route.view === "releases"}
             onClick={navToReleases}
           />
@@ -166,7 +174,7 @@ export function Navbar({
           <NavTab
             label="Queue"
             icon={<ListOrdered size={14} />}
-            compact={collapseNavLabels}
+            compact={compactNavTabs}
             active={route.view === "merge-queue"}
             onClick={navToMergeQueue}
           />

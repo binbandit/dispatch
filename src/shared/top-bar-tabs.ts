@@ -1,10 +1,14 @@
 export const TOP_BAR_VISIBLE_TABS_PREFERENCE_KEY = "topBarVisibleTabs";
+export const TOP_BAR_LABEL_MODE_PREFERENCE_KEY = "topBarLabelMode";
 
 export const OPTIONAL_TOP_BAR_TABS = ["metrics", "releases"] as const;
+export const TOP_BAR_LABEL_MODES = ["icon-only", "icon-and-text"] as const;
 
 export type OptionalTopBarTab = (typeof OPTIONAL_TOP_BAR_TABS)[number];
+export type TopBarLabelMode = (typeof TOP_BAR_LABEL_MODES)[number];
 
 const DEFAULT_VISIBLE_TOP_BAR_TABS = [...OPTIONAL_TOP_BAR_TABS];
+const DEFAULT_TOP_BAR_LABEL_MODE = "icon-and-text";
 
 export function getVisibleTopBarTabs(value?: string | null): OptionalTopBarTab[] {
   if (!value) {
@@ -46,4 +50,12 @@ export function setTopBarTabVisibility(
   }
 
   return OPTIONAL_TOP_BAR_TABS.filter((candidate) => nextVisibleTabs.has(candidate));
+}
+
+export function getTopBarLabelMode(value?: string | null): TopBarLabelMode {
+  if (value === "icon-only" || value === "icon-and-text") {
+    return value;
+  }
+
+  return DEFAULT_TOP_BAR_LABEL_MODE;
 }
