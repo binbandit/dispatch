@@ -851,21 +851,25 @@ function PrDetail({ prNumber }: { prNumber: number }) {
       handler: () => openPanelTab("overview"),
       preventWhileTyping: true,
     },
+    { sequence: ["g", "o"], handler: () => openPanelTab("overview") },
     {
       ...getBinding("actions.openConversation"),
       handler: () => openPanelTab("conversation"),
       preventWhileTyping: true,
     },
+    { sequence: ["g", "c"], handler: () => openPanelTab("conversation") },
     {
       ...getBinding("actions.openCommits"),
       handler: () => openPanelTab("commits"),
       preventWhileTyping: true,
     },
+    { sequence: ["g", "t"], handler: () => openPanelTab("commits") },
     {
       ...getBinding("actions.openChecks"),
       handler: () => openPanelTab("checks"),
       preventWhileTyping: true,
     },
+    { sequence: ["g", "x"], handler: () => openPanelTab("checks") },
     {
       ...getBinding("actions.closePanel"),
       handler: () => setPanelOpen(false),

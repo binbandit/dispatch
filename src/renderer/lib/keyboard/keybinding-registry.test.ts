@@ -413,4 +413,11 @@ describe("modifier combinations", () => {
     expect(togglePanelAlternate?.key).toBe("\\");
     expect(togglePanelAlternate?.modifiers).toEqual(["meta"]);
   });
+
+  it("uses shift+g for focusing the review actions bar", () => {
+    const focusReviewBar = DEFAULT_KEYBINDINGS_MAP.get("actions.focusReviewBar");
+
+    expect(focusReviewBar?.key).toBe("g");
+    expect(focusReviewBar?.modifiers).toEqual(["shift"]);
+  });
 });

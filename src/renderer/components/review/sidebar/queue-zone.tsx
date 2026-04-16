@@ -1,5 +1,6 @@
 import type { GhPrListItemCore } from "@/shared/ipc";
 
+import { Kbd } from "@/components/ui/kbd";
 import {
   formatAuthorName,
   useDisplayNameFormat,
@@ -14,6 +15,8 @@ import { useCallback } from "react";
  * Top of the review sidebar. Shows back arrow, review count,
  * and compact list of queued PRs.
  */
+
+const HOME_SEQUENCE_KEYS = ["G", "Q"] as const;
 
 interface QueueZoneProps {
   queuePrs: GhPrListItemCore[];
@@ -68,10 +71,20 @@ export function QueueZone({ queuePrs, activePrNumber, onBack, onSelectPr }: Queu
         <button
           type="button"
           onClick={onBack}
-          className="text-text-tertiary hover:text-text-primary hover:bg-bg-raised flex cursor-pointer items-center gap-0.5 rounded-sm px-1 py-0.5 text-[10px] select-none"
+          className="text-text-tertiary hover:text-text-primary hover:bg-bg-raised flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 text-[10px] select-none"
         >
           <ArrowLeft size={12} />
-          Queue
+          <span>Queue</span>
+          <span className="flex items-center gap-1">
+            {HOME_SEQUENCE_KEYS.map((key) => (
+              <Kbd
+                key={key}
+                className="border-border-strong bg-bg-raised text-text-ghost h-4 min-w-4 rounded-[2px] border px-1 font-mono text-[9px]"
+              >
+                {key}
+              </Kbd>
+            ))}
+          </span>
         </button>
         {hasQueue && (
           <>

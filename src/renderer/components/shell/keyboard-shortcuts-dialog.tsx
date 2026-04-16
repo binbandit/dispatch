@@ -32,6 +32,7 @@ interface KeyboardShortcutsDialogProps {
  */
 const DISPLAY_ROWS: Array<{
   ids: string[];
+  extraShortcuts?: string[][];
   label: string;
   category: ShortcutCategory;
 }> = [
@@ -60,6 +61,7 @@ const DISPLAY_ROWS: Array<{
     label: "Go back / forward",
     category: "Navigation",
   },
+  { ids: [], extraShortcuts: [["G", "Q"]], label: "Go queue", category: "Navigation" },
   // Actions
   { ids: ["actions.toggleViewed"], label: "Toggle file viewed", category: "Actions" },
   { ids: ["actions.nextUnreviewed"], label: "Next unreviewed file", category: "Actions" },
@@ -69,10 +71,30 @@ const DISPLAY_ROWS: Array<{
     category: "Actions",
   },
   { ids: ["actions.focusPanel"], label: "Focus overview panel", category: "Actions" },
-  { ids: ["actions.openOverview"], label: "Open overview tab", category: "Actions" },
-  { ids: ["actions.openConversation"], label: "Open conversation tab", category: "Actions" },
-  { ids: ["actions.openCommits"], label: "Open commits tab", category: "Actions" },
-  { ids: ["actions.openChecks"], label: "Open checks tab", category: "Actions" },
+  {
+    ids: ["actions.openOverview"],
+    extraShortcuts: [["G", "O"]],
+    label: "Open overview tab",
+    category: "Actions",
+  },
+  {
+    ids: ["actions.openConversation"],
+    extraShortcuts: [["G", "C"]],
+    label: "Open conversation tab",
+    category: "Actions",
+  },
+  {
+    ids: ["actions.openCommits"],
+    extraShortcuts: [["G", "T"]],
+    label: "Open commits tab",
+    category: "Actions",
+  },
+  {
+    ids: ["actions.openChecks"],
+    extraShortcuts: [["G", "X"]],
+    label: "Open checks tab",
+    category: "Actions",
+  },
   {
     ids: ["actions.nextComment", "actions.prevComment"],
     label: "Next / previous comment",
@@ -114,10 +136,13 @@ export function KeyboardShortcutsDialog({ open, onClose }: KeyboardShortcutsDial
       CATEGORY_ORDER.map((category) => ({
         title: category,
         shortcuts: DISPLAY_ROWS.filter((row) => row.category === category).map((row) => ({
-          keys: row.ids.map((id) => {
-            const binding = getBinding(id);
-            return formatKeybinding(binding.key, binding.modifiers);
-          }),
+          keys: [
+            ...row.ids.map((id) => {
+              const binding = getBinding(id);
+              return [formatKeybinding(binding.key, binding.modifiers)];
+            }),
+            ...(row.extraShortcuts ?? []),
+          ],
           description: row.label,
         })),
       })),
@@ -161,13 +186,20 @@ export function KeyboardShortcutsDialog({ open, onClose }: KeyboardShortcutsDial
                   >
                     <span className="text-text-secondary text-xs">{shortcut.description}</span>
                     <div className="flex items-center gap-1">
-                      {shortcut.keys.map((key) => (
-                        <kbd
-                          key={key}
-                          className="border-border-strong bg-bg-raised text-text-secondary rounded-xs border px-1.5 py-0.5 font-mono text-[10px] font-medium shadow-[0_1px_0_var(--border)]"
+                      {shortcut.keys.map((shortcutKeys) => (
+                        <span
+                          key={shortcutKeys.join(" ")}
+                          className="flex items-center gap-1"
                         >
-                          {key}
-                        </kbd>
+                          {shortcutKeys.map((key) => (
+                            <kbd
+                              key={key}
+                              className="border-border-strong bg-bg-raised text-text-secondary rounded-xs border px-1.5 py-0.5 font-mono text-[10px] font-medium shadow-[0_1px_0_var(--border)]"
+                            >
+                              {key}
+                            </kbd>
+                          ))}
+                        </span>
                       ))}
                     </div>
                   </div>

@@ -106,6 +106,7 @@ export const DEFAULT_KEYBINDINGS: ShortcutDefinition[] = [
   {
     id: "actions.focusReviewBar",
     key: "g",
+    modifiers: ["shift"],
     label: "Focus review actions bar",
     category: "Actions",
   },

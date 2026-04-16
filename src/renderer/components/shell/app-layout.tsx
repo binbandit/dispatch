@@ -1,3 +1,4 @@
+/* eslint-disable import/max-dependencies -- AppLayout intentionally composes the app shell routes and global chrome. */
 import type { ReviewResumeState } from "@/shared/ipc/contracts/review";
 
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,9 @@ export function AppLayout() {
   const prevResetKeyRef = useRef(resetKey);
 
   useEffect(() => {
-    if (resetKey === prevResetKeyRef.current) return;
+    if (resetKey === prevResetKeyRef.current) {
+      return;
+    }
     prevResetKeyRef.current = resetKey;
     useRouterStore.getState().reset(initialRoute);
     useFileNavStore.getState().reset(initialFileNavState ?? undefined);
@@ -133,6 +136,10 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed((v) => !v);
   }, []);
+  const selectedPr = route.view === "review" ? route.prNumber : null;
+  const navigateHome = useCallback(() => {
+    navigate({ view: "review", prNumber: null });
+  }, [navigate]);
 
   const { pathMissing, dismiss: dismissPathMissing } = useWorkspacePathMonitor();
 
@@ -140,8 +147,9 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
     { ...getBinding("navigation.toggleSidebar"), handler: toggleSidebar },
     { ...getBinding("navigation.back"), handler: goBack },
     { ...getBinding("navigation.forward"), handler: goForward },
+    { sequence: ["g", "q"], handler: navigateHome, when: () => selectedPr !== null },
     { ...getBinding("views.shortcuts"), handler: () => setShowShortcuts(true) },
-    { ...getBinding("views.review"), handler: () => navigate({ view: "review", prNumber: null }) },
+    { ...getBinding("views.review"), handler: navigateHome },
     { ...getBinding("views.workflows"), handler: () => navigate({ view: "workflows" }) },
     { ...getBinding("views.metrics"), handler: () => navigate({ view: "metrics" }) },
     { ...getBinding("views.releases"), handler: () => navigate({ view: "releases" }) },
@@ -174,8 +182,6 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
     return cleanup;
   }, []);
 
-  const selectedPr = route.view === "review" ? route.prNumber : null;
-
   // Refs for latest values — avoids stale closures in debounced persist
   const nwoRef = useRef(nwo);
   nwoRef.current = nwo;
@@ -184,7 +190,9 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
   const lastReviewPrRef = useRef<number | null>(route.view === "review" ? route.prNumber : null);
 
   const schedulePersist = useCallback(() => {
-    if (!resumeReady) return;
+    if (!resumeReady) {
+      return;
+    }
 
     if (saveStateTimerRef.current !== null) {
       globalThis.clearTimeout(saveStateTimerRef.current);
@@ -213,7 +221,9 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
       };
 
       const serialized = JSON.stringify(nextState);
-      if (serialized === lastSavedStateRef.current) return;
+      if (serialized === lastSavedStateRef.current) {
+        return;
+      }
 
       void ipc("review.saveResumeState", nextState)
         .then(() => {
@@ -225,7 +235,9 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
 
   // Reset file nav state when PR changes
   useEffect(() => {
-    if (!resumeReady || route.view !== "review") return;
+    if (!resumeReady || route.view !== "review") {
+      return;
+    }
 
     if (selectedPr === null) {
       lastReviewPrRef.current = null;
@@ -256,7 +268,9 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
 
   // Subscribe to file nav store changes for persistence
   useEffect(() => {
-    if (!resumeReady) return;
+    if (!resumeReady) {
+      return;
+    }
     const unsub = useFileNavStore.subscribe(() => {
       schedulePersist();
     });
@@ -265,7 +279,9 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
 
   // Persist when route or workspace changes
   useEffect(() => {
-    if (!resumeReady) return;
+    if (!resumeReady) {
+      return;
+    }
     schedulePersist();
     return () => {
       if (saveStateTimerRef.current !== null) {
@@ -336,7 +352,7 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
                 >
                   <ReviewSidebar
                     prNumber={selectedPr}
-                    onBack={() => navigate({ view: "review", prNumber: null })}
+                    onBack={navigateHome}
                     onSelectPr={(pr) => navigate({ view: "review", prNumber: pr })}
                   />
                 </ResizablePanel>
