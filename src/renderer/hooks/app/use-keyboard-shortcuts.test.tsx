@@ -30,6 +30,35 @@ describe("useKeyboardShortcuts", () => {
     expect(sequenceHandler).toHaveBeenCalledTimes(1);
   });
 
+  it("fires symbol-key shortcuts like ? even though shift is required to type them", () => {
+    const handler = vi.fn();
+
+    render(<ShortcutHarness shortcuts={[{ key: "?", handler }]} />);
+
+    fireEvent.keyDown(globalThis.window, { key: "?", shiftKey: true });
+
+    expect(handler).toHaveBeenCalledTimes(1);
+  });
+
+  it("still differentiates letter shortcuts by shift modifier", () => {
+    const plain = vi.fn();
+    const shifted = vi.fn();
+
+    render(
+      <ShortcutHarness
+        shortcuts={[
+          { key: "c", handler: plain },
+          { key: "c", modifiers: ["shift"], handler: shifted },
+        ]}
+      />,
+    );
+
+    fireEvent.keyDown(globalThis.window, { key: "C", shiftKey: true });
+
+    expect(plain).not.toHaveBeenCalled();
+    expect(shifted).toHaveBeenCalledTimes(1);
+  });
+
   it("expires pending key sequences after the timeout window", () => {
     vi.useFakeTimers();
 

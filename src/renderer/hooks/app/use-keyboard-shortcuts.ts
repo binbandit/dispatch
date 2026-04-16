@@ -52,15 +52,19 @@ function isInputFocused(): boolean {
   return tag === "INPUT" || tag === "TEXTAREA" || (el as HTMLElement).isContentEditable;
 }
 
-function matchesModifiers(event: KeyboardEvent, modifiers: Modifier[] = []): boolean {
+function matchesModifiers(event: KeyboardEvent, modifiers: Modifier[] = [], key?: string): boolean {
   const wantMeta = modifiers.includes("meta");
   const wantShift = modifiers.includes("shift");
   const wantAlt = modifiers.includes("alt");
   const wantCtrl = modifiers.includes("ctrl");
 
+  // Symbol keys ("?", "{", "}") require shift to type, but the shifted char is already in event.key.
+  const shiftImplicit =
+    !wantShift && key !== undefined && key.length === 1 && !/[a-zA-Z]/.test(key);
+
   return (
     event.metaKey === wantMeta &&
-    event.shiftKey === wantShift &&
+    (shiftImplicit || event.shiftKey === wantShift) &&
     event.altKey === wantAlt &&
     event.ctrlKey === wantCtrl
   );
@@ -195,7 +199,7 @@ export function useKeyboardShortcuts(shortcuts: Shortcut[]): void {
           !isSequenceShortcut(shortcut) &&
           !shouldSkipShortcut(shortcut, inputFocused) &&
           matchesKey(event, shortcut.key) &&
-          matchesModifiers(event, shortcut.modifiers) &&
+          matchesModifiers(event, shortcut.modifiers, shortcut.key) &&
           (!shortcut.when || shortcut.when())
         ) {
           event.preventDefault();
