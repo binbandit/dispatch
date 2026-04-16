@@ -36,6 +36,7 @@ export interface EnvironmentIpcApi {
   "repo.info": { args: RepoTarget; result: RepoInfo };
 
   "workspace.list": { args: void; result: Workspace[] };
+  "workspace.accessible": { args: void; result: Workspace[] };
   "workspace.add": {
     args: { owner: string; repo: string; path?: string | null; name?: string };
     result: { owner: string; repo: string; path: string | null; name: string };

@@ -405,8 +405,8 @@ const WorkspaceSwitcher = memo(function WorkspaceSwitcher({
   const repoName = repo;
 
   const workspacesQuery = useQuery({
-    queryKey: ["workspace", "list"],
-    queryFn: () => ipc("workspace.list"),
+    queryKey: ["workspace", "accessible"],
+    queryFn: () => ipc("workspace.accessible"),
     staleTime: 60_000,
   });
   const workspaces = workspacesQuery.data ?? [];

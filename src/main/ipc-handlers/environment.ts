@@ -57,7 +57,16 @@ export const environmentHandlers: Pick<
     await ghCli.switchAccount(args.host, args.login);
     const activeWorkspace = repo.getActiveWorkspace();
     if (activeWorkspace?.path) {
-      repo.setRepoAccount(activeWorkspace.path, args.host, args.login);
+      try {
+        await ghCli.getRepoInfo({
+          cwd: activeWorkspace.path,
+          owner: activeWorkspace.owner,
+          repo: activeWorkspace.repo,
+        });
+        repo.setRepoAccount(activeWorkspace.path, args.host, args.login);
+      } catch {
+        // Keep the last known-good repo account when the new account cannot access it.
+      }
     }
   },
 };

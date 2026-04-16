@@ -6,9 +6,61 @@ import * as repo from "../db/repository";
 import * as ghCli from "../services/gh-cli";
 import * as gitCli from "../services/git-cli";
 
+type WorkspaceRecord = ReturnType<typeof repo.getWorkspaces>[number];
+
+async function getResolvedWorkspaces(): Promise<WorkspaceRecord[]> {
+  const workspaces = repo.getWorkspaces();
+
+  // Lazy-resolve owner/repo from git remote for migrated workspaces with heuristic values.
+  await Promise.all(
+    workspaces.map(async (workspace) => {
+      if (workspace.path && workspace.owner === "unknown") {
+        try {
+          const { owner, repo: repoName } = await ghCli.getOwnerRepo(workspace.path);
+          repo.addWorkspace({
+            owner,
+            repo: repoName,
+            path: workspace.path,
+            name: workspace.name,
+          });
+          workspace.owner = owner;
+          workspace.repo = repoName;
+        } catch {
+          // Git remote not available, keep heuristic values.
+        }
+      }
+    }),
+  );
+
+  return workspaces;
+}
+
+async function getAccessibleWorkspaces(): Promise<WorkspaceRecord[]> {
+  const workspaces = await getResolvedWorkspaces();
+  if (workspaces.length === 0) {
+    return [];
+  }
+
+  const results = await ghCli.mapWithConcurrency(
+    workspaces,
+    ghCli.MAX_CONCURRENT_GH_CALLS,
+    async (workspace) => {
+      await ghCli.getRepoInfo({
+        cwd: workspace.path,
+        owner: workspace.owner,
+        repo: workspace.repo,
+      });
+      return workspace;
+    },
+  );
+
+  return results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+}
+
 export const workspaceHandlers: Pick<
   HandlerMap,
   | "workspace.list"
+  | "workspace.accessible"
   | "workspace.add"
   | "workspace.addFromFolder"
   | "workspace.remove"
@@ -19,25 +71,8 @@ export const workspaceHandlers: Pick<
   | "workspace.checkPath"
   | "workspace.unlinkPath"
 > = {
-  "workspace.list": async () => {
-    const workspaces = repo.getWorkspaces();
-    // Lazy-resolve owner/repo from git remote for migrated workspaces with heuristic values
-    await Promise.all(
-      workspaces.map(async (ws) => {
-        if (ws.path && ws.owner === "unknown") {
-          try {
-            const { owner, repo: repoName } = await ghCli.getOwnerRepo(ws.path);
-            repo.addWorkspace({ owner, repo: repoName, path: ws.path, name: ws.name });
-            ws.owner = owner;
-            ws.repo = repoName;
-          } catch {
-            // Git remote not available, keep heuristic values
-          }
-        }
-      }),
-    );
-    return workspaces;
-  },
+  "workspace.list": () => getResolvedWorkspaces(),
+  "workspace.accessible": () => getAccessibleWorkspaces(),
   "workspace.add": (args) => {
     const name = args.name ?? args.repo;
     repo.addWorkspace({ owner: args.owner, repo: args.repo, path: args.path, name });
