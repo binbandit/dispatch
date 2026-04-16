@@ -48,6 +48,13 @@ import {
   SEARCH_STATE_PERSISTENCE_PREFERENCE_KEY,
 } from "@/shared/search-state";
 import {
+  serializeVisibleTopBarTabs,
+  setTopBarTabVisibility,
+  getVisibleTopBarTabs,
+  TOP_BAR_VISIBLE_TABS_PREFERENCE_KEY,
+  type OptionalTopBarTab,
+} from "@/shared/top-bar-tabs";
+import {
   isTrustedContributorSystemEnabled,
   TRUSTED_CONTRIBUTOR_SYSTEM_PREFERENCE_KEY,
 } from "@/shared/trusted-contributors";
@@ -136,6 +143,7 @@ const PREF_KEYS = [
   "disableFontLigatures",
   "reviewCommentMode",
   SEARCH_STATE_PERSISTENCE_PREFERENCE_KEY,
+  TOP_BAR_VISIBLE_TABS_PREFERENCE_KEY,
   TRUSTED_CONTRIBUTOR_SYSTEM_PREFERENCE_KEY,
   ...EXPERIMENTAL_FEATURE_PREFERENCE_KEYS,
 ];
@@ -154,6 +162,23 @@ const NAV_SECTIONS_BASE = [
 type SectionId = (typeof NAV_SECTIONS_BASE)[number]["id"];
 
 const KEYBINDING_CATEGORIES: ShortcutCategory[] = ["Navigation", "Actions", "Search", "Views"];
+
+const OPTIONAL_TOP_BAR_TAB_OPTIONS: Array<{
+  id: OptionalTopBarTab;
+  label: string;
+  description: string;
+}> = [
+  {
+    id: "metrics",
+    label: "Metrics",
+    description: "Show the team metrics dashboard in the top bar.",
+  },
+  {
+    id: "releases",
+    label: "Releases",
+    description: "Show release management in the top bar.",
+  },
+];
 
 interface AiProviderTestState {
   kind: "success" | "error";
@@ -340,6 +365,7 @@ export function SettingsView() {
   const persistSearchState = isSearchStatePersistenceEnabled(
     prefs[SEARCH_STATE_PERSISTENCE_PREFERENCE_KEY],
   );
+  const visibleTopBarTabs = getVisibleTopBarTabs(prefs[TOP_BAR_VISIBLE_TABS_PREFERENCE_KEY]);
   const trustedContributorSystemEnabled = isTrustedContributorSystemEnabled(
     prefs[TRUSTED_CONTRIBUTOR_SYSTEM_PREFERENCE_KEY],
   );
@@ -908,6 +934,42 @@ export function SettingsView() {
                     aria-label="Remember search state"
                   />
                 </label>
+              </section>
+
+              <section className="mt-8">
+                <h3 className="text-text-primary text-sm font-medium">Top Bar Tabs</h3>
+                <p className="text-text-tertiary mt-0.5 text-xs">
+                  Choose which optional destinations appear next to Review and Workflows.
+                </p>
+                <div className="mt-3 flex flex-col gap-3">
+                  {OPTIONAL_TOP_BAR_TAB_OPTIONS.map(({ id, label, description }) => (
+                    <label
+                      key={id}
+                      className="flex cursor-pointer items-center justify-between"
+                    >
+                      <div>
+                        <span className="text-text-secondary text-xs">{label}</span>
+                        <p className="text-text-ghost mt-0.5 text-[10px]">{description}</p>
+                      </div>
+                      <Switch
+                        checked={visibleTopBarTabs.includes(id)}
+                        onCheckedChange={(checked) =>
+                          savePref(
+                            TOP_BAR_VISIBLE_TABS_PREFERENCE_KEY,
+                            serializeVisibleTopBarTabs(
+                              setTopBarTabVisibility(visibleTopBarTabs, id, checked),
+                            ),
+                          )
+                        }
+                        aria-label={`Show ${label} tab`}
+                      />
+                    </label>
+                  ))}
+                </div>
+                <p className="text-text-ghost mt-1.5 text-[10px]">
+                  Review, Workflows, and Settings stay available. Queue still appears automatically
+                  when the current repository supports merge queue.
+                </p>
               </section>
 
               <section className="mt-8">

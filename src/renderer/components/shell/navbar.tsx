@@ -15,12 +15,14 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { AddRepoDialog } from "@/renderer/components/shared/add-repo-dialog";
 import { DispatchLogo } from "@/renderer/components/shared/dispatch-logo";
+import { usePreference } from "@/renderer/hooks/preferences/use-preference";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { openExternal } from "@/renderer/lib/app/open-external";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useRouter } from "@/renderer/lib/app/router";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { resizeGitHubAvatarUrl } from "@/renderer/lib/shared/github-avatar";
+import { getVisibleTopBarTabs, TOP_BAR_VISIBLE_TABS_PREFERENCE_KEY } from "@/shared/top-bar-tabs";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   BarChart3,
@@ -63,6 +65,8 @@ export function Navbar({
   const collapseChromeLabels = useMediaQuery({ max: 940 });
 
   const { nwo, repoTarget } = useWorkspace();
+  const visibleTopBarTabsPreference = usePreference(TOP_BAR_VISIBLE_TABS_PREFERENCE_KEY);
+  const visibleTopBarTabs = getVisibleTopBarTabs(visibleTopBarTabsPreference);
 
   const navToReview = useCallback(() => navigate({ view: "review", prNumber: null }), [navigate]);
   const navToWorkflows = useCallback(() => navigate({ view: "workflows" }), [navigate]);
@@ -76,6 +80,8 @@ export function Navbar({
     staleTime: 300_000,
   });
   const hasMergeQueue = repoInfoQuery.data?.hasMergeQueue ?? false;
+  const showMetricsTab = route.view === "metrics" || visibleTopBarTabs.includes("metrics");
+  const showReleasesTab = route.view === "releases" || visibleTopBarTabs.includes("releases");
 
   // Fetch authenticated GitHub user for avatar
   const userQuery = useQuery({
@@ -138,20 +144,24 @@ export function Navbar({
           active={route.view === "workflows"}
           onClick={navToWorkflows}
         />
-        <NavTab
-          label="Metrics"
-          icon={<BarChart3 size={14} />}
-          compact={collapseNavLabels}
-          active={route.view === "metrics"}
-          onClick={navToMetrics}
-        />
-        <NavTab
-          label="Releases"
-          icon={<Tag size={14} />}
-          compact={collapseNavLabels}
-          active={route.view === "releases"}
-          onClick={navToReleases}
-        />
+        {showMetricsTab && (
+          <NavTab
+            label="Metrics"
+            icon={<BarChart3 size={14} />}
+            compact={collapseNavLabels}
+            active={route.view === "metrics"}
+            onClick={navToMetrics}
+          />
+        )}
+        {showReleasesTab && (
+          <NavTab
+            label="Releases"
+            icon={<Tag size={14} />}
+            compact={collapseNavLabels}
+            active={route.view === "releases"}
+            onClick={navToReleases}
+          />
+        )}
         {hasMergeQueue && (
           <NavTab
             label="Queue"
