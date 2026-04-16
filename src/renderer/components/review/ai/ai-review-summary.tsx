@@ -28,6 +28,16 @@ interface AiReviewSummaryRunState {
   errorMessage?: string;
 }
 
+function createIdleReviewSummaryRunState(snapshotKey: string): AiReviewSummaryRunState {
+  return {
+    status: "idle",
+    runId: 0,
+    startedAt: Date.now(),
+    snapshotKey,
+    errorMessage: undefined,
+  };
+}
+
 function reviewSummaryRunStateQueryKey(nwo: string, prNumber: number) {
   return ["ai", "reviewSummary", "runState", nwo, prNumber] as const;
 }
@@ -265,18 +275,9 @@ export function AiReviewSummary({
   const runState = useQuery({
     queryKey: runStateQueryKey,
     queryFn: () =>
-      queryClient.getQueryData<AiReviewSummaryRunState>(runStateQueryKey) ?? {
-        status: "idle",
-        runId: 0,
-        startedAt: Date.now(),
-        snapshotKey: summarySnapshotKey,
-      },
-    initialData: {
-      status: "idle",
-      runId: 0,
-      startedAt: Date.now(),
-      snapshotKey: summarySnapshotKey,
-    },
+      queryClient.getQueryData<AiReviewSummaryRunState>(runStateQueryKey) ??
+      createIdleReviewSummaryRunState(summarySnapshotKey),
+    initialData: createIdleReviewSummaryRunState(summarySnapshotKey),
     enabled: summaryConfig.isConfigured,
     gcTime: Number.POSITIVE_INFINITY,
     staleTime: Number.POSITIVE_INFINITY,

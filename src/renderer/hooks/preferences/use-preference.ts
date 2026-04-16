@@ -1,7 +1,7 @@
 import { ipc } from "@/renderer/lib/app/ipc";
 import { useQuery } from "@tanstack/react-query";
 
-export function isAiEnabledPreference(value: string | null | undefined): boolean {
+export function isAiEnabledPreference(value?: string | null): boolean {
   return value !== "false";
 }
 

@@ -14,6 +14,7 @@ import {
   buildAiTriagePrompt,
   buildAiTriageSnapshotKey,
   parseAiTriagePayload,
+  type AiTriageSnapshotInput,
 } from "@/shared/ai-triage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { RefreshCw, Sparkles } from "lucide-react";
@@ -61,22 +62,7 @@ function startAiTriageGeneration({
   triageQueryKey,
   taskConfigured,
 }: {
-  aiTriageInput: {
-    prNumber: number;
-    prTitle: string;
-    prBody: string;
-    author: string;
-    files: {
-      path: string;
-      status: string;
-      additions: number;
-      deletions: number;
-      commentCount: number;
-      hasAnnotation: boolean;
-      fallbackBucket: string;
-      note?: string;
-    }[];
-  };
+  aiTriageInput: AiTriageSnapshotInput;
   aiTriageSnapshotKey: string;
   nwo: string;
   prNumber: number;
@@ -202,7 +188,7 @@ export function useAiTriageSections({
     }),
     [annotationPaths, fileCommentCounts, viewedFiles],
   );
-  const aiTriageInput = useMemo(() => {
+  const aiTriageInput = useMemo<AiTriageSnapshotInput | null>(() => {
     if (!pr) {
       return null;
     }

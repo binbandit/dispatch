@@ -856,7 +856,8 @@ function buildSearchExpression(tokens: PrSearchToken[]): SearchExpression | null
 
       advance();
       const inner = parseOr();
-      if (current()?.kind === "group" && current()?.delimiter === ")") {
+      const closingToken = current();
+      if (closingToken?.kind === "group" && closingToken.delimiter === ")") {
         advance();
       }
       return inner;

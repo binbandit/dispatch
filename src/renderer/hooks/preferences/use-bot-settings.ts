@@ -28,7 +28,7 @@ export const DEFAULT_BOT_USERNAMES = [
   "macroscopeapp",
 ];
 
-export function parseJsonArray(value: string | null | undefined): string[] {
+export function parseJsonArray(value?: string | null): string[] {
   if (!value) {
     return [];
   }

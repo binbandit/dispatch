@@ -21,7 +21,6 @@ function createItem(
       url: "https://github.com/example/repo/pull/1",
       additions: 0,
       deletions: 0,
-      isDraft: false,
       workspace: "dispatch",
       workspacePath: "/repos/dispatch",
       repository: "acme/dispatch",

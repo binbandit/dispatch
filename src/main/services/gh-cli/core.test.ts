@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock(import('../../../shared/pr-fetch-limit'), () => ({
-  PR_FETCH_LIMIT_PREFERENCE_KEY: "prFetchLimit",
-  normalizePrFetchLimit: vi.fn(() => "200"),
+  PR_FETCH_LIMIT_PREFERENCE_KEY: "prFetchLimit" as const,
+  normalizePrFetchLimit: vi.fn((_value?: string | null) => 200 as const),
 }));
 
 vi.mock(import('../../db/repository'), () => ({

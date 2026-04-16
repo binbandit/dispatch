@@ -344,7 +344,7 @@ export function getAiProviderModelOptions(
   return [{ label: normalizedCurrentModel, value: normalizedCurrentModel }, ...options];
 }
 
-export function normalizeAiTaskSlot(value: string | null | undefined): AiModelSlot | null {
+export function normalizeAiTaskSlot(value?: string | null): AiModelSlot | null {
   const normalizedValue = normalizePreferenceValue(value);
 
   switch (normalizedValue) {

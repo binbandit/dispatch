@@ -17,7 +17,7 @@ export function indexPrActivityStates(
 
 export function hasNewPrActivity(
   updatedAt: string,
-  activityState: Pick<PrActivityState, "lastSeenUpdatedAt"> | null | undefined,
+  activityState?: Pick<PrActivityState, "lastSeenUpdatedAt"> | null,
 ): boolean {
   if (!activityState?.lastSeenUpdatedAt) {
     return false;

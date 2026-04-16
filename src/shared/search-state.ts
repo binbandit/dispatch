@@ -1,6 +1,6 @@
 export const SEARCH_STATE_PERSISTENCE_PREFERENCE_KEY = "persistSearchState";
 
-export function isSearchStatePersistenceEnabled(value: string | null | undefined): boolean {
+export function isSearchStatePersistenceEnabled(value?: string | null): boolean {
   return value !== "false";
 }
 

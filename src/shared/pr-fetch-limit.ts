@@ -13,7 +13,7 @@ export type PrFetchLimitPreset = (typeof PR_FETCH_LIMIT_OPTIONS)[number];
 export type PrFetchLimit = number | typeof PR_FETCH_LIMIT_UNLIMITED;
 
 export function isUnlimitedPrFetchLimit(
-  value: PrFetchLimit | string | null | undefined,
+  value?: PrFetchLimit | string | null,
 ): value is typeof PR_FETCH_LIMIT_UNLIMITED {
   return value === PR_FETCH_LIMIT_UNLIMITED;
 }
@@ -22,7 +22,7 @@ export function isPresetPrFetchLimit(value: number): boolean {
   return (PR_FETCH_LIMIT_PRESET_OPTIONS as readonly number[]).includes(value);
 }
 
-export function normalizePrFetchLimit(value: string | null | undefined): PrFetchLimit {
+export function normalizePrFetchLimit(value?: string | null): PrFetchLimit {
   if (isUnlimitedPrFetchLimit(value)) {
     return PR_FETCH_LIMIT_UNLIMITED;
   }
