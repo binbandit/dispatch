@@ -508,7 +508,7 @@ export function getRepoInfo(cwdOrTarget: string | RepoTarget): Promise<RepoInfo>
         [
           "repo",
           "view",
-          ...resolved.repoFlag,
+          ...(resolved.cwd ? [] : [resolved.nwo]),
           "--json",
           "nameWithOwner,isFork,parent,viewerPermission,defaultBranchRef",
         ],
