@@ -221,9 +221,8 @@ const UserMenu = memo(function UserMenu({
 
   const switchMutation = useMutation({
     mutationFn: (args: { host: string; login: string }) => ipc("env.switchAccount", args),
-    onSuccess: () => {
-      // Refresh everything after account switch
-      queryClient.invalidateQueries();
+    onSuccess: async () => {
+      await queryClient.resetQueries();
     },
   });
 

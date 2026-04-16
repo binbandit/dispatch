@@ -8,6 +8,7 @@ import { toastManager } from "@/components/ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
 import { ConfirmDialog } from "@/renderer/components/shared/confirm-dialog";
 import { WorkflowRunsSkeleton } from "@/renderer/components/shared/loading-skeletons";
+import { getErrorMessage } from "@/renderer/lib/app/error-message";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useRouter } from "@/renderer/lib/app/router";
@@ -66,14 +67,21 @@ export function WorkflowsDashboard() {
     queryFn: () => ipc("workflows.list", { ...repoTarget }),
   });
   const workflows = workflowsQuery.data ?? [];
+  const effectiveSelectedWorkflow = useMemo(() => {
+    if (!selectedWorkflow) {
+      return null;
+    }
+
+    return workflows.some((workflow) => workflow.id === selectedWorkflow) ? selectedWorkflow : null;
+  }, [selectedWorkflow, workflows]);
 
   // Workflow runs (filtered by selected workflow)
   const runsQuery = useQuery({
-    queryKey: ["workflows", "runs", nwo, selectedWorkflow],
+    queryKey: ["workflows", "runs", nwo, effectiveSelectedWorkflow],
     queryFn: () =>
       ipc("workflows.runs", {
         ...repoTarget,
-        workflowId: selectedWorkflow ?? undefined,
+        workflowId: effectiveSelectedWorkflow ?? undefined,
         limit: 200,
       }),
     refetchInterval: 15_000,
@@ -97,11 +105,13 @@ export function WorkflowsDashboard() {
   }, [runs, searchQuery]);
 
   const selectedWorkflowName = useMemo(() => {
-    if (!selectedWorkflow) {
+    if (!effectiveSelectedWorkflow) {
       return "All workflows";
     }
-    return workflows.find((w) => w.id === selectedWorkflow)?.name ?? "Unknown";
-  }, [selectedWorkflow, workflows]);
+    return (
+      workflows.find((workflow) => workflow.id === effectiveSelectedWorkflow)?.name ?? "Unknown"
+    );
+  }, [effectiveSelectedWorkflow, workflows]);
 
   function closeWorkflowMenu() {
     setWorkflowMenuOpen(false);
@@ -118,6 +128,15 @@ export function WorkflowsDashboard() {
 
   const showAllWorkflowsOption =
     !workflowSearch || "all workflows".includes(workflowSearch.toLowerCase());
+  const workflowErrorMessage = workflowsQuery.isError
+    ? getErrorMessage(workflowsQuery.error)
+    : runsQuery.isError
+      ? getErrorMessage(runsQuery.error)
+      : null;
+  const activeSelectedRun =
+    selectedRun && filteredRuns.some((run) => run.databaseId === selectedRun) ? selectedRun : null;
+  const activeCompareRun =
+    compareRun && filteredRuns.some((run) => run.databaseId === compareRun) ? compareRun : null;
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -209,7 +228,7 @@ export function WorkflowsDashboard() {
                         closeWorkflowMenu();
                       }}
                       className={`flex w-full cursor-pointer rounded-sm px-3 py-1.5 text-left text-xs transition-colors ${
-                        selectedWorkflow
+                        effectiveSelectedWorkflow
                           ? "text-text-secondary hover:bg-bg-raised"
                           : "bg-accent-muted text-accent-text"
                       }`}
@@ -226,7 +245,7 @@ export function WorkflowsDashboard() {
                         closeWorkflowMenu();
                       }}
                       className={`flex w-full cursor-pointer items-center gap-2 rounded-sm px-3 py-1.5 text-left text-xs transition-colors ${
-                        selectedWorkflow === wf.id
+                        effectiveSelectedWorkflow === wf.id
                           ? "bg-accent-muted text-accent-text"
                           : "text-text-secondary hover:bg-bg-raised"
                       }`}
@@ -288,10 +307,10 @@ export function WorkflowsDashboard() {
         <div className="flex-1" />
 
         {/* Trigger button */}
-        {selectedWorkflow && (
+        {effectiveSelectedWorkflow && (
           <TriggerButton
             repoTarget={repoTarget}
-            workflowId={selectedWorkflow}
+            workflowId={effectiveSelectedWorkflow}
           />
         )}
       </div>
@@ -307,21 +326,35 @@ export function WorkflowsDashboard() {
           minSize="30%"
         >
           <div className="h-full overflow-y-auto">
-            {runsQuery.isLoading && <WorkflowRunsSkeleton />}
+            {(workflowsQuery.isLoading || runsQuery.isLoading) && <WorkflowRunsSkeleton />}
 
-            {!runsQuery.isLoading && filteredRuns.length === 0 && (
-              <div className="flex flex-col items-center justify-center gap-2 py-12">
-                <p className="text-text-tertiary text-sm">
-                  {searchQuery ? "No runs match your search" : "No workflow runs found"}
+            {workflowErrorMessage && (
+              <div className="flex flex-col items-center justify-center gap-2 px-6 py-12 text-center">
+                <p className="text-text-primary text-sm font-medium">
+                  Could not load workflows for this repository.
+                </p>
+                <p className="text-text-tertiary max-w-md text-xs leading-[1.5]">
+                  {workflowErrorMessage}
                 </p>
               </div>
             )}
 
-            {filteredRuns.length > 0 && (
+            {!workflowsQuery.isLoading &&
+              !runsQuery.isLoading &&
+              !workflowErrorMessage &&
+              filteredRuns.length === 0 && (
+                <div className="flex flex-col items-center justify-center gap-2 py-12">
+                  <p className="text-text-tertiary text-sm">
+                    {searchQuery ? "No runs match your search" : "No workflow runs found"}
+                  </p>
+                </div>
+              )}
+
+            {!workflowErrorMessage && filteredRuns.length > 0 && (
               <RunTable
                 runs={filteredRuns}
-                selectedRun={selectedRun}
-                compareRun={compareRun}
+                selectedRun={activeSelectedRun}
+                compareRun={activeCompareRun}
                 onSelectRun={handleSelectRun}
                 repoTarget={repoTarget}
               />
@@ -329,7 +362,7 @@ export function WorkflowsDashboard() {
           </div>
         </ResizablePanel>
 
-        {selectedRun && (
+        {activeSelectedRun && !workflowErrorMessage && (
           <>
             <ResizableHandle withHandle />
             <ResizablePanel
@@ -338,16 +371,16 @@ export function WorkflowsDashboard() {
               maxSize="65%"
             >
               <div className="bg-bg-surface h-full overflow-y-auto">
-                {compareRun ? (
+                {activeCompareRun ? (
                   <RunComparison
                     repoTarget={repoTarget}
-                    baseRunId={selectedRun}
-                    compareRunId={compareRun}
+                    baseRunId={activeSelectedRun}
+                    compareRunId={activeCompareRun}
                   />
                 ) : (
                   <RunDetail
                     repoTarget={repoTarget}
-                    runId={selectedRun}
+                    runId={activeSelectedRun}
                   />
                 )}
               </div>
