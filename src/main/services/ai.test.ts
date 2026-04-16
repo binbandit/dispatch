@@ -16,6 +16,7 @@ import {
   buildCompletionPrompt,
   buildOpencodeCommandArgs,
   buildProviderTestMessages,
+  mergeAdditionalSystemPromptIntoMessages,
   normalizeProviderVersion,
   parseClaudeAuthStatus,
   parseCodexAuthStatus,
@@ -49,6 +50,42 @@ describe("buildCompletionPrompt", () => {
         "USER:\nExplain this diff.\n\nASSISTANT:\nSure.\n\nUSER:\nKeep it short.",
       ].join("\n"),
     });
+  });
+});
+
+describe("mergeAdditionalSystemPromptIntoMessages", () => {
+  it("folds supplemental instructions into the existing Dispatch system prompt", () => {
+    expect(
+      mergeAdditionalSystemPromptIntoMessages(
+        [
+          { role: "system", content: "Dispatch defaults." },
+          { role: "user", content: "Explain this diff." },
+        ],
+        "Additional user instructions for this Dispatch feature:\nFocus on migration risk.",
+      ),
+    ).toEqual([
+      {
+        role: "system",
+        content:
+          "Dispatch defaults.\n\nAdditional user instructions for this Dispatch feature:\nFocus on migration risk.",
+      },
+      { role: "user", content: "Explain this diff." },
+    ]);
+  });
+
+  it("adds a leading system prompt when the conversation does not already have one", () => {
+    expect(
+      mergeAdditionalSystemPromptIntoMessages(
+        [{ role: "user", content: "Rewrite this comment." }],
+        "Additional user instructions for this Dispatch feature:\nKeep rewrites direct.",
+      ),
+    ).toEqual([
+      {
+        role: "system",
+        content: "Additional user instructions for this Dispatch feature:\nKeep rewrites direct.",
+      },
+      { role: "user", content: "Rewrite this comment." },
+    ]);
   });
 });
 

@@ -69,6 +69,26 @@ interface ResolvedCommandSpec {
   usesGhWrapper: boolean;
 }
 
+export function mergeAdditionalSystemPromptIntoMessages(
+  messages: ReadonlyArray<{ role: "system" | "user" | "assistant"; content: string }>,
+  additionalSystemPrompt: string,
+): Array<{ role: "system" | "user" | "assistant"; content: string }> {
+  const mergedSystemPromptParts = messages
+    .filter((message) => message.role === "system")
+    .map((message) => message.content.trim())
+    .filter((content) => content.length > 0);
+
+  mergedSystemPromptParts.push(additionalSystemPrompt);
+
+  return [
+    {
+      role: "system",
+      content: mergedSystemPromptParts.join("\n\n"),
+    },
+    ...messages.filter((message) => message.role !== "system"),
+  ];
+}
+
 function appendTaskSystemPrompt(messages: AiMessage[], task?: AiTaskId): AiMessage[] {
   if (!task) {
     return messages;
@@ -84,13 +104,7 @@ function appendTaskSystemPrompt(messages: AiMessage[], task?: AiTaskId): AiMessa
     return messages;
   }
 
-  return [
-    ...messages,
-    {
-      role: "system",
-      content: additionalSystemPrompt,
-    },
-  ];
+  return mergeAdditionalSystemPromptIntoMessages(messages, additionalSystemPrompt);
 }
 
 function deprioritizeChildProcess(pid: number | undefined): void {
