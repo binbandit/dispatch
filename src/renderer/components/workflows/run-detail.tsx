@@ -9,23 +9,12 @@ import { AiFailureExplainer } from "@/renderer/components/review/ai/ai-failure-e
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  CheckCircle2,
-  ChevronDown,
-  ChevronRight,
-  ChevronUp,
-  Clock,
-  GitGraph,
-  List,
-  Loader2,
-  RotateCcw,
-  Search,
-  XCircle,
-} from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { GitGraph, List, RotateCcw } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { JobGraphView } from "./job-graph-view";
-import { LogViewer } from "./log-viewer";
+import { isWorkflowFailure, JobRow } from "./job-row";
+import { JobStepsAccordion } from "./job-steps-accordion";
 
 /**
  * Run detail panel — Gantt-style job timeline + step viewer + log search.
@@ -40,20 +29,7 @@ interface RunDetailProps {
 }
 
 export function RunDetail({ repoTarget, runId }: RunDetailProps) {
-  const [logSearch, setLogSearch] = useState("");
-  const [matchIndex, setMatchIndex] = useState(0);
-  const [matchCount, setMatchCount] = useState(0);
   const [viewMode, setViewMode] = useState<DetailViewMode>("list");
-  const searchInputRef = useRef<HTMLInputElement>(null);
-
-  // Reset search when run changes
-  const prevRunId = useRef(runId);
-  if (prevRunId.current !== runId) {
-    prevRunId.current = runId;
-    setLogSearch("");
-    setMatchIndex(0);
-    setMatchCount(0);
-  }
 
   const detailQuery = useQuery({
     queryKey: ["workflows", "runDetail", repoTarget.owner, repoTarget.repo, runId],
@@ -85,25 +61,6 @@ export function RunDetail({ repoTarget, runId }: RunDetailProps) {
       toastManager.add({ title: "Failed jobs re-running", type: "success" });
     },
   });
-
-  // Cmd/Ctrl+F to focus search
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "f") {
-        e.preventDefault();
-        searchInputRef.current?.focus();
-      }
-    }
-    globalThis.addEventListener("keydown", handleKeyDown);
-    return () => {
-      globalThis.removeEventListener("keydown", handleKeyDown);
-    };
-  }, []);
-
-  const handleMatchCountChange = useCallback((count: number) => {
-    setMatchCount(count);
-    setMatchIndex(0);
-  }, []);
 
   if (detailQuery.isLoading) {
     return (
@@ -199,63 +156,6 @@ export function RunDetail({ repoTarget, runId }: RunDetailProps) {
         )}
       </div>
 
-      {/* Log search bar */}
-      <div className="border-border flex items-center gap-2 border-b px-4 py-2">
-        <Search
-          size={13}
-          className="text-text-tertiary shrink-0"
-        />
-        <input
-          ref={searchInputRef}
-          aria-label="Search logs"
-          autoComplete="off"
-          name="log-search"
-          spellCheck={false}
-          type="search"
-          value={logSearch}
-          onChange={(e) => setLogSearch(e.target.value)}
-          placeholder="Search logs…"
-          className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
-          onKeyDown={(e) => {
-            if (e.key === "Escape") {
-              setLogSearch("");
-              (e.target as HTMLElement).blur();
-            }
-            if (e.key === "Enter") {
-              if (e.shiftKey) {
-                setMatchIndex((i) => (i > 0 ? i - 1 : matchCount - 1));
-              } else {
-                setMatchIndex((i) => (i < matchCount - 1 ? i + 1 : 0));
-              }
-            }
-          }}
-        />
-        {logSearch && matchCount > 0 && (
-          <div className="flex items-center gap-1">
-            <span className="text-text-tertiary font-mono text-[10px]">
-              {matchIndex + 1}/{matchCount}
-            </span>
-            <button
-              type="button"
-              onClick={() => setMatchIndex((i) => (i > 0 ? i - 1 : matchCount - 1))}
-              className="text-text-tertiary hover:text-text-primary cursor-pointer rounded-sm p-0.5"
-            >
-              <ChevronUp size={12} />
-            </button>
-            <button
-              type="button"
-              onClick={() => setMatchIndex((i) => (i < matchCount - 1 ? i + 1 : 0))}
-              className="text-text-tertiary hover:text-text-primary cursor-pointer rounded-sm p-0.5"
-            >
-              <ChevronDown size={12} />
-            </button>
-          </div>
-        )}
-        {logSearch && matchCount === 0 && (
-          <span className="text-text-ghost text-[10px]">No matches</span>
-        )}
-      </div>
-
       {/* Timeline — toggleable between Gantt bars and dependency graph */}
       <div className="border-border border-b px-4 py-3">
         {viewMode === "graph" ? (
@@ -279,13 +179,19 @@ export function RunDetail({ repoTarget, runId }: RunDetailProps) {
         {run.jobs.map((job) => (
           <JobRow
             key={job.name}
-            job={job}
-            repoTarget={repoTarget}
-            runId={runId}
-            searchQuery={logSearch}
-            activeMatchIndex={matchIndex}
-            onMatchCountChange={handleMatchCountChange}
-          />
+            name={job.name}
+            status={job.status}
+            conclusion={job.conclusion}
+            startedAt={job.startedAt}
+            completedAt={job.completedAt}
+            expandable={job.steps.length > 0}
+          >
+            <JobStepsAccordion
+              repoTarget={repoTarget}
+              runId={runId}
+              steps={job.steps}
+            />
+          </JobRow>
         ))}
       </div>
     </div>
@@ -364,123 +270,8 @@ function GanttTimeline({ jobs }: { jobs: GhWorkflowRunJob[] }) {
 }
 
 // ---------------------------------------------------------------------------
-// Job row with expandable steps + log search
-// ---------------------------------------------------------------------------
-
-function JobRow({
-  job,
-  repoTarget,
-  runId,
-  searchQuery,
-  activeMatchIndex,
-  onMatchCountChange,
-}: {
-  job: GhWorkflowRunJob;
-  repoTarget: RepoTarget;
-  runId: number;
-  searchQuery: string;
-  activeMatchIndex: number;
-  onMatchCountChange: (count: number) => void;
-}) {
-  const [expanded, setExpanded] = useState(false);
-  const statusIcon = resolveStatusIcon(job.conclusion, job.status);
-
-  // Auto-expand failed jobs (render-time state adjustment)
-  const [prevConclusion, setPrevConclusion] = useState(job.conclusion);
-  if (job.conclusion !== prevConclusion) {
-    setPrevConclusion(job.conclusion);
-    if (isWorkflowFailure(job.conclusion)) {
-      setExpanded(true);
-    }
-  }
-
-  return (
-    <div className="border-border-subtle border-b">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="hover:bg-bg-raised flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-left"
-      >
-        {expanded ? (
-          <ChevronDown
-            size={12}
-            className="text-text-tertiary shrink-0"
-          />
-        ) : (
-          <ChevronRight
-            size={12}
-            className="text-text-tertiary shrink-0"
-          />
-        )}
-        <statusIcon.icon
-          size={14}
-          className={`shrink-0 ${statusIcon.color} ${statusIcon.spin ? "animate-spin" : ""}`}
-        />
-        <span className="text-text-primary flex-1 text-xs font-medium">{job.name}</span>
-        <span className="text-text-tertiary font-mono text-[10px]">{computeJobDuration(job)}</span>
-      </button>
-      {expanded && (
-        <div className="bg-bg-root px-4 pb-2">
-          {/* Steps */}
-          {job.steps.map((step) => {
-            const stepStatus = resolveStatusIcon(step.conclusion, step.status);
-            return (
-              <div
-                key={step.number}
-                className="flex items-center gap-2 py-1 pl-6"
-              >
-                <stepStatus.icon
-                  size={11}
-                  className={`shrink-0 ${stepStatus.color} ${stepStatus.spin ? "animate-spin" : ""}`}
-                />
-                <span className="text-text-secondary flex-1 text-[11px]">{step.name}</span>
-              </div>
-            );
-          })}
-          {/* Logs */}
-          <div className="mt-2 pl-6">
-            <LogViewer
-              repoTarget={repoTarget}
-              runId={runId}
-              searchQuery={searchQuery}
-              activeMatchIndex={activeMatchIndex}
-              onMatchCountChange={onMatchCountChange}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
 // Utilities
 // ---------------------------------------------------------------------------
-
-function resolveStatusIcon(conclusion: string | null, status?: string) {
-  if (conclusion === "success") {
-    return { icon: CheckCircle2, color: "text-success", spin: false };
-  }
-  if (conclusion === "failure" || conclusion === "error") {
-    return { icon: XCircle, color: "text-destructive", spin: false };
-  }
-  if (conclusion === "cancelled") {
-    return { icon: XCircle, color: "text-text-tertiary", spin: false };
-  }
-  if (conclusion === "skipped") {
-    return { icon: Clock, color: "text-text-tertiary", spin: false };
-  }
-  // No conclusion yet — check status
-  if (status === "in_progress") {
-    return { icon: Loader2, color: "text-warning", spin: true };
-  }
-  // Queued, completed-with-unknown-conclusion, or unresolved
-  return { icon: Clock, color: "text-text-tertiary", spin: false };
-}
-
-function isWorkflowFailure(conclusion: string | null): boolean {
-  return conclusion === "failure" || conclusion === "error";
-}
 
 function buildFailureExplanationLabel(run: GhWorkflowRunDetail): string {
   const failedJobs = run.jobs
@@ -500,16 +291,4 @@ function buildFailureExplanationLabel(run: GhWorkflowRunDetail): string {
   const suffix = remainingJobs > 0 ? ` +${remainingJobs} more` : "";
 
   return `${run.workflowName} / ${visibleJobs.join(", ")}${suffix}`;
-}
-
-function computeJobDuration(job: GhWorkflowRunJob): string {
-  if (!job.startedAt || !job.completedAt) {
-    return "—";
-  }
-  const ms = new Date(job.completedAt).getTime() - new Date(job.startedAt).getTime();
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
 }

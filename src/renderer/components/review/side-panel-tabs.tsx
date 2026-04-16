@@ -1,15 +1,18 @@
 /* eslint-disable import/max-dependencies -- This module intentionally owns the side-panel's tab implementations after extraction from the overlay shell. */
+import type { GhCheckRun, RepoTarget } from "@/shared/ipc";
+
 import { Spinner } from "@/components/ui/spinner";
 import { AiFailureExplainer } from "@/renderer/components/review/ai/ai-failure-explainer";
 import { GitHubAvatar } from "@/renderer/components/shared/github-avatar";
+import { JobRow } from "@/renderer/components/workflows/job-row";
+import { JobStepsAccordion } from "@/renderer/components/workflows/job-steps-accordion";
 import { ipc } from "@/renderer/lib/app/ipc";
-import { useRouter } from "@/renderer/lib/app/router";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { useFileNavStore } from "@/renderer/lib/review/file-nav-context";
 import { summarizePrChecks } from "@/renderer/lib/review/pr-check-status";
 import { relativeTime } from "@/shared/format";
 import { useQuery } from "@tanstack/react-query";
-import { Check, GitCommitHorizontal, Loader2, Search, XCircle } from "lucide-react";
+import { Check, GitCommitHorizontal, Search, XCircle } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 
 function dedupeReviews(
@@ -194,7 +197,6 @@ function parseRunIdFromUrl(detailsUrl: string): number | null {
 
 export function PanelChecksContent({ prNumber }: { prNumber: number }) {
   const { repoTarget, nwo } = useWorkspace();
-  const { navigate } = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
 
   const checksQuery = useQuery({
@@ -279,91 +281,72 @@ export function PanelChecksContent({ prNumber }: { prNumber: number }) {
         <p className="text-text-tertiary py-3 text-xs">No checks match “{searchQuery.trim()}”.</p>
       )}
 
-      {filteredChecks.map((check, index) => {
-        const failed = check.conclusion === "failure";
-        const pending = !check.conclusion;
-        const duration =
-          check.completedAt && check.startedAt
-            ? formatDuration(
-                new Date(check.completedAt).getTime() - new Date(check.startedAt).getTime(),
-              )
-            : "—";
-        const runId = parseRunIdFromUrl(check.detailsUrl);
-
-        return (
-          <div
-            key={check.name}
-            style={{
-              borderBottom:
-                index < filteredChecks.length - 1 ? "1px solid var(--border-subtle)" : "none",
-              paddingBottom: failed && runId ? "6px" : 0,
-            }}
-          >
-            <button
-              type="button"
-              onClick={() => {
-                if (runId) {
-                  navigate({ view: "workflows", runId, fromPr: prNumber });
-                }
-              }}
-              className="hover:bg-bg-raised flex w-full cursor-pointer items-center gap-1.5 rounded-sm transition-colors"
-              style={{
-                padding: "5px 4px",
-                fontSize: "12px",
-              }}
-            >
-              <span
-                className="shrink-0"
-                style={{
-                  color: failed ? "var(--danger)" : pending ? "var(--warning)" : "var(--success)",
-                }}
-              >
-                {failed ? (
-                  <XCircle size={12} />
-                ) : pending ? (
-                  <Loader2
-                    size={12}
-                    className="animate-spin"
-                  />
-                ) : (
-                  <Check size={12} />
-                )}
-              </span>
-              <span
-                className="min-w-0 flex-1 truncate text-left"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                {check.name}
-              </span>
-              <span
-                className="font-mono"
-                style={{ fontSize: "10px", color: "var(--text-tertiary)" }}
-              >
-                {duration}
-              </span>
-            </button>
-            {failed && runId && (
-              <div style={{ padding: "0 4px 0 22px" }}>
-                <AiFailureExplainer
-                  checkName={check.name}
-                  repoTarget={repoTarget}
-                  runId={runId}
-                />
-              </div>
-            )}
-          </div>
-        );
-      })}
+      <div className="border-border -mx-3.5 border-t">
+        {filteredChecks.map((check) => {
+          const runId = parseRunIdFromUrl(check.detailsUrl);
+          return (
+            <CheckJobRow
+              key={check.name}
+              check={check}
+              runId={runId}
+              repoTarget={repoTarget}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-function formatDuration(ms: number): string {
-  const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return `${minutes}m ${remainingSeconds}s`;
+function CheckJobRow({
+  check,
+  runId,
+  repoTarget,
+}: {
+  check: GhCheckRun;
+  runId: number | null;
+  repoTarget: RepoTarget;
+}) {
+  const detailQuery = useQuery({
+    queryKey: ["workflows", "runDetail", repoTarget.owner, repoTarget.repo, runId],
+    queryFn: () => ipc("workflows.runDetail", { ...repoTarget, runId: runId ?? 0 }),
+    enabled: runId !== null,
+    staleTime: 10_000,
+    refetchInterval: 10_000,
+  });
+
+  const matchingJob = detailQuery.data?.jobs.find((j) => j.name === check.name);
+  const failed = check.conclusion === "failure" || check.conclusion === "error";
+  const hasSteps = (matchingJob?.steps.length ?? 0) > 0;
+  const expandable = detailQuery.isLoading ? true : hasSteps;
+
+  return (
+    <JobRow
+      name={check.name}
+      status={matchingJob?.status ?? check.status}
+      conclusion={matchingJob?.conclusion ?? check.conclusion}
+      startedAt={matchingJob?.startedAt ?? check.startedAt}
+      completedAt={matchingJob?.completedAt ?? check.completedAt}
+      expandable={expandable}
+    >
+      {runId && (
+        <>
+          {matchingJob && (
+            <JobStepsAccordion
+              repoTarget={repoTarget}
+              runId={runId}
+              steps={matchingJob.steps}
+            />
+          )}
+          {failed && (
+            <AiFailureExplainer
+              checkName={check.name}
+              repoTarget={repoTarget}
+              runId={runId}
+            />
+          )}
+        </>
+      )}
+    </JobRow>
+  );
 }

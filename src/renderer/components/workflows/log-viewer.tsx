@@ -143,11 +143,16 @@ function LogContent({
     activeMatchRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
   }, [activeMatchIndex]);
 
-  return (
-    <div className="bg-bg-root max-h-[400px] overflow-y-auto rounded-md p-3">
-      {sectionRenderData.length === 0 && (
+  if (sectionRenderData.length === 0) {
+    return (
+      <div className="bg-bg-root rounded-md px-3 py-2">
         <span className="text-text-tertiary text-[11px]">No log output</span>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5">
       {sectionRenderData.map(({ section, startLine, matchOffset }, index) => (
         <LogSection
           key={`${section.name}-${index}`}
@@ -240,18 +245,20 @@ function LogSection({
 
   if (!section.isGroup) {
     return (
-      <table className="mb-0.5 w-full text-[11px]">
-        <tbody>{renderedRows}</tbody>
-      </table>
+      <div className="bg-bg-root rounded-md px-3 py-2">
+        <table className="w-full text-[11px]">
+          <tbody>{renderedRows}</tbody>
+        </table>
+      </div>
     );
   }
 
   return (
-    <div className="mb-0.5">
+    <div className="bg-bg-root overflow-hidden rounded-md">
       <button
         type="button"
         onClick={() => setExpandedState((prev) => !prev)}
-        className="hover:bg-bg-raised flex w-full cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 text-left"
+        className="hover:bg-bg-raised flex w-full cursor-pointer items-center gap-1 px-2.5 py-1.5 text-left"
       >
         {expanded ? (
           <ChevronDown
@@ -272,7 +279,7 @@ function LogSection({
         )}
       </button>
       {expanded && (
-        <div className="border-border-subtle border-l pl-3">
+        <div className="border-border-subtle border-t px-3 py-2">
           <table className="w-full text-[11px]">
             <tbody>
               {renderedRows}
@@ -427,7 +434,7 @@ function LogLineRow({
   );
 }
 
-interface LogSectionData {
+export interface LogSectionData {
   name: string;
   lines: string[];
   isGroup: boolean;
@@ -439,7 +446,7 @@ interface LogSectionRenderData {
   matchOffset: number;
 }
 
-function parseLogSections(raw: string): LogSectionData[] {
+export function parseLogSections(raw: string): LogSectionData[] {
   const lines = raw.split("\n");
   const sections: LogSectionData[] = [];
   let currentGroup: LogSectionData | null = null;
@@ -509,7 +516,7 @@ function getLineSeverity(segments: AnsiSegment[]): "error" | "warning" | "defaul
   return "default";
 }
 
-interface AnsiSegment {
+export interface AnsiSegment {
   text: string;
   className: string;
 }
@@ -533,7 +540,7 @@ const ANSI_COLOR_MAP: Record<number, string> = {
   97: "text-text-primary",
 };
 
-function parseAnsi(text: string): AnsiSegment[] {
+export function parseAnsi(text: string): AnsiSegment[] {
   // eslint-disable-next-line no-control-regex
   const ansiRegex = /\u001B\[(\d+(?:;\d+)*)m/g;
   const segments: AnsiSegment[] = [];
