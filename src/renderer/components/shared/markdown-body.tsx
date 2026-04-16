@@ -5,12 +5,15 @@ import { useSyntaxHighlighter } from "@/renderer/hooks/review/use-syntax-highlig
 import { openExternal } from "@/renderer/lib/app/open-external";
 import { useTheme } from "@/renderer/lib/app/theme-context";
 import {
+  ensureHighlighterResources,
   getShikiTokenColor,
+  isLanguageLoaded,
+  normalizeLanguage,
   type ShikiToken,
   type ThemeMode,
 } from "@/renderer/lib/review/highlighter";
 import { AlertCircle, Info, Lightbulb, OctagonAlert, TriangleAlert } from "lucide-react";
-import { Children, isValidElement, useMemo } from "react";
+import { Children, isValidElement, useEffect, useMemo, useState } from "react";
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGemoji from "remark-gemoji";
@@ -97,12 +100,13 @@ function highlightCode(args: {
   shikiTheme: { light: string; dark: string };
   resolvedTheme: ThemeMode;
 }): React.ReactNode[] | null {
+  const normalizedLanguage = normalizeLanguage(args.lang);
   try {
-    if (!args.highlighter.getLoadedLanguages().includes(args.lang)) {
+    if (!isLanguageLoaded(args.highlighter, normalizedLanguage)) {
       return null;
     }
     const result = args.highlighter.codeToTokens(args.code, {
-      lang: args.lang as Parameters<SyntaxHighlighter["codeToTokens"]>[1]["lang"],
+      lang: normalizedLanguage as Parameters<SyntaxHighlighter["codeToTokens"]>[1]["lang"],
       themes: {
         light: args.shikiTheme.light,
         dark: args.shikiTheme.dark,
@@ -138,12 +142,44 @@ export function MarkdownBody({ content, repo, className = "" }: MarkdownBodyProp
     }),
     [codeThemeDark, codeThemeLight],
   );
+  const [, setSyntaxResourceVersion] = useState(0);
 
   if (!content.trim()) {
     return <p className="text-text-ghost text-xs italic">No description provided.</p>;
   }
 
   const processed = preprocess(content, repo);
+  const fencedLanguages = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          [...processed.matchAll(/^```([^\s`]+)/gm)]
+            .map((match) => normalizeLanguage(match[1] ?? ""))
+            .filter((language) => language !== "text"),
+        ),
+      ),
+    [processed],
+  );
+
+  useEffect(() => {
+    if (!highlighter) {
+      return;
+    }
+
+    let cancelled = false;
+    void ensureHighlighterResources({
+      languages: fencedLanguages,
+      themes: [shikiTheme.dark, shikiTheme.light],
+    }).then((loadedResources) => {
+      if (!cancelled && loadedResources) {
+        setSyntaxResourceVersion((version) => version + 1);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fencedLanguages, highlighter, shikiTheme.dark, shikiTheme.light]);
 
   return (
     <div className={`prose-dispatch ${className}`}>

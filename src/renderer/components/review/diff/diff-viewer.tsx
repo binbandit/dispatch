@@ -31,7 +31,10 @@ import { getDiffFilePath, type DiffFile, type Segment } from "@/renderer/lib/rev
 import {
   DEFAULT_CODE_THEME_DARK,
   DEFAULT_CODE_THEME_LIGHT,
+  ensureHighlighterResources,
   getShikiTokenColor,
+  isLanguageLoaded,
+  normalizeLanguage,
   type ShikiToken,
   type ThemeMode,
 } from "@/renderer/lib/review/highlighter";
@@ -166,6 +169,27 @@ export function DiffViewer({
     () => ({ light: codeThemeLight, dark: codeThemeDark }),
     [codeThemeDark, codeThemeLight],
   );
+  const [, setSyntaxResourceVersion] = useState(0);
+
+  useEffect(() => {
+    if (!highlighter) {
+      return;
+    }
+
+    let cancelled = false;
+    void ensureHighlighterResources({
+      languages: language && language !== "text" ? [language] : [],
+      themes: [shikiTheme.dark, shikiTheme.light],
+    }).then((loadedResources) => {
+      if (!cancelled && loadedResources) {
+        setSyntaxResourceVersion((version) => version + 1);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [highlighter, language, shikiTheme.dark, shikiTheme.light]);
 
   // --- Scroll position persistence (per file) ---
   const scrollKey = `dispatch-scroll:${getDiffFilePath(file)}`;
@@ -1336,22 +1360,22 @@ function safeTokenize(
   shikiTheme?: { light: string; dark: string },
 ): ShikiToken[] | null {
   const themePair = shikiTheme ?? DEFAULT_SHIKI_THEME_PAIR;
-  const cacheKey = getShikiTokenCacheKey(content, lang, themePair);
+  const normalizedLanguage = normalizeLanguage(lang);
+  const cacheKey = getShikiTokenCacheKey(content, normalizedLanguage, themePair);
   const cached = shikiTokenCache.get(cacheKey);
   if (cached !== undefined) {
     return cached;
   }
 
   try {
-    const loadedLangs = highlighter.getLoadedLanguages();
-    if (!loadedLangs.includes(lang)) {
+    if (!isLanguageLoaded(highlighter, normalizedLanguage)) {
       setShikiTokenCache(cacheKey, null);
       return null;
     }
     const result = (() => {
       try {
         return highlighter.codeToTokens(content, {
-          lang: lang as Parameters<Highlighter["codeToTokens"]>[1]["lang"],
+          lang: normalizedLanguage as Parameters<Highlighter["codeToTokens"]>[1]["lang"],
           themes: {
             light: themePair.light,
             dark: themePair.dark,
@@ -1359,7 +1383,7 @@ function safeTokenize(
         } as unknown as Parameters<Highlighter["codeToTokens"]>[1]);
       } catch {
         return highlighter.codeToTokens(content, {
-          lang: lang as Parameters<Highlighter["codeToTokens"]>[1]["lang"],
+          lang: normalizedLanguage as Parameters<Highlighter["codeToTokens"]>[1]["lang"],
           theme: themePair[resolvedTheme],
         } as Parameters<Highlighter["codeToTokens"]>[1]);
       }

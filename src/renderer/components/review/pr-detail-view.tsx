@@ -22,7 +22,6 @@ import { isAiEnabledPreference, usePreference } from "@/renderer/hooks/preferenc
 import { useSyntaxHighlighter } from "@/renderer/hooks/review/use-syntax-highlight";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
-import { useTheme } from "@/renderer/lib/app/theme-context";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
 import { useKeybindings } from "@/renderer/lib/keyboard/keybinding-context";
 import { resolveDiffBlameRefs } from "@/renderer/lib/review/blame-refs";
@@ -33,7 +32,7 @@ import {
 } from "@/renderer/lib/review/completed-pr-state";
 import { getDiffFilePath, parseDiff, type DiffFile } from "@/renderer/lib/review/diff-parser";
 import { useFileNavStore } from "@/renderer/lib/review/file-nav-context";
-import { ensureLanguage, ensureTheme, inferLanguage } from "@/renderer/lib/review/highlighter";
+import { inferLanguage } from "@/renderer/lib/review/highlighter";
 import {
   buildReviewCommentsMap,
   buildReviewThreadStateByRootCommentId,
@@ -388,7 +387,6 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const currentFile = files[resolvedCurrentFileIndex] ?? null;
   const currentFilePath = currentFile ? getDiffFilePath(currentFile) : null;
   const currentFilePathForAi = currentFilePath ?? "";
-  const currentLanguage = inferLanguage(currentFilePathForAi);
   const [isPrimingFullFileView, setIsPrimingFullFileView] = useState(false);
   const setCurrentFileState = useCallback(
     (index: number) => {
@@ -450,17 +448,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     return map;
   }, [currentFilePathForAi, suggestionsForFile]);
 
-  const { codeThemeLight, codeThemeDark } = useTheme();
   const activeFilePath = currentFilePath ?? "";
-
-  // Ensure the language and code theme are loaded (lazy-load non-core langs & themes)
-  if (highlighter && currentLanguage !== "text") {
-    ensureLanguage(currentLanguage);
-  }
-  if (highlighter) {
-    ensureTheme(codeThemeDark);
-    ensureTheme(codeThemeLight);
-  }
 
   // Full file content (for "show full file" mode)
   const fullFileRef = selectedCommit ? selectedCommit.oid : headSha || "HEAD";

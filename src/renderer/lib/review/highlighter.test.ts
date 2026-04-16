@@ -1,4 +1,4 @@
-import { inferLanguage } from "@/renderer/lib/review/highlighter";
+import { inferLanguage, normalizeLanguage } from "@/renderer/lib/review/highlighter";
 import { describe, expect, it } from "vite-plus/test";
 
 describe("inferLanguage", () => {
@@ -238,5 +238,34 @@ describe("inferLanguage", () => {
       // Should complete 1000 inferences in under 50ms
       expect(end - start).toBeLessThan(50);
     });
+  });
+});
+
+describe("normalizeLanguage", () => {
+  it("maps js aliases to javascript", () => {
+    expect(normalizeLanguage("js")).toBe("javascript");
+    expect(normalizeLanguage("javascript")).toBe("javascript");
+    expect(normalizeLanguage("mjs")).toBe("javascript");
+  });
+
+  it("maps ts aliases to typescript", () => {
+    expect(normalizeLanguage("ts")).toBe("typescript");
+    expect(normalizeLanguage("typescript")).toBe("typescript");
+    expect(normalizeLanguage("mts")).toBe("typescript");
+  });
+
+  it("normalizes markdown, yaml, and shell aliases", () => {
+    expect(normalizeLanguage("md")).toBe("markdown");
+    expect(normalizeLanguage("yml")).toBe("yaml");
+    expect(normalizeLanguage("sh")).toBe("shell");
+  });
+
+  it("trims whitespace and lowercases values", () => {
+    expect(normalizeLanguage("  JavaScript  ")).toBe("javascript");
+  });
+
+  it("falls back to text for blank language names", () => {
+    expect(normalizeLanguage("")).toBe("text");
+    expect(normalizeLanguage("   ")).toBe("text");
   });
 });

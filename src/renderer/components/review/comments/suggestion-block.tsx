@@ -1,9 +1,15 @@
 import { toastManager } from "@/components/ui/toast";
 import { useSyntaxHighlighter } from "@/renderer/hooks/review/use-syntax-highlight";
 import { useTheme } from "@/renderer/lib/app/theme-context";
-import { type ShikiToken, getShikiTokenColor } from "@/renderer/lib/review/highlighter";
+import {
+  ensureHighlighterResources,
+  getShikiTokenColor,
+  isLanguageLoaded,
+  normalizeLanguage,
+  type ShikiToken,
+} from "@/renderer/lib/review/highlighter";
 import { Check } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 export interface BodyPart {
   type: "text" | "suggestion";
@@ -52,23 +58,45 @@ export function SuggestionBlock({
     [codeThemeDark, codeThemeLight],
   );
   const lines = suggestion.split("\n");
+  const normalizedLanguage = normalizeLanguage(language);
+  const [, setSyntaxResourceVersion] = useState(0);
+
+  useEffect(() => {
+    if (!highlighter) {
+      return;
+    }
+
+    let cancelled = false;
+    void ensureHighlighterResources({
+      languages: normalizedLanguage !== "text" ? [normalizedLanguage] : [],
+      themes: [shikiTheme.dark, shikiTheme.light],
+    }).then((loadedResources) => {
+      if (!cancelled && loadedResources) {
+        setSyntaxResourceVersion((version) => version + 1);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [highlighter, normalizedLanguage, shikiTheme.dark, shikiTheme.light]);
 
   // Tokenize lines for syntax highlighting.
   // Strip +/- prefixes, join into full code block for context-aware highlighting,
   // Then map per-line tokens back.
   const tokensByLine = useMemo(() => {
-    if (!highlighter || language === "text") {
+    if (!highlighter || normalizedLanguage === "text") {
       return null;
     }
     try {
-      if (!highlighter.getLoadedLanguages().includes(language)) {
+      if (!isLanguageLoaded(highlighter, normalizedLanguage)) {
         return null;
       }
       const strippedLines = lines.map((l) =>
         l.startsWith("+") || l.startsWith("-") ? l.slice(1) : l,
       );
       const result = highlighter.codeToTokens(strippedLines.join("\n"), {
-        lang: language as Parameters<typeof highlighter.codeToTokens>[1]["lang"],
+        lang: normalizedLanguage as Parameters<typeof highlighter.codeToTokens>[1]["lang"],
         themes: {
           light: shikiTheme.light,
           dark: shikiTheme.dark,
@@ -78,7 +106,7 @@ export function SuggestionBlock({
     } catch {
       return null;
     }
-  }, [highlighter, language, lines, shikiTheme]);
+  }, [highlighter, lines, normalizedLanguage, shikiTheme]);
 
   return (
     <div className="border-success/15 bg-success-muted/60 my-2 overflow-hidden rounded-md border">

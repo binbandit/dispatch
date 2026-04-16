@@ -1,11 +1,29 @@
 import "@testing-library/jest-dom/vitest";
+import type { Highlighter } from "shiki";
+
 import { MarkdownBody } from "@/renderer/components/shared/markdown-body";
 import { render, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+
+const { ensureHighlighterResourcesMock, useSyntaxHighlighterMock } = vi.hoisted(() => ({
+  ensureHighlighterResourcesMock: vi.fn(async () => false),
+  useSyntaxHighlighterMock: vi.fn<() => Highlighter | null>(() => null),
+}));
 
 vi.mock(import("@/renderer/hooks/review/use-syntax-highlight"), () => ({
-  useSyntaxHighlighter: () => null,
+  useSyntaxHighlighter: () => useSyntaxHighlighterMock(),
 }));
+
+vi.mock(import("@/renderer/lib/review/highlighter"), async () => {
+  const actual = await vi.importActual<typeof import("@/renderer/lib/review/highlighter")>(
+    "@/renderer/lib/review/highlighter",
+  );
+
+  return {
+    ...actual,
+    ensureHighlighterResources: ensureHighlighterResourcesMock,
+  };
+});
 
 vi.mock(import("@/renderer/lib/app/open-external"), () => ({
   openExternal: vi.fn(),
@@ -28,6 +46,12 @@ vi.mock(import("@/renderer/lib/app/theme-context"), () => ({
 }));
 
 describe("MarkdownBody", () => {
+  afterEach(() => {
+    useSyntaxHighlighterMock.mockReset();
+    useSyntaxHighlighterMock.mockReturnValue(null);
+    ensureHighlighterResourcesMock.mockClear();
+  });
+
   it("keeps blank quoted lines and nested details inside GitHub alerts", () => {
     const content = `> [!NOTE]
 > ### Add filesystem browser to command palette for adding projects
@@ -78,5 +102,34 @@ describe("MarkdownBody", () => {
     const image = getByRole("img", { name: "attachment" });
 
     expect(image).not.toHaveAttribute("node");
+  });
+
+  it("normalizes js fenced blocks to javascript highlighting", () => {
+    const codeToTokens = vi.fn(() => ({
+      tokens: [
+        [
+          { content: "const", color: "#d4883a" },
+          { content: " value = 1;", color: "#f0ece6" },
+        ],
+      ],
+    }));
+
+    useSyntaxHighlighterMock.mockReturnValue({
+      codeToTokens,
+      getLoadedLanguages: () => ["javascript"],
+    } as unknown as Highlighter);
+
+    const { container } = render(
+      <MarkdownBody
+        content={"```js\nconst value = 1;\n```"}
+        repo="binbandit/dispatch"
+      />,
+    );
+
+    expect(codeToTokens).toHaveBeenCalledWith(
+      "const value = 1;",
+      expect.objectContaining({ lang: "javascript" }),
+    );
+    expect(container.querySelector("code span")).not.toBeNull();
   });
 });
