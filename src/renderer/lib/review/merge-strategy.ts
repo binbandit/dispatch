@@ -40,7 +40,7 @@ export function resolveMergeStrategy(input: MergeStrategyInput): MergeStrategyOu
   const { hasMergeQueue, requirementsMet, canAdmin, explicitAdmin = false, strategy } = input;
 
   // Explicit admin override from dropdown
-  const useExplicitAdmin = !!explicitAdmin;
+  const useExplicitAdmin = Boolean(explicitAdmin);
 
   // In standard mode (no merge queue), auto-enable admin if requirements not met but user has admin
   // In merge queue mode, NEVER auto-enable admin (only via explicit dropdown selection)

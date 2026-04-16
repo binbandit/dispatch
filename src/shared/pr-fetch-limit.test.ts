@@ -20,7 +20,7 @@ describe("isUnlimitedPrFetchLimit", () => {
 
   it("returns false for null and undefined", () => {
     expect(isUnlimitedPrFetchLimit(null)).toBe(false);
-    expect(isUnlimitedPrFetchLimit(undefined)).toBe(false);
+    expect(isUnlimitedPrFetchLimit()).toBe(false);
   });
 });
 
@@ -49,6 +49,6 @@ describe("normalizePrFetchLimit", () => {
 
   it("returns default for null and undefined", () => {
     expect(normalizePrFetchLimit(null)).toBe(DEFAULT_PR_FETCH_LIMIT);
-    expect(normalizePrFetchLimit(undefined)).toBe(DEFAULT_PR_FETCH_LIMIT);
+    expect(normalizePrFetchLimit()).toBe(DEFAULT_PR_FETCH_LIMIT);
   });
 });

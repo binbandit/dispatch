@@ -254,7 +254,7 @@ export function MarkdownBody({ content, repo, className = "" }: MarkdownBodyProp
                   typeof child.props.className === "string" &&
                   child.props.className.includes("gh-alert-title"),
               );
-              const titleChild = titleIndex >= 0 ? childNodes[titleIndex] : null;
+              const titleChild = titleIndex !== -1 ? childNodes[titleIndex] : null;
               const bodyChildren = childNodes.filter(
                 (child, index) =>
                   index !== titleIndex && !(typeof child === "string" && child.trim().length === 0),

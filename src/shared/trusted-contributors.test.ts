@@ -11,7 +11,7 @@ describe("trusted contributor preferences", () => {
 
   it("defaults to enabled for nullish or truthy values", () => {
     expect(isTrustedContributorSystemEnabled(null)).toBe(true);
-    expect(isTrustedContributorSystemEnabled(undefined)).toBe(true);
+    expect(isTrustedContributorSystemEnabled()).toBe(true);
     expect(isTrustedContributorSystemEnabled("true")).toBe(true);
   });
 

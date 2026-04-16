@@ -155,7 +155,7 @@ export function parseCodexAuthStatus(output: string): boolean {
 export function parseClaudeAuthStatus(output: string): boolean {
   try {
     const parsed = JSON.parse(output) as { loggedIn?: boolean };
-    return !!parsed.loggedIn;
+    return Boolean(parsed.loggedIn);
   } catch {
     return false;
   }

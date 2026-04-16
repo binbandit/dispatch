@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("../../../shared/pr-fetch-limit", () => ({
+vi.mock(import('../../../shared/pr-fetch-limit'), () => ({
   PR_FETCH_LIMIT_PREFERENCE_KEY: "prFetchLimit",
   normalizePrFetchLimit: vi.fn(() => "200"),
 }));
 
-vi.mock("../../db/repository", () => ({
+vi.mock(import('../../db/repository'), () => ({
   getPreference: vi.fn(() => null),
   cacheDisplayNames: vi.fn(),
   getCachedUserProfile: vi.fn(() => null),
@@ -13,7 +13,7 @@ vi.mock("../../db/repository", () => ({
   saveUserProfile: vi.fn(),
 }));
 
-vi.mock("../shell", () => ({
+vi.mock(import('../shell'), () => ({
   execFile: vi.fn(),
   resolveExecutablePath: vi.fn(),
 }));

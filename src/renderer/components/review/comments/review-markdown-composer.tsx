@@ -234,8 +234,7 @@ export function ReviewMarkdownComposer({
     },
   });
 
-  useEffect(() => {
-    return globalThis.api.onAiRewriteSelection(() => {
+  useEffect(() => globalThis.api.onAiRewriteSelection(() => {
       if (
         mode === "preview" ||
         !commentRewriteConfig.isConfigured ||
@@ -260,8 +259,7 @@ export function ReviewMarkdownComposer({
       }
 
       rewriteSelectionMutation.mutate();
-    });
-  }, [
+    }), [
     commentRewriteConfig.isConfigured,
     getEffectiveSelection,
     hasFocus,

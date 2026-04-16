@@ -24,7 +24,7 @@ function safeLocalStorage() {
       return localStorage;
     }
   } catch {
-    /* test env */
+    /* Test env */
   }
   return null;
 }
@@ -34,27 +34,34 @@ function readCodeThemePreference(storageKey: string, fallback: string): string {
 }
 
 function readBooleanPreference(value: string | null, fallback: boolean): boolean {
-  if (value === "true") return true;
-  if (value === "false") return false;
+  if (value === "true") {return true;}
+  if (value === "false") {return false;}
   return fallback;
 }
 
 function migrateOldTheme(old: string): { style: ThemeStyle; mode: ColorMode } {
   switch (old) {
-    case "light":
+    case "light": {
       return { style: "default", mode: "light" };
-    case "system":
+    }
+    case "system": {
       return { style: "default", mode: "system" };
-    case "oled":
+    }
+    case "oled": {
       return { style: "default", mode: "oled" };
-    case "neo-brutal-dark":
+    }
+    case "neo-brutal-dark": {
       return { style: "default", mode: "dark" };
-    case "neo-brutal-light":
+    }
+    case "neo-brutal-light": {
       return { style: "default", mode: "light" };
-    case "neo-brutal-oled":
+    }
+    case "neo-brutal-oled": {
       return { style: "default", mode: "oled" };
-    default:
+    }
+    default: {
       return { style: "default", mode: "dark" };
+    }
   }
 }
 
@@ -77,26 +84,26 @@ interface ThemeState {
 }
 
 function getSystemTheme(): ResolvedTheme {
-  if (typeof globalThis.matchMedia !== "function") return "dark";
+  if (typeof globalThis.matchMedia !== "function") {return "dark";}
   return globalThis.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
 function resolveMode(mode: ColorMode): ResolvedTheme {
-  if (mode === "system") return getSystemTheme();
-  if (mode === "oled") return "dark";
+  if (mode === "system") {return getSystemTheme();}
+  if (mode === "oled") {return "dark";}
   return mode;
 }
 
 function deriveThemeClass(_style: ThemeStyle, mode: ColorMode, resolved: ResolvedTheme): string {
   const isOled = mode === "oled";
-  if (isOled) return "oled";
+  if (isOled) {return "oled";}
   return resolved;
 }
 
 const ALL_THEME_CLASSES = ["dark", "light", "oled"];
 
 function applyTheme(style: ThemeStyle, mode: ColorMode, resolved: ResolvedTheme) {
-  if (typeof document === "undefined") return;
+  if (typeof document === "undefined") {return;}
   const root = document.documentElement;
   root.classList.remove(...ALL_THEME_CLASSES);
   root.classList.add(deriveThemeClass(style, mode, resolved));
@@ -104,14 +111,14 @@ function applyTheme(style: ThemeStyle, mode: ColorMode, resolved: ResolvedTheme)
 }
 
 function applyFontLigaturePreference(disableFontLigatures: boolean) {
-  if (typeof document === "undefined") return;
+  if (typeof document === "undefined") {return;}
   const root = document.documentElement;
   root.classList.toggle("font-ligatures-off", disableFontLigatures);
 }
 
 function readInitialValues(): { style: ThemeStyle; mode: ColorMode } {
   const storage = safeLocalStorage();
-  if (!storage) return { style: "default", mode: "dark" };
+  if (!storage) {return { style: "default", mode: "dark" };}
 
   const savedStyle = storage.getItem(STYLE_STORAGE_KEY) as ThemeStyle | null;
   const savedMode = storage.getItem(MODE_STORAGE_KEY) as ColorMode | null;
@@ -135,7 +142,7 @@ function readInitialValues(): { style: ThemeStyle; mode: ColorMode } {
 let systemThemeCleanup: (() => void) | null = null;
 
 function setupSystemThemeListener() {
-  if (typeof globalThis.matchMedia !== "function") return;
+  if (typeof globalThis.matchMedia !== "function") {return;}
   systemThemeCleanup?.();
   systemThemeCleanup = null;
 
@@ -249,7 +256,7 @@ if (initial.mode === "system" && typeof globalThis.matchMedia === "function") {
   setupSystemThemeListener();
 }
 
-if (typeof (globalThis as Record<string, unknown>).api !== "undefined") {
+if ((globalThis as Record<string, unknown>).api !== undefined) {
   const initResult = ipc("preferences.getAll", {
     keys: [
       "themeStyle",
@@ -262,7 +269,7 @@ if (typeof (globalThis as Record<string, unknown>).api !== "undefined") {
     ],
   });
   if (initResult && typeof initResult.then === "function")
-    initResult
+    {initResult
       .then((prefs) => {
         const state = useThemeStore.getState();
         const storage = safeLocalStorage();
@@ -326,7 +333,7 @@ if (typeof (globalThis as Record<string, unknown>).api !== "undefined") {
           storage?.setItem("dispatch-code-theme-light", updatedLight);
           ipc("preferences.set", { key: "codeThemeDark", value: updatedDark });
           ipc("preferences.set", { key: "codeThemeLight", value: updatedLight });
-          if (storage) storage.removeItem(LEGACY_SINGLE_CODE_THEME_STORAGE_KEY);
+          if (storage) {storage.removeItem(LEGACY_SINGLE_CODE_THEME_STORAGE_KEY);}
         }
 
         const resolved = useThemeStore.getState().resolvedTheme;
@@ -339,7 +346,7 @@ if (typeof (globalThis as Record<string, unknown>).api !== "undefined") {
         storage?.setItem(FONT_LIGATURES_STORAGE_KEY, dbFontLigatures ? "true" : "false");
         applyFontLigaturePreference(dbFontLigatures);
       })
-      .catch(() => {});
+      .catch(() => {});}
 }
 
 // ---------------------------------------------------------------------------

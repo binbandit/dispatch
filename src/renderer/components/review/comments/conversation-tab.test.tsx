@@ -173,7 +173,7 @@ describe("ContentEvent", () => {
   it("uses the database ID when saving an edited conversation comment", async () => {
     const user = userEvent.setup();
 
-    vi.mocked(ipc).mockResolvedValue(undefined);
+    vi.mocked(ipc).mockResolvedValue();
 
     renderWithQueryClient(
       <ContentEvent

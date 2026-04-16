@@ -20,13 +20,13 @@ import { type ReactNode, useMemo, useState } from "react";
 
 type AiReviewSummaryRunStatus = "idle" | "running" | "error";
 
-type AiReviewSummaryRunState = {
+interface AiReviewSummaryRunState {
   status: AiReviewSummaryRunStatus;
   runId: number;
   startedAt: number;
   snapshotKey: string;
   errorMessage?: string;
-};
+}
 
 function reviewSummaryRunStateQueryKey(nwo: string, prNumber: number) {
   return ["ai", "reviewSummary", "runState", nwo, prNumber] as const;
