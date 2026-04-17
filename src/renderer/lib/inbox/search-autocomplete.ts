@@ -279,7 +279,10 @@ function filterSuggestions(
   limit = 8,
 ): SearchSuggestion[] {
   return suggestions
-    .filter((suggestion) => matchesFuzzy(suggestion.label, filter) || matchesFuzzy(suggestion.hint ?? "", filter))
+    .filter(
+      (suggestion) =>
+        matchesFuzzy(suggestion.label, filter) || matchesFuzzy(suggestion.hint ?? "", filter),
+    )
     .slice(0, limit);
 }
 
