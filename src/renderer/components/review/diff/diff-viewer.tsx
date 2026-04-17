@@ -26,7 +26,6 @@ import {
   type NonLineFlatRow,
 } from "@/renderer/components/review/diff/diff-row-builder";
 import { SemanticDiffSummary } from "@/renderer/components/review/diff/semantic-diff-summary";
-import { usePreference } from "@/renderer/hooks/preferences/use-preference";
 import { useTheme } from "@/renderer/lib/app/theme-context";
 import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import { getSuggestionTextForRange } from "@/renderer/lib/review/comment-suggestions";
@@ -43,7 +42,6 @@ import {
 } from "@/renderer/lib/review/highlighter";
 import { REVIEW_DIFF_SEARCH_EVENT } from "@/renderer/lib/review/review-focus-targets";
 import { analyzeSemanticDiff } from "@/renderer/lib/review/semantic-diff";
-import { isExperimentalFeatureEnabled } from "@/shared/experimental-features";
 import { ChevronDown, ChevronUp, Plus, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -88,6 +86,8 @@ interface DiffViewerProps {
   /** When set, scroll to the comment at this line number and highlight it */
   scrollToLine?: number | null;
   onScrollToLineComplete?: () => void;
+  /** Experimental: show a semantic-diff summary banner when patterns fire */
+  semanticDiffEnabled?: boolean;
 }
 
 const DEFAULT_SHIKI_THEME_PAIR = {
@@ -167,6 +167,7 @@ export function DiffViewer({
   onDismissSuggestion,
   scrollToLine,
   onScrollToLineComplete,
+  semanticDiffEnabled = false,
 }: DiffViewerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { codeThemeDark, codeThemeLight, resolvedTheme } = useTheme();
@@ -329,8 +330,6 @@ export function DiffViewer({
   );
 
   // --- Semantic diff summary (experimental) ---
-  const semanticDiffPreference = usePreference("experimentalSemanticDiff");
-  const semanticDiffEnabled = isExperimentalFeatureEnabled(semanticDiffPreference);
   const semanticSignals = useMemo(
     () => (semanticDiffEnabled ? analyzeSemanticDiff(file) : []),
     [semanticDiffEnabled, file],

@@ -45,6 +45,7 @@ import {
   focusReviewTargetSoon,
   type ReviewFocusTarget,
 } from "@/renderer/lib/review/review-focus-targets";
+import { isExperimentalFeatureEnabled } from "@/shared/experimental-features";
 import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowLeft, GitCommitHorizontal, GitMerge, XCircle } from "lucide-react";
@@ -347,6 +348,9 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   });
 
   const aiEnabled = isAiEnabledPreference(usePreference("aiEnabled"));
+  const semanticDiffEnabled = isExperimentalFeatureEnabled(
+    usePreference("experimentalSemanticDiff"),
+  );
   const prDetail = detailQuery.data;
   const aiReviewEnabled = aiEnabled && prDetail?.state === "OPEN";
   const {
@@ -1086,6 +1090,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               onDismissSuggestion={dismissSuggestion}
               scrollToLine={scrollToLine}
               onScrollToLineComplete={() => setScrollToLine(null)}
+              semanticDiffEnabled={semanticDiffEnabled}
             />
           ) : (
             <div className="flex flex-1 items-center justify-center">
