@@ -86,7 +86,7 @@ describe("getSearchSuggestions", () => {
 
 describe("applySuggestion", () => {
   it("preserves negation prefixes when applying suggestions", () => {
-    const {token} = getSearchSuggestions("-rev", 4, []);
+    const { token } = getSearchSuggestions("-rev", 4, []);
     const result = applySuggestion("-rev", token, {
       completion: "review:",
       label: "review:",
