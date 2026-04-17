@@ -17,7 +17,7 @@ import { useRef, useState } from "react";
  * Comment composer — inline card for creating new review comments.
  *
  * Renders inside a `<td colSpan={3}>` in the diff table.
- * - Cmd/Ctrl+Enter to submit, Escape to close when empty
+ * - Cmd/Ctrl+Enter to submit, Escape to cancel and close
  */
 
 interface CommentComposerProps {
@@ -133,8 +133,9 @@ export function CommentComposer({
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       handleSubmit();
-    } else if (e.key === "Escape" && !body.trim()) {
+    } else if (e.key === "Escape") {
       e.preventDefault();
+      e.stopPropagation();
       onClose();
       restoreFocusAfterClose();
     }
@@ -177,7 +178,7 @@ export function CommentComposer({
       />
       <div className="border-border-subtle flex items-center justify-between gap-2 border-t px-3 py-2.5">
         <span className="text-text-ghost font-mono text-[10px]">
-          {modKey}+Enter to {isBatched ? "add" : "submit"} · Esc to close when empty
+          {modKey}+Enter to {isBatched ? "add" : "submit"} · Esc to cancel
         </span>
         <div className="flex items-center gap-1.5">
           <Button

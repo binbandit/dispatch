@@ -287,4 +287,33 @@ describe("PanelComposer", () => {
 
     api.api.onAiRewriteSelection = originalOnAiRewriteSelection;
   });
+
+  it("cancels a new conversation comment on Escape", async () => {
+    const api = globalThis as typeof globalThis & {
+      api: Record<string, unknown> & { onAiRewriteSelection?: () => () => void };
+    };
+    const originalOnAiRewriteSelection = api.api.onAiRewriteSelection;
+    api.api.onAiRewriteSelection = vi.fn(() => () => {});
+    const escapeListener = vi.fn();
+    globalThis.addEventListener("keydown", escapeListener);
+
+    const user = userEvent.setup();
+
+    renderPanelComposer();
+
+    const textarea = screen.getByLabelText("Leave a comment…");
+    await user.type(textarea, "This draft should be discarded.");
+    expect(textarea).toHaveFocus();
+    escapeListener.mockClear();
+
+    await user.keyboard("{Escape}");
+
+    expect(screen.getByLabelText("Leave a comment…")).toHaveValue("");
+    expect(textarea).not.toHaveFocus();
+    expect(screen.getByRole("button", { name: "Comment" })).toBeDisabled();
+    expect(escapeListener).not.toHaveBeenCalled();
+
+    globalThis.removeEventListener("keydown", escapeListener);
+    api.api.onAiRewriteSelection = originalOnAiRewriteSelection;
+  });
 });

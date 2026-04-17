@@ -722,6 +722,7 @@ export function ContentEvent({
                         }
                         if (e.key === "Escape") {
                           e.preventDefault();
+                          e.stopPropagation();
                           handleEditCancel();
                         }
                       }}
@@ -1122,6 +1123,14 @@ export function PanelComposer({ prNumber }: { prNumber: number }) {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey) && trimmedBody) {
             e.preventDefault();
             handleSubmit();
+            return;
+          }
+
+          if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
+            setBody("");
+            e.currentTarget.blur();
           }
         }}
         placeholder="Leave a comment…"
@@ -1134,7 +1143,7 @@ export function PanelComposer({ prNumber }: { prNumber: number }) {
           className="text-text-ghost font-mono"
           style={{ fontSize: "10px" }}
         >
-          {isMac ? "⌘" : "Ctrl"}+Enter to submit
+          {isMac ? "⌘" : "Ctrl"}+Enter to submit · Esc to cancel
         </div>
         <Button
           size="xs"

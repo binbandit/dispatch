@@ -59,6 +59,8 @@ export function ReplyComposer({
             replyMutation.mutate({ body: body.trim() });
           }
           if (e.key === "Escape") {
+            e.preventDefault();
+            e.stopPropagation();
             onClose();
           }
         }}

@@ -105,7 +105,7 @@ describe("CommentComposer", () => {
     });
   });
 
-  it("keeps the composer open on Escape when the draft has content", async () => {
+  it("cancels the composer on Escape even when the draft has content", async () => {
     const user = userEvent.setup();
 
     renderWithQueryClient(<CommentComposerHarness />);
@@ -116,7 +116,9 @@ describe("CommentComposer", () => {
     await user.type(textarea, "Needs a null check here.");
     await user.keyboard("{Escape}");
 
-    expect(screen.getByLabelText("Leave a comment…")).toHaveValue("Needs a null check here.");
-    expect(screen.queryByRole("button", { name: "Open composer" })).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByLabelText("Leave a comment…")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Open composer" })).toHaveFocus();
+    });
   });
 });
