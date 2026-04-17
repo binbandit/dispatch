@@ -798,6 +798,26 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     },
     { ...getBinding("navigation.prevFile"), handler: goToPrevFile },
     { ...getBinding("navigation.nextFile"), handler: goToNextFile },
+    {
+      key: "ArrowLeft",
+      handler: goToPrevFile,
+      when: () => getActiveReviewFocusTarget() === "diff-viewer",
+    },
+    {
+      key: "ArrowRight",
+      handler: goToNextFile,
+      when: () => getActiveReviewFocusTarget() === "diff-viewer",
+    },
+    {
+      key: "h",
+      handler: goToPrevFile,
+      when: () => getActiveReviewFocusTarget() === "diff-viewer",
+    },
+    {
+      key: "l",
+      handler: goToNextFile,
+      when: () => getActiveReviewFocusTarget() === "diff-viewer",
+    },
     { ...getBinding("navigation.focusFiles"), handler: focusFilesTree },
     { ...getBinding("navigation.focusDiff"), handler: focusDiffViewer },
     {
