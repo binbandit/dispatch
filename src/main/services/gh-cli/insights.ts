@@ -18,6 +18,8 @@ import {
 } from "./core";
 import { listPrsCore, listPrsEnrichment } from "./prs";
 
+const RELEASES_CACHE_TTL_MS = 30 * 60_000;
+
 export async function listAllPrs(
   workspaces: Array<{ owner: string; repo: string; path: string | null; name: string }>,
   filter: "reviewRequested" | "authored" | "all",
@@ -377,7 +379,7 @@ export function listReleases(
           : { ...releases[index]!, body: "", author: { login: "" } },
       );
     },
-    ttl: CACHE_TTL_LONG_MS,
+    ttl: RELEASES_CACHE_TTL_MS,
   }) as Promise<ReleaseResult>;
 }
 

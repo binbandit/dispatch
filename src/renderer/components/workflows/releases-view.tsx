@@ -29,13 +29,16 @@ import { useState } from "react";
  * List releases, create new releases with changelog generation.
  */
 
+export const RELEASES_QUERY_CACHE_MS = 30 * 60_000;
+
 export function ReleasesView() {
   const { repoTarget, nwo } = useWorkspace();
 
   const releasesQuery = useQuery({
     queryKey: ["releases", "list", nwo],
     queryFn: () => ipc("releases.list", { ...repoTarget }),
-    staleTime: 60_000,
+    gcTime: RELEASES_QUERY_CACHE_MS,
+    staleTime: RELEASES_QUERY_CACHE_MS,
   });
 
   // Check if user has push permission (needed to create releases)
