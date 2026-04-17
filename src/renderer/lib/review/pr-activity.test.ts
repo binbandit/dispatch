@@ -67,7 +67,11 @@ describe("hasNewPrActivity", () => {
   });
 
   it("returns false for invalid date strings", () => {
-    expect(hasNewPrActivity("not-a-date", { lastSeenUpdatedAt: "2024-06-01T00:00:00Z" })).toBe(false);
-    expect(hasNewPrActivity("2024-06-01T00:00:00Z", { lastSeenUpdatedAt: "not-a-date" })).toBe(false);
+    expect(hasNewPrActivity("not-a-date", { lastSeenUpdatedAt: "2024-06-01T00:00:00Z" })).toBe(
+      false,
+    );
+    expect(hasNewPrActivity("2024-06-01T00:00:00Z", { lastSeenUpdatedAt: "not-a-date" })).toBe(
+      false,
+    );
   });
 });
