@@ -73,7 +73,7 @@ const CATEGORIES = [
     label: "Repo History",
     max: TRUST_SCORE_WEIGHTS.repoHistory,
     icon: History,
-    color: "var(--accent)",
+    color: "var(--accent-foreground)",
     rawValue: (p: GhUserProfile) => {
       if (!p.repoContributions) {
         return "No repo data";
@@ -281,10 +281,9 @@ function computeRepoHistoryScore(profile: GhUserProfile): number {
   }
 
   const contributionUnits =
-    profile.repoContributions.pullRequests +
-    profile.repoContributions.issues +
+    profile.repoContributions.mergedPullRequests +
     profile.repoContributions.reviewedPullRequests +
-    profile.repoContributions.mergedPullRequests;
+    profile.repoContributions.issues;
 
   return Math.min(
     TRUST_SCORE_WEIGHTS.repoHistory,

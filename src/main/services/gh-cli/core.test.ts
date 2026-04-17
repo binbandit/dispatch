@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock(import('../../../shared/pr-fetch-limit'), () => ({
+vi.mock(import("../../../shared/pr-fetch-limit"), () => ({
   PR_FETCH_LIMIT_PREFERENCE_KEY: "prFetchLimit" as const,
   normalizePrFetchLimit: vi.fn((_value?: string | null) => 200 as const),
 }));
 
-vi.mock(import('../../db/repository'), () => ({
+vi.mock(import("../../db/repository"), () => ({
   getPreference: vi.fn(() => null),
   cacheDisplayNames: vi.fn(),
   getCachedUserProfile: vi.fn(() => null),
@@ -13,7 +13,7 @@ vi.mock(import('../../db/repository'), () => ({
   saveUserProfile: vi.fn(),
 }));
 
-vi.mock(import('../shell'), () => ({
+vi.mock(import("../shell"), () => ({
   execFile: vi.fn(),
   resolveExecutablePath: vi.fn(),
 }));
@@ -354,7 +354,7 @@ describe("getUserProfile", () => {
       mergedPullRequests: 3,
       issues: 2,
       reviewedPullRequests: 4,
-      total: 10,
+      total: 9,
     });
     expect(profile.organizations).toEqual([
       { login: "github", avatarUrl: "https://example.com/org.png" },

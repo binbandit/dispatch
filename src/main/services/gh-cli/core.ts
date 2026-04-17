@@ -223,7 +223,7 @@ async function getRepoContributionHistory(
         mergedPullRequests,
         issues,
         reviewedPullRequests,
-        total: authoredPullRequests + issues + reviewedPullRequests,
+        total: mergedPullRequests + issues + reviewedPullRequests,
       };
     },
   }) as Promise<GhRepoContributionHistory>;
