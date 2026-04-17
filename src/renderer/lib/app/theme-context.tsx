@@ -34,8 +34,12 @@ function readCodeThemePreference(storageKey: string, fallback: string): string {
 }
 
 function readBooleanPreference(value: string | null, fallback: boolean): boolean {
-  if (value === "true") {return true;}
-  if (value === "false") {return false;}
+  if (value === "true") {
+    return true;
+  }
+  if (value === "false") {
+    return false;
+  }
   return fallback;
 }
 
@@ -84,26 +88,36 @@ interface ThemeState {
 }
 
 function getSystemTheme(): ResolvedTheme {
-  if (typeof globalThis.matchMedia !== "function") {return "dark";}
+  if (typeof globalThis.matchMedia !== "function") {
+    return "dark";
+  }
   return globalThis.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
 function resolveMode(mode: ColorMode): ResolvedTheme {
-  if (mode === "system") {return getSystemTheme();}
-  if (mode === "oled") {return "dark";}
+  if (mode === "system") {
+    return getSystemTheme();
+  }
+  if (mode === "oled") {
+    return "dark";
+  }
   return mode;
 }
 
 function deriveThemeClass(_style: ThemeStyle, mode: ColorMode, resolved: ResolvedTheme): string {
   const isOled = mode === "oled";
-  if (isOled) {return "oled";}
+  if (isOled) {
+    return "oled";
+  }
   return resolved;
 }
 
 const ALL_THEME_CLASSES = ["dark", "light", "oled"];
 
 function applyTheme(style: ThemeStyle, mode: ColorMode, resolved: ResolvedTheme) {
-  if (typeof document === "undefined") {return;}
+  if (typeof document === "undefined") {
+    return;
+  }
   const root = document.documentElement;
   root.classList.remove(...ALL_THEME_CLASSES);
   root.classList.add(deriveThemeClass(style, mode, resolved));
@@ -111,14 +125,18 @@ function applyTheme(style: ThemeStyle, mode: ColorMode, resolved: ResolvedTheme)
 }
 
 function applyFontLigaturePreference(disableFontLigatures: boolean) {
-  if (typeof document === "undefined") {return;}
+  if (typeof document === "undefined") {
+    return;
+  }
   const root = document.documentElement;
   root.classList.toggle("font-ligatures-off", disableFontLigatures);
 }
 
 function readInitialValues(): { style: ThemeStyle; mode: ColorMode } {
   const storage = safeLocalStorage();
-  if (!storage) {return { style: "default", mode: "dark" };}
+  if (!storage) {
+    return { style: "default", mode: "dark" };
+  }
 
   const savedStyle = storage.getItem(STYLE_STORAGE_KEY) as ThemeStyle | null;
   const savedMode = storage.getItem(MODE_STORAGE_KEY) as ColorMode | null;
@@ -142,7 +160,9 @@ function readInitialValues(): { style: ThemeStyle; mode: ColorMode } {
 let systemThemeCleanup: (() => void) | null = null;
 
 function setupSystemThemeListener() {
-  if (typeof globalThis.matchMedia !== "function") {return;}
+  if (typeof globalThis.matchMedia !== "function") {
+    return;
+  }
   systemThemeCleanup?.();
   systemThemeCleanup = null;
 
@@ -268,8 +288,8 @@ if ((globalThis as Record<string, unknown>).api !== undefined) {
       FONT_LIGATURES_PREFERENCE_KEY,
     ],
   });
-  if (initResult && typeof initResult.then === "function")
-    {initResult
+  if (initResult && typeof initResult.then === "function") {
+    initResult
       .then((prefs) => {
         const state = useThemeStore.getState();
         const storage = safeLocalStorage();
@@ -333,7 +353,9 @@ if ((globalThis as Record<string, unknown>).api !== undefined) {
           storage?.setItem("dispatch-code-theme-light", updatedLight);
           ipc("preferences.set", { key: "codeThemeDark", value: updatedDark });
           ipc("preferences.set", { key: "codeThemeLight", value: updatedLight });
-          if (storage) {storage.removeItem(LEGACY_SINGLE_CODE_THEME_STORAGE_KEY);}
+          if (storage) {
+            storage.removeItem(LEGACY_SINGLE_CODE_THEME_STORAGE_KEY);
+          }
         }
 
         const resolved = useThemeStore.getState().resolvedTheme;
@@ -346,7 +368,8 @@ if ((globalThis as Record<string, unknown>).api !== undefined) {
         storage?.setItem(FONT_LIGATURES_STORAGE_KEY, dbFontLigatures ? "true" : "false");
         applyFontLigaturePreference(dbFontLigatures);
       })
-      .catch(() => {});}
+      .catch(() => {});
+  }
 }
 
 // ---------------------------------------------------------------------------
