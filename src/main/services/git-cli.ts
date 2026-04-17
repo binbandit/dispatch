@@ -1,6 +1,10 @@
 import type { BlameLine, DevRepoStatus } from "../../shared/ipc";
+import type { SymbolMatch } from "../../shared/ipc/contracts/git";
 
 import { execFile } from "./shell";
+
+const SYMBOL_GREP_LIMIT = 50;
+const VALID_SYMBOL_PATTERN = /^[\p{L}_$][\p{L}\p{N}_$]*$/u;
 
 /**
  * Local Git CLI adapter.
@@ -219,4 +223,79 @@ export async function getRepoRoot(cwd: string): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Find occurrences of an identifier across the working tree using `git grep`.
+ * Returns at most SYMBOL_GREP_LIMIT matches; callers get `truncated` when more
+ * exist so the UI can hint "showing N of many".
+ */
+export async function grepSymbol(args: {
+  cwd: string;
+  symbol: string;
+  excludeFile?: string;
+}): Promise<{ matches: SymbolMatch[]; total: number; truncated: boolean }> {
+  if (!VALID_SYMBOL_PATTERN.test(args.symbol)) {
+    return { matches: [], total: 0, truncated: false };
+  }
+
+  let stdout = "";
+  try {
+    const result = await execFile(
+      "git",
+      [
+        "grep",
+        "-n",
+        "--word-regexp",
+        "--untracked",
+        `--max-count=${SYMBOL_GREP_LIMIT + 1}`,
+        "--fixed-strings",
+        "--",
+        args.symbol,
+      ],
+      { cwd: args.cwd, timeout: 10_000 },
+    );
+    ({ stdout } = result);
+  } catch {
+    return { matches: [], total: 0, truncated: false };
+  }
+
+  const matches: SymbolMatch[] = stdout
+    .split("\n")
+    .map((rawLine) => parseGrepLine(rawLine))
+    .filter((parsed): parsed is SymbolMatch =>
+      parsed !== null && (!args.excludeFile || parsed.file !== args.excludeFile),
+    );
+
+  const truncated = matches.length > SYMBOL_GREP_LIMIT;
+  return {
+    matches: truncated ? matches.slice(0, SYMBOL_GREP_LIMIT) : matches,
+    total: matches.length,
+    truncated,
+  };
+}
+
+function parseGrepLine(rawLine: string): SymbolMatch | null {
+  if (!rawLine) {
+    return null;
+  }
+
+  const firstColon = rawLine.indexOf(":");
+  if (firstColon <= 0) {
+    return null;
+  }
+
+  const secondColon = rawLine.indexOf(":", firstColon + 1);
+  if (secondColon <= firstColon + 1) {
+    return null;
+  }
+
+  const file = rawLine.slice(0, firstColon);
+  const lineNumber = Number.parseInt(rawLine.slice(firstColon + 1, secondColon), 10);
+  if (!Number.isFinite(lineNumber)) {
+    return null;
+  }
+
+  const snippet = rawLine.slice(secondColon + 1).trim();
+  return { file, line: lineNumber, snippet };
 }

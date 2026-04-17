@@ -351,6 +351,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   const semanticDiffEnabled = isExperimentalFeatureEnabled(
     usePreference("experimentalSemanticDiff"),
   );
+  const symbolPeekEnabled = isExperimentalFeatureEnabled(usePreference("experimentalSymbolPeek"));
   const prDetail = detailQuery.data;
   const aiReviewEnabled = aiEnabled && prDetail?.state === "OPEN";
   const {
@@ -1091,6 +1092,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
               scrollToLine={scrollToLine}
               onScrollToLineComplete={() => setScrollToLine(null)}
               semanticDiffEnabled={semanticDiffEnabled}
+              symbolPeekEnabled={symbolPeekEnabled}
             />
           ) : (
             <div className="flex flex-1 items-center justify-center">

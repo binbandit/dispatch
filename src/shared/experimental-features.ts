@@ -17,6 +17,12 @@ export const EXPERIMENTAL_FEATURES = [
     description:
       "Time-boxed review session. Snapshots your filtered PR queue, advances through them with ⌘⇧N, and pins a minimal HUD with a timer so you can batch reviews without losing pace.",
   },
+  {
+    key: "experimentalSymbolPeek",
+    label: "Symbol call-site peek",
+    description:
+      "⌘-click an identifier in the diff to see where it is used in the working tree — file, line, and a snippet per match. Powered by `git grep`; no LSP required.",
+  },
 ] as const;
 
 export type ExperimentalFeatureKey = (typeof EXPERIMENTAL_FEATURES)[number]["key"];

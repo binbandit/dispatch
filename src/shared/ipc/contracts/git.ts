@@ -1,5 +1,11 @@
 import type { BlameLine, RepoTarget } from "../../ipc";
 
+export interface SymbolMatch {
+  file: string;
+  line: number;
+  snippet: string;
+}
+
 export interface GitIpcApi {
   "git.blame": {
     args: { cwd: string; file: string; line: number; ref: string };
@@ -12,6 +18,10 @@ export interface GitIpcApi {
   "git.diff": { args: { cwd: string; fromRef: string; toRef: string }; result: string };
   "git.commitDiff": { args: { cwd: string; sha: string }; result: string };
   "git.repoRoot": { args: { cwd: string }; result: string | null };
+  "git.grepSymbol": {
+    args: { cwd: string; symbol: string; excludeFile?: string };
+    result: { matches: SymbolMatch[]; total: number; truncated: boolean };
+  };
   "gh.fileAtRef": {
     args: RepoTarget & { ref: string; filePath: string };
     result: string | null;

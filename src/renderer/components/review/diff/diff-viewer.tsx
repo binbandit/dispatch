@@ -26,6 +26,7 @@ import {
   type NonLineFlatRow,
 } from "@/renderer/components/review/diff/diff-row-builder";
 import { SemanticDiffSummary } from "@/renderer/components/review/diff/semantic-diff-summary";
+import { SymbolPeekPopover } from "@/renderer/components/review/diff/symbol-peek-popover";
 import { useTheme } from "@/renderer/lib/app/theme-context";
 import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import { getSuggestionTextForRange } from "@/renderer/lib/review/comment-suggestions";
@@ -88,6 +89,8 @@ interface DiffViewerProps {
   onScrollToLineComplete?: () => void;
   /** Experimental: show a semantic-diff summary banner when patterns fire */
   semanticDiffEnabled?: boolean;
+  /** Experimental: ⌘-click an identifier to peek its call sites */
+  symbolPeekEnabled?: boolean;
 }
 
 const DEFAULT_SHIKI_THEME_PAIR = {
@@ -98,6 +101,79 @@ const DEFAULT_SHIKI_THEME_PAIR = {
 // ---------------------------------------------------------------------------
 // Search helpers
 // ---------------------------------------------------------------------------
+
+const SYMBOL_IDENTIFIER_CHAR_PATTERN = /[\p{L}\p{N}_$]/u;
+const SYMBOL_IDENTIFIER_START_PATTERN = /^[\p{L}_$]/u;
+const SYMBOL_MAX_LENGTH = 80;
+
+function extractSymbolAtPoint(clientX: number, clientY: number): string | null {
+  const range = createCaretRange(clientX, clientY);
+  if (!range) {
+    return null;
+  }
+  const node = range.startContainer;
+  if (node.nodeType !== Node.TEXT_NODE) {
+    return null;
+  }
+  const text = node.nodeValue ?? "";
+  if (text.length === 0) {
+    return null;
+  }
+
+  let offset = range.startOffset;
+  if (offset >= text.length) {
+    offset = text.length - 1;
+  }
+  if (offset < 0) {
+    return null;
+  }
+
+  const characterAtOffset = text[offset] ?? "";
+  const previousCharacter = text[offset - 1] ?? "";
+  const cursorOnIdentifier = SYMBOL_IDENTIFIER_CHAR_PATTERN.test(characterAtOffset);
+  const cursorAtIdentifierEdge = SYMBOL_IDENTIFIER_CHAR_PATTERN.test(previousCharacter);
+  if (!cursorOnIdentifier && !cursorAtIdentifierEdge) {
+    return null;
+  }
+
+  let start = cursorOnIdentifier ? offset : offset - 1;
+  let end = cursorOnIdentifier ? offset : offset - 1;
+  while (start > 0 && SYMBOL_IDENTIFIER_CHAR_PATTERN.test(text[start - 1] ?? "")) {
+    start--;
+  }
+  while (end < text.length && SYMBOL_IDENTIFIER_CHAR_PATTERN.test(text[end] ?? "")) {
+    end++;
+  }
+  const symbol = text.slice(start, end);
+  if (symbol.length === 0 || symbol.length > SYMBOL_MAX_LENGTH) {
+    return null;
+  }
+  if (!SYMBOL_IDENTIFIER_START_PATTERN.test(symbol)) {
+    return null;
+  }
+  return symbol;
+}
+
+function createCaretRange(clientX: number, clientY: number): Range | null {
+  const caretDocument = document as Document & {
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+  };
+  if (typeof caretDocument.caretRangeFromPoint === "function") {
+    return caretDocument.caretRangeFromPoint(clientX, clientY);
+  }
+  if (typeof caretDocument.caretPositionFromPoint === "function") {
+    const position = caretDocument.caretPositionFromPoint(clientX, clientY);
+    if (!position) {
+      return null;
+    }
+    const range = document.createRange();
+    range.setStart(position.offsetNode, position.offset);
+    range.collapse(true);
+    return range;
+  }
+  return null;
+}
 
 function countMatchesInText(text: string, query: string): number {
   if (!query) {
@@ -168,6 +244,7 @@ export function DiffViewer({
   scrollToLine,
   onScrollToLineComplete,
   semanticDiffEnabled = false,
+  symbolPeekEnabled = false,
 }: DiffViewerProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { codeThemeDark, codeThemeLight, resolvedTheme } = useTheme();
@@ -335,6 +412,58 @@ export function DiffViewer({
     [semanticDiffEnabled, file],
   );
 
+  // --- Symbol peek (experimental) ---
+  const [symbolPeek, setSymbolPeek] = useState<{
+    symbol: string;
+    anchor: { x: number; y: number };
+  } | null>(null);
+  const [commandHeld, setCommandHeld] = useState(false);
+
+  useEffect(() => {
+    if (!symbolPeekEnabled) {
+      return;
+    }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Meta" || event.key === "Control") {
+        setCommandHeld(true);
+      }
+    };
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === "Meta" || event.key === "Control") {
+        setCommandHeld(false);
+      }
+    };
+    const handleBlur = () => setCommandHeld(false);
+    globalThis.addEventListener("keydown", handleKeyDown);
+    globalThis.addEventListener("keyup", handleKeyUp);
+    globalThis.addEventListener("blur", handleBlur);
+    return () => {
+      globalThis.removeEventListener("keydown", handleKeyDown);
+      globalThis.removeEventListener("keyup", handleKeyUp);
+      globalThis.removeEventListener("blur", handleBlur);
+    };
+  }, [symbolPeekEnabled]);
+
+  const handleDiffClick = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (!symbolPeekEnabled || !(event.metaKey || event.ctrlKey)) {
+        return;
+      }
+      const target = event.target as HTMLElement;
+      if (target.closest("[data-review-comment-trigger], button, a, input, textarea")) {
+        return;
+      }
+      const symbol = extractSymbolAtPoint(event.clientX, event.clientY);
+      if (!symbol) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      setSymbolPeek({ symbol, anchor: { x: event.clientX, y: event.clientY } });
+    },
+    [symbolPeekEnabled],
+  );
+
   // --- Build rows ---
   const rows = useMemo(
     () => buildRows(file, comments, annotations, activeComposer ?? null, aiSuggestions),
@@ -423,10 +552,14 @@ export function DiffViewer({
   const filePath = getDiffFilePath(file);
   const isDragging = dragState.from !== null;
 
+  const symbolPeekActive = symbolPeekEnabled && commandHeld;
+
   return (
     <div
       ref={scrollRef}
       data-review-focus-target="diff-viewer"
+      data-symbol-peek-armed={symbolPeekActive ? "true" : undefined}
+      onClick={handleDiffClick}
       className={`focus:ring-border-accent/70 bg-bg-root relative flex-1 overflow-auto rounded-sm focus:ring-1 focus:outline-none focus:ring-inset ${
         isDragging ? "select-none" : ""
       }`}
@@ -438,6 +571,24 @@ export function DiffViewer({
     >
       {semanticDiffEnabled && semanticSignals.length > 0 && (
         <SemanticDiffSummary signals={semanticSignals} />
+      )}
+      {symbolPeekActive && !symbolPeek && (
+        <div
+          aria-hidden
+          className="border-border-accent bg-accent-muted/80 text-accent-text pointer-events-none fixed right-4 bottom-4 z-30 flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono text-[10px] tracking-wide backdrop-blur-sm"
+          style={{ boxShadow: "var(--shadow-md)" }}
+        >
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
+          click an identifier to peek
+        </div>
+      )}
+      {symbolPeek && (
+        <SymbolPeekPopover
+          symbol={symbolPeek.symbol}
+          anchor={symbolPeek.anchor}
+          currentFile={filePath}
+          onClose={() => setSymbolPeek(null)}
+        />
       )}
       {/* Search bar — floating overlay top-right */}
       {searchOpen && (
