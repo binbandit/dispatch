@@ -93,7 +93,7 @@ export function PrDetailView({ prNumber }: PrDetailViewProps) {
 // ---------------------------------------------------------------------------
 
 function PrDetail({ prNumber }: { prNumber: number }) {
-  const { cwd, nwo, repo, repoTarget } = useWorkspace();
+  const { cwd, nwo, repoTarget } = useWorkspace();
   // Granular store selectors — only re-render when the specific value changes
   const currentFileIndex = useFileNavStore((s) => s.currentFileIndex);
   const storedCurrentFilePath = useFileNavStore((s) => s.currentFilePath);
@@ -229,7 +229,6 @@ function PrDetail({ prNumber }: { prNumber: number }) {
   });
 
   // Review rounds
-  const repoName = repo;
   const lastShaQuery = useQuery({
     queryKey: ["review", "getLastSha", nwo, prNumber],
     queryFn: () => ipc("review.getLastSha", { repo: nwo, prNumber }),
@@ -576,8 +575,8 @@ function PrDetail({ prNumber }: { prNumber: number }) {
 
   // Viewed files (shared query key — React Query dedupes with sidebar)
   const viewedQuery = useQuery({
-    queryKey: ["review", "viewedFiles", repoName, prNumber],
-    queryFn: () => ipc("review.viewedFiles", { repo: repoName, prNumber }),
+    queryKey: ["review", "viewedFiles", nwo, prNumber],
+    queryFn: () => ipc("review.viewedFiles", { repo: nwo, prNumber }),
   });
 
   // Toggle viewed state for current file via `v` key
@@ -587,7 +586,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     }
     const isCurrentlyViewed = viewedQuery.data?.includes(activeFilePath) ?? false;
     ipc("review.setFileViewed", {
-      repo: repoName,
+      repo: nwo,
       prNumber,
       filePath: activeFilePath,
       viewed: !isCurrentlyViewed,
@@ -601,7 +600,7 @@ function PrDetail({ prNumber }: { prNumber: number }) {
     isFullFileLoading,
     prDetail?.state,
     prNumber,
-    repoName,
+    nwo,
     selectedCommit,
     viewedQuery,
   ]);
