@@ -11,6 +11,12 @@ export const EXPERIMENTAL_FEATURES = [
     description:
       "Detect pure renames, whitespace-only edits, and identifier renames, and surface them as a one-line summary above the diff so you can skim past noise.",
   },
+  {
+    key: "experimentalFocusMode",
+    label: "Review focus mode",
+    description:
+      "Time-boxed review session. Snapshots your filtered PR queue, advances through them with ⌘⇧N, and pins a minimal HUD with a timer so you can batch reviews without losing pace.",
+  },
 ] as const;
 
 export type ExperimentalFeatureKey = (typeof EXPERIMENTAL_FEATURES)[number]["key"];

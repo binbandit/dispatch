@@ -10,6 +10,7 @@ import {
   SearchHelpPopover,
 } from "@/renderer/components/inbox/search-autocomplete";
 import { SearchPresetChips } from "@/renderer/components/inbox/search-presets";
+import { FocusModeTrigger } from "@/renderer/components/review/focus-mode-trigger";
 import { PrInboxSkeleton } from "@/renderer/components/shared/loading-skeletons";
 import { useKeyboardShortcuts } from "@/renderer/hooks/app/use-keyboard-shortcuts";
 import {
@@ -324,8 +325,17 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
 
   return (
     <aside className="border-border bg-bg-surface flex h-full flex-col">
-      <div className="px-3 pt-2.5 pb-2">
+      <div className="flex items-center justify-between gap-2 px-3 pt-2.5 pb-2">
         <h2 className="text-[14px] font-semibold tracking-[-0.01em]">Pull Requests</h2>
+        <FocusModeTrigger
+          queue={filteredResults.map((entry) => ({
+            number: entry.item.pr.number,
+            title: entry.item.pr.title,
+          }))}
+          onEnter={(firstPr) => {
+            onSelectPr(firstPr.number, firstPr.title);
+          }}
+        />
       </div>
 
       {/* Filter toggle group — arrow keys cycle tabs */}

@@ -7,6 +7,7 @@ import { CommandPalette } from "@/renderer/components/inbox/command-palette";
 import { HomeView } from "@/renderer/components/inbox/home-view";
 import { MergeQueueView } from "@/renderer/components/inbox/merge-queue-view";
 import { MetricsView } from "@/renderer/components/inbox/metrics-view";
+import { FocusModeHud } from "@/renderer/components/review/focus-mode-hud";
 import { PrDetailView } from "@/renderer/components/review/pr-detail-view";
 import { ReviewSidebar } from "@/renderer/components/review/sidebar/review-sidebar";
 import { SettingsView } from "@/renderer/components/settings/settings-view";
@@ -387,6 +388,8 @@ function AppShell({ resumeState, resumeReady }: AppShellProps) {
       />
 
       <CommandPalette />
+
+      <FocusModeHud />
 
       <MissingFolderDialog
         open={pathMissing}

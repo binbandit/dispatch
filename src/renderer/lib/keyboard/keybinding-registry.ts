@@ -141,6 +141,20 @@ export const DEFAULT_KEYBINDINGS: ShortcutDefinition[] = [
     label: "Merge PR",
     category: "Actions",
   },
+  {
+    id: "actions.focusMode",
+    key: "f",
+    modifiers: ["meta", "shift"],
+    label: "Start focus-mode review session",
+    category: "Actions",
+  },
+  {
+    id: "actions.focusModeNext",
+    key: "n",
+    modifiers: ["meta", "shift"],
+    label: "Advance focus-mode queue",
+    category: "Actions",
+  },
   { id: "actions.closePanel", key: "Escape", label: "Close panel / dialog", category: "Actions" },
   { id: "actions.nextComment", key: "c", label: "Next comment", category: "Actions" },
   {
