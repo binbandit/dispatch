@@ -25,6 +25,8 @@ import {
   type FlatRow,
   type NonLineFlatRow,
 } from "@/renderer/components/review/diff/diff-row-builder";
+import { SemanticDiffSummary } from "@/renderer/components/review/diff/semantic-diff-summary";
+import { usePreference } from "@/renderer/hooks/preferences/use-preference";
 import { useTheme } from "@/renderer/lib/app/theme-context";
 import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import { getSuggestionTextForRange } from "@/renderer/lib/review/comment-suggestions";
@@ -40,6 +42,8 @@ import {
   type ThemeMode,
 } from "@/renderer/lib/review/highlighter";
 import { REVIEW_DIFF_SEARCH_EVENT } from "@/renderer/lib/review/review-focus-targets";
+import { analyzeSemanticDiff } from "@/renderer/lib/review/semantic-diff";
+import { isExperimentalFeatureEnabled } from "@/shared/experimental-features";
 import { ChevronDown, ChevronUp, Plus, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -324,6 +328,14 @@ export function DiffViewer({
     [activeComposer, onCommentRange],
   );
 
+  // --- Semantic diff summary (experimental) ---
+  const semanticDiffPreference = usePreference("experimentalSemanticDiff");
+  const semanticDiffEnabled = isExperimentalFeatureEnabled(semanticDiffPreference);
+  const semanticSignals = useMemo(
+    () => (semanticDiffEnabled ? analyzeSemanticDiff(file) : []),
+    [semanticDiffEnabled, file],
+  );
+
   // --- Build rows ---
   const rows = useMemo(
     () => buildRows(file, comments, annotations, activeComposer ?? null, aiSuggestions),
@@ -425,6 +437,9 @@ export function DiffViewer({
       }}
       tabIndex={-1}
     >
+      {semanticDiffEnabled && semanticSignals.length > 0 && (
+        <SemanticDiffSummary signals={semanticSignals} />
+      )}
       {/* Search bar — floating overlay top-right */}
       {searchOpen && (
         <div className="border-border bg-bg-elevated sticky top-0 right-0 z-10 ml-auto flex w-80 max-w-full items-center gap-1.5 rounded-bl-md border-b border-l px-3 py-1.5 shadow-lg">
