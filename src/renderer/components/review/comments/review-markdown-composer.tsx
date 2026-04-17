@@ -234,38 +234,42 @@ export function ReviewMarkdownComposer({
     },
   });
 
-  useEffect(() => globalThis.api.onAiRewriteSelection(() => {
-      if (
-        mode === "preview" ||
-        !commentRewriteConfig.isConfigured ||
-        (!hasFocus && document.activeElement !== textareaRef.current)
-      ) {
-        return;
-      }
+  useEffect(
+    () =>
+      globalThis.api.onAiRewriteSelection(() => {
+        if (
+          mode === "preview" ||
+          !commentRewriteConfig.isConfigured ||
+          (!hasFocus && document.activeElement !== textareaRef.current)
+        ) {
+          return;
+        }
 
-      const nextSelection = getEffectiveSelection(
-        textareaRef.current
-          ? {
-              start: textareaRef.current.selectionStart,
-              end: textareaRef.current.selectionEnd,
-            }
-          : null,
-      );
+        const nextSelection = getEffectiveSelection(
+          textareaRef.current
+            ? {
+                start: textareaRef.current.selectionStart,
+                end: textareaRef.current.selectionEnd,
+              }
+            : null,
+        );
 
-      lastSelectionRef.current = nextSelection;
+        lastSelectionRef.current = nextSelection;
 
-      if (!hasSelectedText(nextSelection) || rewriteSelectionMutation.isPending) {
-        return;
-      }
+        if (!hasSelectedText(nextSelection) || rewriteSelectionMutation.isPending) {
+          return;
+        }
 
-      rewriteSelectionMutation.mutate();
-    }), [
-    commentRewriteConfig.isConfigured,
-    getEffectiveSelection,
-    hasFocus,
-    mode,
-    rewriteSelectionMutation,
-  ]);
+        rewriteSelectionMutation.mutate();
+      }),
+    [
+      commentRewriteConfig.isConfigured,
+      getEffectiveSelection,
+      hasFocus,
+      mode,
+      rewriteSelectionMutation,
+    ],
+  );
 
   return (
     <div
