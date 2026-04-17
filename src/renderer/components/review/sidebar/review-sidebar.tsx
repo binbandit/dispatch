@@ -8,6 +8,7 @@ import { useAiTriageSections } from "@/renderer/hooks/ai/use-ai-triage-sections"
 import { usePreference } from "@/renderer/hooks/preferences/use-preference";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
+import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import { isCompletedPullRequest } from "@/renderer/lib/review/completed-pr-state";
 import { getDiffFilePath, parseDiff, type DiffFile } from "@/renderer/lib/review/diff-parser";
 import { useFileNavStore } from "@/renderer/lib/review/file-nav-context";
@@ -299,6 +300,9 @@ export function ReviewSidebar({ prNumber, onBack, onSelectPr }: ReviewSidebarPro
               type="search"
               value={fileSearch}
               onChange={(e) => setFileSearch(e.target.value)}
+              onKeyDown={(event) => {
+                handleSearchInputEscape(event);
+              }}
               placeholder="Filter files…"
               className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-[11px] focus:outline-none"
             />

@@ -26,6 +26,7 @@ import {
   type NonLineFlatRow,
 } from "@/renderer/components/review/diff/diff-row-builder";
 import { useTheme } from "@/renderer/lib/app/theme-context";
+import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import { getSuggestionTextForRange } from "@/renderer/lib/review/comment-suggestions";
 import { getDiffFilePath, type DiffFile, type Segment } from "@/renderer/lib/review/diff-parser";
 import {
@@ -447,9 +448,15 @@ export function DiffViewer({
             placeholder="Find in diff…"
             className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
             onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setSearchOpen(false);
-                setSearchQuery("");
+              if (
+                handleSearchInputEscape(e, {
+                  onEscape: () => {
+                    setSearchOpen(false);
+                    setSearchQuery("");
+                  },
+                })
+              ) {
+                return;
               }
               if (e.key === "Enter") {
                 if (e.shiftKey) {

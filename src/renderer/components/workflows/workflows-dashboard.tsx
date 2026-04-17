@@ -13,6 +13,7 @@ import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useRouter } from "@/renderer/lib/app/router";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
+import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import { relativeTime } from "@/shared/format";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
@@ -210,9 +211,13 @@ export function WorkflowsDashboard() {
                       placeholder="Search workflows…"
                       className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
                       onKeyDown={(e) => {
-                        e.stopPropagation();
-                        if (e.key === "Escape") {
-                          closeWorkflowMenu();
+                        if (
+                          handleSearchInputEscape(e, {
+                            onEscape: closeWorkflowMenu,
+                            stopPropagation: true,
+                          })
+                        ) {
+                          return;
                         }
                       }}
                     />
@@ -286,9 +291,8 @@ export function WorkflowsDashboard() {
             placeholder="Search runs…"
             className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
             onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                setSearchQuery("");
-                (e.target as HTMLElement).blur();
+              if (handleSearchInputEscape(e)) {
+                return;
               }
             }}
           />

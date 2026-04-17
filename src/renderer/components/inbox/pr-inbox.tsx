@@ -33,6 +33,7 @@ import {
 } from "@/renderer/lib/inbox/pr-search";
 import { getPrSearchPresets } from "@/renderer/lib/inbox/pr-search-presets";
 import { useKeybindings } from "@/renderer/lib/keyboard/keybinding-context";
+import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import {
   getPrActivityKey,
   hasNewPrActivity,
@@ -430,14 +431,8 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
                 return;
               }
 
-              if (event.key === "Escape") {
-                event.preventDefault();
-                if (searchQuery) {
-                  updateSearchQuery("");
-                  return;
-                }
-
-                (event.target as HTMLElement).blur();
+              if (handleSearchInputEscape(event, { onEscape: () => setAutocompleteOpen(false) })) {
+                return;
               }
             }}
           />

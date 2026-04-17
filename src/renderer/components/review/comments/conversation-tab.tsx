@@ -16,6 +16,7 @@ import { ipc } from "@/renderer/lib/app/ipc";
 import { openExternal } from "@/renderer/lib/app/open-external";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
+import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import { relativeTime } from "@/shared/format";
 import { useMutation } from "@tanstack/react-query";
 import {
@@ -126,6 +127,9 @@ export function ConversationTab({
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
+            onKeyDown={(event) => {
+              handleSearchInputEscape(event);
+            }}
             placeholder="Search conversation…"
             className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-[11px] focus:outline-none"
           />

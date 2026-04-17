@@ -6,6 +6,7 @@ import { DispatchLogo } from "@/renderer/components/shared/dispatch-logo";
 import { getErrorMessage } from "@/renderer/lib/app/error-message";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
+import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { FolderOpen, GitBranch, Globe, Lock, Search, Trash2 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
@@ -259,6 +260,9 @@ function GitHubRepoSearch({
           onBlur={() => {
             // Delay to allow click on results
             setTimeout(() => setShowResults(false), 200);
+          }}
+          onKeyDown={(event) => {
+            handleSearchInputEscape(event, { onEscape: () => setShowResults(false) });
           }}
           placeholder="Search your GitHub repositories…"
           className="text-text-primary placeholder:text-text-ghost min-w-0 flex-1 bg-transparent text-sm outline-none"

@@ -18,6 +18,7 @@ import {
   type PrSection,
   type SortOption,
 } from "@/renderer/lib/inbox/home-prs";
+import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import { resolveMergeStrategy } from "@/renderer/lib/review/merge-strategy";
 import { summarizePrChecks } from "@/renderer/lib/review/pr-check-status";
 import { ContextMenu } from "@base-ui/react/context-menu";
@@ -312,9 +313,8 @@ export function RepoSelector({
               placeholder="Find a repository…"
               className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
               onKeyDown={(event) => {
-                if (event.key === "Escape") {
-                  event.preventDefault();
-                  onToggle();
+                if (handleSearchInputEscape(event, { onEscape: onToggle })) {
+                  return;
                 }
               }}
             />

@@ -21,6 +21,7 @@ import { getErrorMessage } from "@/renderer/lib/app/error-message";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
+import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import { useFileNavStore } from "@/renderer/lib/review/file-nav-context";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Check, GitMerge, Pencil, X, XCircle } from "lucide-react";
@@ -790,8 +791,8 @@ function LabelPicker({
               outline: "none",
             }}
             onKeyDown={(e) => {
-              if (e.key === "Escape") {
-                onClose();
+              if (handleSearchInputEscape(e, { onEscape: onClose })) {
+                return;
               }
             }}
           />

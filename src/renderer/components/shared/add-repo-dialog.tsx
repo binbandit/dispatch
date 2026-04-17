@@ -10,6 +10,7 @@ import {
 import { Spinner } from "@/components/ui/spinner";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { queryClient } from "@/renderer/lib/app/query-client";
+import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { ArrowRight, FolderOpen, GitBranch, Globe, Lock, Search } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
@@ -156,6 +157,9 @@ export function AddRepoDialog({ open, onOpenChange, onAdded }: AddRepoDialogProp
               type="search"
               value={query}
               onChange={(e) => handleInputChange(e.target.value)}
+              onKeyDown={(event) => {
+                handleSearchInputEscape(event);
+              }}
               placeholder="Search your repositories…"
               className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-[13px] outline-none"
               disabled={isPending}

@@ -8,6 +8,7 @@ import { JobRow } from "@/renderer/components/workflows/job-row";
 import { JobStepsAccordion } from "@/renderer/components/workflows/job-steps-accordion";
 import { ipc } from "@/renderer/lib/app/ipc";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
+import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import { useFileNavStore } from "@/renderer/lib/review/file-nav-context";
 import { summarizePrChecks } from "@/renderer/lib/review/pr-check-status";
 import { relativeTime } from "@/shared/format";
@@ -114,6 +115,9 @@ export function PanelCommitsContent({ prNumber }: { prNumber: number }) {
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
+            onKeyDown={(event) => {
+              handleSearchInputEscape(event);
+            }}
             placeholder="Filter commits…"
             className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-[11px] focus:outline-none"
           />
@@ -258,6 +262,9 @@ export function PanelChecksContent({ prNumber }: { prNumber: number }) {
             type="search"
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
+            onKeyDown={(event) => {
+              handleSearchInputEscape(event);
+            }}
             placeholder="Filter checks…"
             className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-[11px] focus:outline-none"
           />

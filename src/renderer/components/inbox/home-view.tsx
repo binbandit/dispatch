@@ -32,6 +32,7 @@ import {
 } from "@/renderer/lib/inbox/home-prs";
 import { getPrSearchPresets } from "@/renderer/lib/inbox/pr-search-presets";
 import { useKeybindings } from "@/renderer/lib/keyboard/keybinding-context";
+import { handleSearchInputEscape } from "@/renderer/lib/keyboard/search-input";
 import {
   getPrActivityKey,
   hasNewPrActivity,
@@ -547,13 +548,13 @@ export function HomeView() {
                     if (e.key === "Enter") {
                       e.preventDefault();
                       setAutocompleteOpen(false);
-                      (e.target as HTMLElement).blur();
+                      e.currentTarget.blur();
                     }
 
-                    if (e.key === "Escape") {
-                      e.preventDefault();
-                      setAutocompleteOpen(false);
-                      (e.target as HTMLElement).blur();
+                    if (
+                      handleSearchInputEscape(e, { onEscape: () => setAutocompleteOpen(false) })
+                    ) {
+                      return;
                     }
                   }}
                 />
