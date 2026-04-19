@@ -20,6 +20,8 @@ Dispatch is an Electron application with three hard runtime boundaries:
 
 ### Main Process
 
+`src/main/index.ts` is the Electron bootstrap. It owns BrowserWindow creation, menus, tray setup, media-auth request headers for GitHub-hosted assets, database startup, badge plumbing, and global shortcuts.
+
 `src/main/ipc-handler.ts` is the registration entrypoint only. Domain implementations live in:
 
 - `src/main/ipc-handlers/app.ts`
@@ -42,6 +44,23 @@ Dispatch is an Electron application with three hard runtime boundaries:
 
 When adding new GitHub behavior, put it in the narrowest module that matches the domain. Only move shared primitives into `core.ts`.
 
+Other main-process services worth preserving as narrow modules:
+
+- `src/main/services/git-cli.ts`: local git commands and repository inspection
+- `src/main/services/ai*.ts`: provider discovery, config resolution, and AI task execution
+- `src/main/services/tray-poller.ts`: background polling for tray state
+- `src/main/services/notifications.ts`: desktop notification behavior
+- `src/main/services/analytics.ts`: forwards opt-in-safe events to the renderer
+- `src/main/services/external-links.ts` and `src/main/services/shell.ts`: controlled OS and child-process interaction
+
+### Persistence
+
+`src/main/db` is part of the main-process layer and owns all local persistence:
+
+- `src/main/db/database.ts`: SQLite connection lifecycle, schema creation, and migrations
+- `src/main/db/repository.ts`: read/write helpers for preferences, workspaces, PR caches, review state, AI caches, notifications, and resume state
+- `src/main/db/workspace-state.ts`: shared helpers for pruning stale local workspace paths while keeping remote-only workspaces valid
+
 ### Shared IPC
 
 `src/shared/ipc.ts` owns shared types, channel constants, and the composed `IpcApi` type. Method contracts are split under `src/shared/ipc/contracts/`:
@@ -56,19 +75,21 @@ When adding new GitHub behavior, put it in the narrowest module that matches the
 - `ai.ts`
 - `notifications.ts`
 
+`src/shared/ipc/contracts/environment.ts` also currently owns `repo.*` and `workspace.*` methods. Keep related environment/workspace discovery APIs there unless you are intentionally extracting a clearer public contract.
+
 Add new methods to the relevant contract file first, then implement the matching handler in `src/main/ipc-handlers/`, then expose it from preload if the renderer needs it.
 
 ### Renderer
 
-Renderer components are now grouped by feature under `src/renderer/components/`:
+Renderer components are grouped by feature under `src/renderer/components/`:
 
-- `shell/`: app chrome and top-level layout composition
+- `shell/`: app chrome, splash screen, navbar, update banner, notification center, keyboard shortcuts
 - `setup/`: onboarding and environment checks
-- `settings/`: preferences and keybinding configuration
-- `inbox/`: dashboard, inbox, and command surfaces
-- `review/`: PR detail, diff, comments, merge, and side-panel flows
-- `workflows/`: runs, logs, workflow dashboards, and releases
-- `shared/`: renderer-only shared building blocks that are reused across features
+- `settings/`: preferences, AI config, code theme settings, experimental flags, and keybinding capture
+- `inbox/`: review home, command palette, search surfaces, metrics, and merge queue views
+- `review/`: PR detail, diff, comments, AI review UI, merge actions, and side-panel flows
+- `workflows/`: workflow dashboards, run detail, job graphs, logs, comparisons, and releases
+- `shared/`: renderer-only shared building blocks reused across features
 
 Some larger features have another level of grouping inside them. For example, `review/` is split into:
 
@@ -87,7 +108,7 @@ Renderer utilities are also grouped by responsibility:
 
 - `src/renderer/lib/app/`: IPC client, router, query client, theme/workspace contexts, notifications, analytics
 - `src/renderer/lib/keyboard/`: keybinding registry and provider
-- `src/renderer/lib/inbox/`: inbox and home dashboard data shaping
+- `src/renderer/lib/inbox/`: inbox, home dashboard, search, and command-surface data shaping
 - `src/renderer/lib/review/`: diff parsing, highlighting, merge strategy, activity/check summaries, triage helpers
 - `src/renderer/lib/shared/`: small renderer-only utilities reused across features
 
@@ -110,10 +131,11 @@ New renderer code should follow these rules:
 When you add a capability that crosses layers, use this order:
 
 1. Define or extend shared types in `src/shared`.
-2. Add the IPC contract in `src/shared/ipc/contracts`.
+2. Add the IPC contract in the relevant `src/shared/ipc/contracts/*` file.
 3. Implement the main-process handler in the matching `src/main/ipc-handlers/*` module.
 4. Add or extend the underlying service module in `src/main/services`.
-5. Expose the typed method through preload.
-6. Consume it from the renderer.
+5. If the feature persists local state, update `src/main/db/database.ts` and `src/main/db/repository.ts`.
+6. Expose the typed method through preload.
+7. Consume it from the renderer.
 
 This keeps the public contract ahead of implementation and avoids invisible cross-process coupling.
