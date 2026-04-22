@@ -1,10 +1,9 @@
+import { useRouterStore } from "@/renderer/lib/app/router";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 vi.mock("@/renderer/lib/app/posthog", () => ({
   trackPage: vi.fn(),
 }));
-
-import { useRouterStore } from "@/renderer/lib/app/router";
 
 describe("router history", () => {
   beforeEach(() => {

@@ -68,7 +68,7 @@ export function SuggestionBlock({
 
     let cancelled = false;
     void ensureHighlighterResources({
-      languages: normalizedLanguage !== "text" ? [normalizedLanguage] : [],
+      languages: normalizedLanguage === "text" ? [] : [normalizedLanguage],
       themes: [shikiTheme.dark, shikiTheme.light],
     }).then((loadedResources) => {
       if (!cancelled && loadedResources) {

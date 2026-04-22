@@ -1,5 +1,3 @@
-import type { ComponentPropsWithoutRef } from "react";
-
 /* eslint-disable no-continue, no-inline-comments, @typescript-eslint/no-non-null-assertion -- Markdown AST traversal is clearer as a guarded walk than forcing alternative forms. */
 import { useSyntaxHighlighter } from "@/renderer/hooks/review/use-syntax-highlight";
 import { openExternal } from "@/renderer/lib/app/open-external";
@@ -13,7 +11,15 @@ import {
   type ThemeMode,
 } from "@/renderer/lib/review/highlighter";
 import { AlertCircle, Info, Lightbulb, OctagonAlert, TriangleAlert } from "lucide-react";
-import { Children, isValidElement, useEffect, useMemo, useState } from "react";
+import {
+  Children,
+  isValidElement,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import Markdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGemoji from "remark-gemoji";
@@ -99,7 +105,7 @@ function highlightCode(args: {
   lang: string;
   shikiTheme: { light: string; dark: string };
   resolvedTheme: ThemeMode;
-}): React.ReactNode[] | null {
+}): ReactNode[] | null {
   const normalizedLanguage = normalizeLanguage(args.lang);
   try {
     if (!isLanguageLoaded(args.highlighter, normalizedLanguage)) {
@@ -150,14 +156,13 @@ export function MarkdownBody({ content, repo, className = "" }: MarkdownBodyProp
 
   const processed = preprocess(content, repo);
   const fencedLanguages = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          [...processed.matchAll(/^```([^\s`]+)/gm)]
-            .map((match) => normalizeLanguage(match[1] ?? ""))
-            .filter((language) => language !== "text"),
-        ),
+    () => [
+      ...new Set(
+        [...processed.matchAll(/^```([^\s`]+)/gm)]
+          .map((match) => normalizeLanguage(match[1] ?? ""))
+          .filter((language) => language !== "text"),
       ),
+    ],
     [processed],
   );
 
@@ -290,7 +295,7 @@ export function MarkdownBody({ content, repo, className = "" }: MarkdownBodyProp
                   typeof child.props.className === "string" &&
                   child.props.className.includes("gh-alert-title"),
               );
-              const titleChild = titleIndex !== -1 ? childNodes[titleIndex] : null;
+              const titleChild = titleIndex === -1 ? null : childNodes[titleIndex];
               const bodyChildren = childNodes.filter(
                 (child, index) =>
                   index !== titleIndex && !(typeof child === "string" && child.trim().length === 0),

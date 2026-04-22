@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
+import { environmentHandlers } from "./environment";
+
 const { getActiveWorkspaceMock, getRepoInfoMock, setRepoAccountMock, switchAccountMock } =
   vi.hoisted(() => ({
     getActiveWorkspaceMock: vi.fn(),
@@ -28,8 +30,6 @@ vi.mock("../services/gh-cli", () => ({
 vi.mock("../services/shell", () => ({
   whichVersion: vi.fn(),
 }));
-
-import { environmentHandlers } from "./environment";
 
 describe("environmentHandlers", () => {
   it("keeps the prior repo-account mapping when the switched account cannot access the active repo", async () => {

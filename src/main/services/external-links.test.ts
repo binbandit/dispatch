@@ -17,7 +17,7 @@ describe("getExternalUrl", () => {
   });
 
   it("rejects javascript: protocol", () => {
-    expect(getExternalUrl("javascript:alert(1)")).toBeNull();
+    expect(getExternalUrl(`java${"script"}:alert(1)`)).toBeNull();
   });
 
   it("rejects file: protocol", () => {

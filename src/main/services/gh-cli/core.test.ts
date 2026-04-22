@@ -1,23 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock(import("../../../shared/pr-fetch-limit"), () => ({
-  PR_FETCH_LIMIT_PREFERENCE_KEY: "prFetchLimit" as const,
-  normalizePrFetchLimit: vi.fn((_value?: string | null) => 200 as const),
-}));
-
-vi.mock(import("../../db/repository"), () => ({
-  getPreference: vi.fn(() => null),
-  cacheDisplayNames: vi.fn(),
-  getCachedUserProfile: vi.fn(() => null),
-  getStaleUserProfile: vi.fn(() => null),
-  saveUserProfile: vi.fn(),
-}));
-
-vi.mock(import("../shell"), () => ({
-  execFile: vi.fn(),
-  resolveExecutablePath: vi.fn(),
-}));
-
 import { getCachedUserProfile, getStaleUserProfile, saveUserProfile } from "../../db/repository";
 import { execFile } from "../shell";
 import {
@@ -33,10 +15,31 @@ import {
   setCache,
 } from "./core";
 
+vi.mock(import("../../../shared/pr-fetch-limit"), () => ({
+  PR_FETCH_LIMIT_PREFERENCE_KEY: "prFetchLimit" as const,
+  normalizePrFetchLimit: vi.fn<(value?: string | null) => 200>(
+    (_value?: string | null) => 200 as const,
+  ),
+}));
+
+vi.mock(import("../../db/repository"), () => ({
+  getPreference: vi.fn<(key: string) => string | null>(() => null),
+  cacheDisplayNames: vi.fn<(...args: unknown[]) => void>(),
+  getCachedUserProfile: vi.fn<typeof getCachedUserProfile>(() => null),
+  getStaleUserProfile: vi.fn<typeof getStaleUserProfile>(() => null),
+  saveUserProfile: vi.fn<typeof saveUserProfile>(),
+}));
+
+vi.mock(import("../shell"), () => ({
+  execFile: vi.fn<typeof execFile>(),
+  resolveExecutablePath: vi.fn<(command: string) => string | null>(),
+}));
+
 const execFileMock = vi.mocked(execFile);
 const getCachedUserProfileMock = vi.mocked(getCachedUserProfile);
 const getStaleUserProfileMock = vi.mocked(getStaleUserProfile);
 const saveUserProfileMock = vi.mocked(saveUserProfile);
+const testKey = (suffix: string): string => `__test__::${suffix}::${Date.now()}`;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -188,10 +191,6 @@ describe("buildFilterArgs", () => {
 });
 
 describe("CacheStore operations", () => {
-  // Use the exported genericCache (typed as unknown) for testing cache mechanics.
-  // Prefix test keys to avoid cross-test pollution.
-  const testKey = (suffix: string) => `__test__::${suffix}::${Date.now()}`;
-
   it("stores and retrieves cached data", () => {
     const key = testKey("store");
     setCache(genericCache, key, { data: "value1" });
@@ -199,7 +198,7 @@ describe("CacheStore operations", () => {
     const result = getOrLoadCached({
       cache: genericCache,
       key,
-      loader: async () => "should not be called",
+      loader: () => Promise.resolve("should not be called"),
     });
     return expect(result).resolves.toBe("value1");
   });
@@ -209,7 +208,7 @@ describe("CacheStore operations", () => {
     const result = await getOrLoadCached({
       cache: genericCache,
       key,
-      loader: async () => "loaded",
+      loader: () => Promise.resolve("loaded"),
     });
     expect(result).toBe("loaded");
   });
@@ -219,7 +218,7 @@ describe("CacheStore operations", () => {
     setCache(genericCache, key, { data: "value1" });
     invalidateCacheKey(genericCache, key);
 
-    const loader = vi.fn(async () => "fresh");
+    const loader = vi.fn<() => Promise<string>>(() => Promise.resolve("fresh"));
     const result = await getOrLoadCached({ cache: genericCache, key, loader });
     expect(loader).toHaveBeenCalled();
     expect(result).toBe("fresh");
@@ -228,9 +227,9 @@ describe("CacheStore operations", () => {
   it("deduplicates in-flight requests", async () => {
     const key = testKey("dedup");
     let callCount = 0;
-    const loader = async () => {
+    const loader = () => {
       callCount++;
-      return "result";
+      return Promise.resolve("result");
     };
 
     const [r1, r2] = await Promise.all([
@@ -249,14 +248,14 @@ describe("CacheStore operations", () => {
     const result = await getOrLoadCached({
       cache: genericCache,
       key,
-      loader: async () => {
+      loader: () => {
         invalidateCacheKey(genericCache, key);
-        return "stale";
+        return Promise.resolve("stale");
       },
     });
 
     expect(result).toBe("stale");
-    const loader2 = vi.fn(async () => "fresh");
+    const loader2 = vi.fn<() => Promise<string>>(() => Promise.resolve("fresh"));
     const result2 = await getOrLoadCached({ cache: genericCache, key, loader: loader2 });
     expect(loader2).toHaveBeenCalled();
     expect(result2).toBe("fresh");
@@ -453,6 +452,6 @@ describe("getUserProfile", () => {
       bio: "Cached fallback.",
       repoContributions: null,
     });
-    expect(execFileMock).toHaveBeenCalledTimes(1);
+    expect(execFileMock.mock.calls).toHaveLength(1);
   });
 });

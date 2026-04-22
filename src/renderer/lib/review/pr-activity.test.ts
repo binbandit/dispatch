@@ -1,3 +1,4 @@
+/* eslint-disable vitest/prefer-to-be-falsy, vitest/prefer-to-be-truthy -- These assertions intentionally use strict boolean matchers. */
 import { describe, expect, it } from "vitest";
 
 import { getPrActivityKey, hasNewPrActivity, indexPrActivityStates } from "./pr-activity";

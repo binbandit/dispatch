@@ -6,7 +6,7 @@ import { render, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 const { ensureHighlighterResourcesMock, useSyntaxHighlighterMock } = vi.hoisted(() => ({
-  ensureHighlighterResourcesMock: vi.fn(async () => false),
+  ensureHighlighterResourcesMock: vi.fn(() => Promise.resolve(false)),
   useSyntaxHighlighterMock: vi.fn<() => Highlighter | null>(() => null),
 }));
 
@@ -15,7 +15,7 @@ vi.mock(import("@/renderer/hooks/review/use-syntax-highlight"), () => ({
 }));
 
 vi.mock(import("@/renderer/lib/review/highlighter"), async () => {
-  const actual = await vi.importActual<typeof import("@/renderer/lib/review/highlighter")>(
+  const actual = await vi.importActual<Record<string, unknown>>(
     "@/renderer/lib/review/highlighter",
   );
 

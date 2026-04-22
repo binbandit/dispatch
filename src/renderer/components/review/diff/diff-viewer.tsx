@@ -466,20 +466,27 @@ export function DiffViewer({
 
   // --- Build rows ---
   const rows = useMemo(
-    () => buildRows(file, comments, annotations, activeComposer ?? null, aiSuggestions),
+    () =>
+      buildRows({
+        file,
+        comments,
+        annotations,
+        composerRange: activeComposer ?? null,
+        aiSuggestions,
+      }),
     [file, comments, annotations, activeComposer, aiSuggestions],
   );
 
   const fullFileModeRows = useMemo(
     () =>
-      buildFullFileRows(
+      buildFullFileRows({
         file,
         fullFileContent,
         comments,
         annotations,
-        activeComposer ?? null,
+        composerRange: activeComposer ?? null,
         aiSuggestions,
-      ),
+      }),
     [file, fullFileContent, comments, annotations, activeComposer, aiSuggestions],
   );
 

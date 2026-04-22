@@ -1,9 +1,8 @@
 import type { ReviewComment } from "@/renderer/components/review/comments/inline-comment";
 import type { Annotation } from "@/renderer/components/review/diff/ci-annotation";
 import type { AiSuggestion } from "@/renderer/lib/review/ai-suggestions";
-import type { DiffFile, DiffLine } from "@/renderer/lib/review/diff-parser";
 
-import { getDiffFilePath } from "@/renderer/lib/review/diff-parser";
+import { getDiffFilePath, type DiffFile, type DiffLine } from "@/renderer/lib/review/diff-parser";
 import { getReviewPositionKey } from "@/renderer/lib/review/review-position";
 
 // ---------------------------------------------------------------------------
@@ -47,6 +46,32 @@ export interface FlatLineEntry {
   line: FlatLine;
 }
 
+interface RowDecorationArgs {
+  comments: Map<string, ReviewComment[]>;
+  annotations: Map<string, Annotation[]>;
+  composerRange: CommentRange | null;
+  aiSuggestions?: Map<string, AiSuggestion[]>;
+}
+
+interface RowBuilderArgs extends RowDecorationArgs {
+  file: DiffFile;
+}
+
+interface FullFileRowBuilderArgs extends RowBuilderArgs {
+  fullFileContent: string | null | undefined;
+}
+
+interface AppendLineRowsArgs extends RowDecorationArgs {
+  rows: FlatRow[];
+  filePath: string;
+  lineEntry: FlatLineEntry;
+}
+
+interface PendingDeletedEntry {
+  row: Extract<FlatRow, { kind: "line" }>;
+  auxiliaryRows: NonLineFlatRow[];
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -63,15 +88,30 @@ export function getCommentTarget(line: DiffLine): CommentTarget | null {
   return null;
 }
 
-function appendLineRows(
-  rows: FlatRow[],
-  filePath: string,
-  lineEntry: FlatLineEntry,
-  comments: Map<string, ReviewComment[]>,
-  annotations: Map<string, Annotation[]>,
-  composerRange: CommentRange | null,
-  aiSuggestions?: Map<string, AiSuggestion[]>,
-) {
+function createFlatLineEntry(args: {
+  prefix: "line" | "full";
+  hunkIndex: number;
+  lineIndex: number;
+  line: DiffLine;
+}): FlatLineEntry {
+  return {
+    key: `${args.prefix}-${args.hunkIndex}-${args.lineIndex}-${args.line.type}-${args.line.oldLineNumber ?? "x"}-${args.line.newLineNumber ?? "x"}`,
+    line: {
+      ...args.line,
+      pairKey: args.line.pairId === undefined ? null : `pair-${args.hunkIndex}-${args.line.pairId}`,
+    },
+  };
+}
+
+function appendLineRows({
+  rows,
+  filePath,
+  lineEntry,
+  comments,
+  annotations,
+  composerRange,
+  aiSuggestions,
+}: AppendLineRowsArgs) {
   rows.push({ kind: "line", key: lineEntry.key, line: lineEntry.line });
 
   const commentTarget = getCommentTarget(lineEntry.line);
@@ -123,13 +163,13 @@ function appendLineRows(
 // Row builders
 // ---------------------------------------------------------------------------
 
-export function buildRows(
-  file: DiffFile,
-  comments: Map<string, ReviewComment[]>,
-  annotations: Map<string, Annotation[]>,
-  composerRange: CommentRange | null,
-  aiSuggestions?: Map<string, AiSuggestion[]>,
-): FlatRow[] {
+export function buildRows({
+  file,
+  comments,
+  annotations,
+  composerRange,
+  aiSuggestions,
+}: RowBuilderArgs): FlatRow[] {
   const rows: FlatRow[] = [];
   const filePath = getDiffFilePath(file);
 
@@ -154,23 +194,20 @@ export function buildRows(
       }
 
       if (line.type !== "hunk-header") {
-        const lineKey = `line-${hunkIndex}-${i}-${line.type}-${line.oldLineNumber ?? "x"}-${line.newLineNumber ?? "x"}`;
-
-        appendLineRows(
+        appendLineRows({
           rows,
           filePath,
-          {
-            key: lineKey,
-            line: {
-              ...line,
-              pairKey: line.pairId === undefined ? null : `pair-${hunkIndex}-${line.pairId}`,
-            },
-          },
+          lineEntry: createFlatLineEntry({
+            prefix: "line",
+            hunkIndex,
+            lineIndex: i,
+            line,
+          }),
           comments,
           annotations,
           composerRange,
           aiSuggestions,
-        );
+        });
       }
     }
     hunkIndex++;
@@ -181,10 +218,7 @@ export function buildRows(
 
 export function buildSplitRows(rows: FlatRow[]): SplitRow[] {
   const splitRows: SplitRow[] = [];
-  const pendingDeleted: Array<{
-    row: Extract<FlatRow, { kind: "line" }>;
-    auxiliaryRows: NonLineFlatRow[];
-  }> = [];
+  const pendingDeleted: PendingDeletedEntry[] = [];
   let lastLineDestination:
     | { kind: "direct" }
     | { kind: "pending-deleted"; entry: (typeof pendingDeleted)[number] }
@@ -204,6 +238,31 @@ export function buildSplitRows(rows: FlatRow[]): SplitRow[] {
     });
     splitRows.push(...pendingEntry.auxiliaryRows);
     pendingDeleted.splice(index, 1);
+  };
+
+  const takeMatchedPendingDeleted = (pairKey: string): PendingDeletedEntry | null => {
+    while (pendingDeleted[0]?.row.line.pairKey !== pairKey) {
+      flushPendingDeletedAtIndex(0);
+    }
+
+    return pendingDeleted.shift() ?? null;
+  };
+
+  const appendMatchedPendingPair = (
+    matchedPending: PendingDeletedEntry | null,
+    row: Extract<FlatRow, { kind: "line" }>,
+  ) => {
+    if (!matchedPending) {
+      return;
+    }
+
+    splitRows.push({
+      kind: "pair",
+      key: `${matchedPending.row.key}-${row.key}`,
+      left: matchedPending.row.line,
+      right: row.line,
+    });
+    splitRows.push(...matchedPending.auxiliaryRows);
   };
 
   const flushLeadingUnpairedDeleted = () => {
@@ -243,20 +302,7 @@ export function buildSplitRows(rows: FlatRow[]): SplitRow[] {
               );
 
         if (matchedPendingIndex >= 0) {
-          while (pendingDeleted[0]?.row.line.pairKey !== row.line.pairKey) {
-            flushPendingDeletedAtIndex(0);
-          }
-
-          const matchedPending = pendingDeleted.shift();
-          if (matchedPending) {
-            splitRows.push({
-              kind: "pair",
-              key: `${matchedPending.row.key}-${row.key}`,
-              left: matchedPending.row.line,
-              right: row.line,
-            });
-            splitRows.push(...matchedPending.auxiliaryRows);
-          }
+          appendMatchedPendingPair(takeMatchedPendingDeleted(row.line.pairKey ?? ""), row);
           lastLineDestination = { kind: "direct" };
         } else {
           flushLeadingUnpairedDeleted();
@@ -298,14 +344,60 @@ function splitFileContentLines(content: string): string[] {
   return lines;
 }
 
-export function buildFullFileRows(
-  file: DiffFile,
-  fullFileContent: string | null | undefined,
-  comments: Map<string, ReviewComment[]>,
-  annotations: Map<string, Annotation[]>,
-  composerRange: CommentRange | null,
-  aiSuggestions?: Map<string, AiSuggestion[]>,
-): FlatRow[] | null {
+function appendRemovedLines(
+  removedBeforeNewLine: Map<number, FlatLineEntry[]>,
+  anchorLine: number,
+  removedLines: FlatLineEntry[],
+) {
+  if (removedLines.length === 0) {
+    return;
+  }
+
+  const existing = removedBeforeNewLine.get(anchorLine) ?? [];
+  existing.push(...removedLines);
+  removedBeforeNewLine.set(anchorLine, existing);
+}
+
+function trackFullFileLine(args: {
+  hunkIndex: number;
+  lineIndex: number;
+  line: DiffLine;
+  newLineTracker: number;
+  pendingRemoved: FlatLineEntry[];
+  removedBeforeNewLine: Map<number, FlatLineEntry[]>;
+  renderedNewLines: Map<number, FlatLineEntry>;
+}): { newLineTracker: number; pendingRemoved: FlatLineEntry[] } {
+  const lineEntry = createFlatLineEntry({
+    prefix: "full",
+    hunkIndex: args.hunkIndex,
+    lineIndex: args.lineIndex,
+    line: args.line,
+  });
+
+  if (args.line.type === "del") {
+    return {
+      newLineTracker: args.newLineTracker,
+      pendingRemoved: [...args.pendingRemoved, lineEntry],
+    };
+  }
+
+  appendRemovedLines(args.removedBeforeNewLine, args.newLineTracker, args.pendingRemoved);
+  args.renderedNewLines.set(args.newLineTracker, lineEntry);
+
+  return {
+    newLineTracker: args.newLineTracker + 1,
+    pendingRemoved: [],
+  };
+}
+
+export function buildFullFileRows({
+  file,
+  fullFileContent,
+  comments,
+  annotations,
+  composerRange,
+  aiSuggestions,
+}: FullFileRowBuilderArgs): FlatRow[] | null {
   if (fullFileContent === null || fullFileContent === undefined) {
     return null;
   }
@@ -316,15 +408,6 @@ export function buildFullFileRows(
   const renderedNewLines = new Map<number, FlatLineEntry>();
   const removedBeforeNewLine = new Map<number, FlatLineEntry[]>();
 
-  const appendRemovedLines = (anchorLine: number, removedLines: FlatLineEntry[]) => {
-    if (removedLines.length === 0) {
-      return;
-    }
-    const existing = removedBeforeNewLine.get(anchorLine) ?? [];
-    existing.push(...removedLines);
-    removedBeforeNewLine.set(anchorLine, existing);
-  };
-
   for (let hunkIndex = 0; hunkIndex < file.hunks.length; hunkIndex++) {
     const hunk = file.hunks[hunkIndex];
     if (hunk) {
@@ -334,27 +417,19 @@ export function buildFullFileRows(
       for (let lineIndex = 0; lineIndex < hunk.lines.length; lineIndex++) {
         const line = hunk.lines[lineIndex];
         if (line && line.type !== "hunk-header") {
-          const lineKey = `full-${hunkIndex}-${lineIndex}-${line.type}-${line.oldLineNumber ?? "x"}-${line.newLineNumber ?? "x"}`;
-          const lineEntry: FlatLineEntry = {
-            key: lineKey,
-            line: {
-              ...line,
-              pairKey: line.pairId === undefined ? null : `pair-${hunkIndex}-${line.pairId}`,
-            },
-          };
-
-          if (line.type === "del") {
-            pendingRemoved.push(lineEntry);
-          } else {
-            appendRemovedLines(newLineTracker, pendingRemoved);
-            pendingRemoved = [];
-            renderedNewLines.set(newLineTracker, lineEntry);
-            newLineTracker++;
-          }
+          ({ newLineTracker, pendingRemoved } = trackFullFileLine({
+            hunkIndex,
+            lineIndex,
+            line,
+            newLineTracker,
+            pendingRemoved,
+            removedBeforeNewLine,
+            renderedNewLines,
+          }));
         }
       }
 
-      appendRemovedLines(newLineTracker, pendingRemoved);
+      appendRemovedLines(removedBeforeNewLine, newLineTracker, pendingRemoved);
     }
   }
 
@@ -363,15 +438,15 @@ export function buildFullFileRows(
     const removedLines = removedBeforeNewLine.get(lineNumber);
     if (removedLines) {
       for (const removedLine of removedLines) {
-        appendLineRows(
+        appendLineRows({
           rows,
           filePath,
-          removedLine,
+          lineEntry: removedLine,
           comments,
           annotations,
           composerRange,
           aiSuggestions,
-        );
+        });
       }
     }
 
@@ -389,21 +464,29 @@ export function buildFullFileRows(
         },
       } satisfies FlatLineEntry);
 
-    appendLineRows(rows, filePath, lineEntry, comments, annotations, composerRange, aiSuggestions);
+    appendLineRows({
+      rows,
+      filePath,
+      lineEntry,
+      comments,
+      annotations,
+      composerRange,
+      aiSuggestions,
+    });
   }
 
   const trailingRemoved = removedBeforeNewLine.get(fileLines.length + 1);
   if (trailingRemoved) {
     for (const removedLine of trailingRemoved) {
-      appendLineRows(
+      appendLineRows({
         rows,
         filePath,
-        removedLine,
+        lineEntry: removedLine,
         comments,
         annotations,
         composerRange,
         aiSuggestions,
-      );
+      });
     }
   }
 

@@ -198,27 +198,18 @@ function lexQueryParts(query: string): string[] {
   };
 
   for (let index = 0; index < query.length; index += 1) {
-    const char = query[index]!;
-    const nextChar = query[index + 1] ?? "";
+    const char = query.charAt(index);
+    const nextChar = query.charAt(index + 1);
 
     if (char === '"') {
       current += char;
       inQuotes = !inQuotes;
-      continue;
-    }
-
-    if (!inQuotes && /\s/.test(char)) {
+    } else if (!inQuotes && /\s/.test(char)) {
       pushCurrent();
-      continue;
-    }
-
-    if (!inQuotes && (char === "(" || char === ")" || char === "|" || char === "&")) {
+    } else if (!inQuotes && (char === "(" || char === ")" || char === "|" || char === "&")) {
       pushCurrent();
       parts.push(char);
-      continue;
-    }
-
-    if (
+    } else if (
       !inQuotes &&
       current.length === 0 &&
       (char === "!" || char === "-") &&
@@ -226,10 +217,9 @@ function lexQueryParts(query: string): string[] {
     ) {
       pushCurrent();
       parts.push(char);
-      continue;
+    } else {
+      current += char;
     }
-
-    current += char;
   }
 
   pushCurrent();
@@ -759,12 +749,23 @@ function matchFieldToken(index: SearchIndex, token: PrSearchTermToken): MatchRes
       return { field: "title", matched: score > 0, score };
     }
     case "author": {
-      const score = scoreBestTextMatch(index.authorTerms, token.value, {
-        contains: 42,
-        exact: 76,
-        prefix: 64,
-        word: 52,
-      });
+      const score = scoreBestTextMatch(
+        index.authorTerms,
+        token.value,
+        token.value === "me"
+          ? {
+              contains: 0,
+              exact: 76,
+              prefix: 0,
+              word: 0,
+            }
+          : {
+              contains: 42,
+              exact: 76,
+              prefix: 64,
+              word: 52,
+            },
+      );
       return { field: "author", matched: score > 0, score };
     }
     case "repo": {
@@ -932,21 +933,18 @@ function buildSearchExpression(tokens: PrSearchToken[]): SearchExpression | null
 
       const startIndex = index;
       const right = parseUnary();
-      if (!right) {
-        if (index === startIndex) {
-          break;
-        }
-        continue;
+      if (right) {
+        left =
+          left === null
+            ? right
+            : {
+                kind: "and",
+                left,
+                right,
+              };
+      } else if (index === startIndex) {
+        break;
       }
-
-      left =
-        left === null
-          ? right
-          : {
-              kind: "and",
-              left,
-              right,
-            };
     }
 
     return left;
@@ -958,18 +956,16 @@ function buildSearchExpression(tokens: PrSearchToken[]): SearchExpression | null
     while (isOperatorToken(current(), "or")) {
       advance();
       const right = parseAnd();
-      if (!right) {
-        continue;
+      if (right) {
+        left =
+          left === null
+            ? right
+            : {
+                kind: "or",
+                left,
+                right,
+              };
       }
-
-      left =
-        left === null
-          ? right
-          : {
-              kind: "or",
-              left,
-              right,
-            };
     }
 
     return left;
@@ -1055,12 +1051,12 @@ function hasPositiveSearchTerm(expression: SearchExpression, negated = false): b
 }
 
 export function parsePrSearchQuery(query: string): PrSearchToken[] {
-  return lexQueryParts(query).map(parseSearchToken);
+  return lexQueryParts(query).map((part) => parseSearchToken(part));
 }
 
 export function stringifyPrSearchTokens(tokens: PrSearchToken[]): string {
   return tokens
-    .map(stringifySearchToken)
+    .map((token) => stringifySearchToken(token))
     .join(" ")
     .trim()
     .replaceAll("( ", "(")

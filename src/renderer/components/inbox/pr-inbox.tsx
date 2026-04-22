@@ -441,9 +441,7 @@ export function PrInbox({ selectedPr, onSelectPr }: PrInboxProps) {
                 return;
               }
 
-              if (handleSearchInputEscape(event, { onEscape: () => setAutocompleteOpen(false) })) {
-                return;
-              }
+              handleSearchInputEscape(event, { onEscape: () => setAutocompleteOpen(false) });
             }}
           />
           {hasSearch ? (

@@ -2,6 +2,7 @@ import {
   isTrustedContributorSystemEnabled,
   TRUSTED_CONTRIBUTOR_SYSTEM_PREFERENCE_KEY,
 } from "@/shared/trusted-contributors";
+/* eslint-disable vitest/prefer-to-be-falsy, vitest/prefer-to-be-truthy -- These assertions intentionally use strict boolean matchers. */
 import { describe, expect, it } from "vitest";
 
 describe("trusted contributor preferences", () => {

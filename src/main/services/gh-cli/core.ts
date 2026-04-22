@@ -131,12 +131,17 @@ export async function getAuthenticatedUser(): Promise<GhUser | null> {
   }
 }
 
-async function getRepoContributionHistory(
-  login: string,
-  repo: string,
-  repoTarget?: RepoTarget,
-  currentPrNumber?: number,
-): Promise<GhRepoContributionHistory> {
+function getRepoContributionHistory({
+  login,
+  repo,
+  repoTarget,
+  currentPrNumber,
+}: {
+  login: string;
+  repo: string;
+  repoTarget?: RepoTarget;
+  currentPrNumber?: number;
+}): Promise<GhRepoContributionHistory> {
   const normalizedLogin = login.trim().toLowerCase();
   const normalizedRepo = repo.trim().toLowerCase();
   const cacheKey = `userRepoContributions::${normalizedRepo}::${normalizedLogin}::${currentPrNumber ?? "all"}`;
@@ -313,13 +318,17 @@ export async function getUserProfile(
     try {
       repoContributions =
         typeof repo === "string"
-          ? await getRepoContributionHistory(login, repo, undefined, currentPrNumber)
-          : await getRepoContributionHistory(
+          ? await getRepoContributionHistory({
               login,
-              `${repo.owner}/${repo.repo}`,
               repo,
               currentPrNumber,
-            );
+            })
+          : await getRepoContributionHistory({
+              login,
+              repo: `${repo.owner}/${repo.repo}`,
+              repoTarget: repo,
+              currentPrNumber,
+            });
     } catch {
       // Contribution history is best-effort. Profile data remains useful without it.
     }

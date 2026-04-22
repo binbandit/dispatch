@@ -1,6 +1,6 @@
 import "@testing-library/jest-dom/vitest";
 import { SearchPresetChips } from "@/renderer/components/inbox/search-presets";
-import { getPrSearchPresets } from "@/renderer/lib/inbox/pr-search-presets";
+import { getPrSearchPresets, type PrSearchPreset } from "@/renderer/lib/inbox/pr-search-presets";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from "vitest";
 describe("SearchPresetChips", () => {
   it("marks an already selected preset as active when clicked", async () => {
     const user = userEvent.setup();
-    const onSelect = vi.fn();
+    const onSelect = vi.fn<(preset: PrSearchPreset, isActive: boolean) => void>();
     const [needsReviewPreset] = getPrSearchPresets("sidebar");
 
     render(
@@ -28,7 +28,7 @@ describe("SearchPresetChips", () => {
 
   it("marks an unselected preset as inactive when clicked", async () => {
     const user = userEvent.setup();
-    const onSelect = vi.fn();
+    const onSelect = vi.fn<(preset: PrSearchPreset, isActive: boolean) => void>();
     const [needsReviewPreset] = getPrSearchPresets("sidebar");
 
     render(

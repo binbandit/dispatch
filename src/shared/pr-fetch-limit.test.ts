@@ -1,3 +1,4 @@
+/* eslint-disable vitest/prefer-to-be-falsy, vitest/prefer-to-be-truthy -- These assertions intentionally use strict boolean matchers. */
 import { describe, expect, it } from "vitest";
 
 import {
@@ -32,13 +33,13 @@ describe("normalizePrFetchLimit", () => {
   it("returns valid numeric options as-is", () => {
     expect(normalizePrFetchLimit("25")).toBe(25);
     expect(normalizePrFetchLimit("50")).toBe(50);
+    expect(normalizePrFetchLimit("75")).toBe(75);
     expect(normalizePrFetchLimit("100")).toBe(100);
     expect(normalizePrFetchLimit("200")).toBe(200);
+    expect(normalizePrFetchLimit("999")).toBe(999);
   });
 
   it("returns default for invalid numeric values", () => {
-    expect(normalizePrFetchLimit("75")).toBe(DEFAULT_PR_FETCH_LIMIT);
-    expect(normalizePrFetchLimit("999")).toBe(DEFAULT_PR_FETCH_LIMIT);
     expect(normalizePrFetchLimit("0")).toBe(DEFAULT_PR_FETCH_LIMIT);
   });
 

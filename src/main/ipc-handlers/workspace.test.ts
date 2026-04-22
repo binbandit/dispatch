@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
+import { workspaceHandlers } from "./workspace";
+
 const { addWorkspaceMock, getOwnerRepoMock, getRepoInfoMock, getWorkspacesMock } = vi.hoisted(
   () => ({
     addWorkspaceMock: vi.fn(),
@@ -38,16 +40,14 @@ vi.mock("../services/gh-cli", () => ({
   getOwnerRepo: getOwnerRepoMock,
   getRepoInfo: getRepoInfoMock,
   listAccounts: vi.fn(),
-  mapWithConcurrency: async <T, R>(
+  mapWithConcurrency: <T, R>(
     items: T[],
     _concurrency: number,
     fn: (item: T) => Promise<R>,
-  ): Promise<PromiseSettledResult<R>[]> => Promise.allSettled(items.map(fn)),
+  ): Promise<PromiseSettledResult<R>[]> => Promise.allSettled(items.map((item) => fn(item))),
   searchRepos: vi.fn(),
   switchAccount: vi.fn(),
 }));
-
-import { workspaceHandlers } from "./workspace";
 
 describe("workspaceHandlers", () => {
   it("filters inaccessible workspaces out of the account-aware list", async () => {
@@ -69,23 +69,23 @@ describe("workspaceHandlers", () => {
         addedAt: "2026-04-16T00:00:01Z",
       },
     ]);
-    getRepoInfoMock.mockImplementation(async (target: { owner: string; repo: string }) => {
+    getRepoInfoMock.mockImplementation((target: { owner: string; repo: string }) => {
       if (target.repo === "private-repo") {
         throw new Error(
           "GraphQL: Could not resolve to a Repository with the name 'secret/private-repo'.",
         );
       }
-      return {
+      return Promise.resolve({
         nameWithOwner: `${target.owner}/${target.repo}`,
         isFork: false,
         parent: null,
         canPush: true,
         hasMergeQueue: false,
         defaultBranch: "main",
-      };
+      });
     });
 
-    const result = await workspaceHandlers["workspace.accessible"](undefined);
+    const result = await workspaceHandlers["workspace.accessible"]();
 
     expect(result).toEqual([
       expect.objectContaining({
@@ -118,7 +118,7 @@ describe("workspaceHandlers", () => {
       defaultBranch: "main",
     });
 
-    const result = await workspaceHandlers["workspace.accessible"](undefined);
+    const result = await workspaceHandlers["workspace.accessible"]();
 
     expect(addWorkspaceMock).toHaveBeenCalledWith({
       owner: "binbandit",

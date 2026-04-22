@@ -1,27 +1,19 @@
-import { toastManager } from "@/components/ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useReviewMarkdownComposerRewrite } from "@/renderer/components/review/comments/review-markdown-composer-rewrite";
 import {
   SuggestionBlock,
   parseSuggestions,
 } from "@/renderer/components/review/comments/suggestion-block";
 import { MarkdownBody } from "@/renderer/components/shared/markdown-body";
 import { MentionTextarea } from "@/renderer/components/shared/mention-textarea";
-import { useAiTaskConfig } from "@/renderer/hooks/ai/use-ai-task-config";
-import { ipc } from "@/renderer/lib/app/ipc";
 import { useWorkspace } from "@/renderer/lib/app/workspace-context";
-import {
-  buildCommentRewriteMessages,
-  hasSelectedText,
-  replaceSelection,
-} from "@/renderer/lib/review/comment-rewrite";
 import {
   applyMarkdownFormat,
   applySuggestionFormat,
   type MarkdownFormatAction,
   type TextSelectionRange,
 } from "@/renderer/lib/review/markdown-format";
-import { useMutation } from "@tanstack/react-query";
 import {
   Bold,
   CheckSquare,
@@ -34,7 +26,7 @@ import {
   PencilLine,
   Quote,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 interface ReviewMarkdownComposerProps {
   ariaLabel?: string;
@@ -51,6 +43,10 @@ interface ReviewMarkdownComposerProps {
   suggestionText?: string;
   allowSuggestion?: boolean;
   value: string;
+}
+
+function hasSelectedText(range?: TextSelectionRange | null): boolean {
+  return range !== null && range !== undefined && range.end > range.start;
 }
 
 const TOOLBAR_ACTIONS: Array<{
@@ -112,7 +108,6 @@ export function ReviewMarkdownComposer({
   value,
 }: ReviewMarkdownComposerProps) {
   const { cwd, nwo } = useWorkspace();
-  const commentRewriteConfig = useAiTaskConfig("commentRewrite");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lastSelectionRef = useRef<TextSelectionRange>({ start: value.length, end: value.length });
   const [hasFocus, setHasFocus] = useState(false);
@@ -179,97 +174,17 @@ export function ReviewMarkdownComposer({
     [onChange, suggestionText, value],
   );
 
-  const rewriteSelectionMutation = useMutation({
-    mutationFn: async () => {
-      const activeSelection = getEffectiveSelection(
-        textareaRef.current
-          ? {
-              start: textareaRef.current.selectionStart,
-              end: textareaRef.current.selectionEnd,
-            }
-          : null,
-      );
-
-      if (!hasSelectedText(activeSelection)) {
-        throw new Error("Select part of your comment to rewrite.");
-      }
-
-      const rewrittenText = await ipc("ai.complete", {
-        cwd: cwd ?? undefined,
-        task: "commentRewrite",
-        messages: buildCommentRewriteMessages(
-          value,
-          value.slice(activeSelection.start, activeSelection.end),
-        ),
-        maxTokens: 512,
-      });
-
-      return {
-        activeSelection,
-        rewrittenText: rewrittenText.trim(),
-      };
-    },
-    onSuccess: ({ activeSelection, rewrittenText }) => {
-      const nextValue = replaceSelection(value, activeSelection, rewrittenText);
-      onChange(nextValue.value);
-      lastSelectionRef.current = nextValue.selection;
-      setMode("write");
-
-      requestAnimationFrame(() => {
-        const nextTextarea = textareaRef.current;
-        if (!nextTextarea) {
-          return;
-        }
-
-        nextTextarea.focus();
-        nextTextarea.setSelectionRange(nextValue.selection.start, nextValue.selection.end);
-      });
-    },
-    onError: (error) => {
-      toastManager.add({
-        title: "Rewrite failed",
-        description: error instanceof Error ? error.message : "Could not rewrite the selection.",
-        type: "error",
-      });
-    },
+  const rewriteSelection = useReviewMarkdownComposerRewrite({
+    cwd,
+    getEffectiveSelection,
+    hasFocus,
+    lastSelectionRef,
+    mode,
+    onChange,
+    setMode,
+    textareaRef,
+    value,
   });
-
-  useEffect(
-    () =>
-      globalThis.api.onAiRewriteSelection(() => {
-        if (
-          mode === "preview" ||
-          !commentRewriteConfig.isConfigured ||
-          (!hasFocus && document.activeElement !== textareaRef.current)
-        ) {
-          return;
-        }
-
-        const nextSelection = getEffectiveSelection(
-          textareaRef.current
-            ? {
-                start: textareaRef.current.selectionStart,
-                end: textareaRef.current.selectionEnd,
-              }
-            : null,
-        );
-
-        lastSelectionRef.current = nextSelection;
-
-        if (!hasSelectedText(nextSelection) || rewriteSelectionMutation.isPending) {
-          return;
-        }
-
-        rewriteSelectionMutation.mutate();
-      }),
-    [
-      commentRewriteConfig.isConfigured,
-      getEffectiveSelection,
-      hasFocus,
-      mode,
-      rewriteSelectionMutation,
-    ],
-  );
 
   return (
     <div
@@ -351,7 +266,7 @@ export function ReviewMarkdownComposer({
           rows={isExpanded ? rows : 1}
           textareaClassName={cn(
             "text-text-primary placeholder:text-text-tertiary bg-bg-surface/80 w-full resize-none border-0 font-sans text-xs leading-relaxed outline-none",
-            rewriteSelectionMutation.isPending &&
+            rewriteSelection.isPending &&
               "dispatch-rewrite-pending border-[--border-accent] shadow-[0_0_0_1px_var(--border-accent)]",
             isExpanded ? "px-3 py-3" : "px-3 py-2",
             compact && isExpanded ? "min-h-[96px] py-2.5" : undefined,
@@ -360,7 +275,7 @@ export function ReviewMarkdownComposer({
           )}
           textareaRef={textareaRef}
           value={value}
-          readOnly={rewriteSelectionMutation.isPending}
+          readOnly={rewriteSelection.isPending}
         />
       ) : (
         <div
@@ -409,7 +324,7 @@ export function ReviewMarkdownComposer({
           </span>
           <span className="text-text-ghost text-[10px]">
             {mode === "write"
-              ? rewriteSelectionMutation.isPending
+              ? rewriteSelection.isPending
                 ? "Rewriting selection with AI…"
                 : "Use the native context menu to rewrite selected text with AI"
               : "Switch back to keep editing"}

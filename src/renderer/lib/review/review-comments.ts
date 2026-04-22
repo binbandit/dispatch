@@ -1,6 +1,7 @@
-import type { ReviewPositionSide } from "@/renderer/lib/review/review-position";
-
-import { getReviewPositionKey } from "@/renderer/lib/review/review-position";
+import {
+  getReviewPositionKey,
+  type ReviewPositionSide,
+} from "@/renderer/lib/review/review-position";
 
 interface PositionedReviewComment {
   path: string;
@@ -29,18 +30,15 @@ export function buildReviewCommentsMap<T extends PositionedReviewComment>(
 
   for (const comment of comments) {
     const line = comment.line ?? comment.original_line;
-    if (line === null) {
-      continue;
+    if (line !== null) {
+      const key = getReviewPositionKey(comment.path, line, comment.side);
+      const existing = map.get(key);
+      if (existing) {
+        existing.push(comment);
+      } else {
+        map.set(key, [comment]);
+      }
     }
-
-    const key = getReviewPositionKey(comment.path, line, comment.side);
-    const existing = map.get(key);
-    if (existing) {
-      existing.push(comment);
-      continue;
-    }
-
-    map.set(key, [comment]);
   }
 
   return map;
@@ -52,15 +50,13 @@ export function buildReviewThreadStateByRootCommentId<T extends ReviewThreadWith
   const map = new Map<number, ReviewThreadState>();
 
   for (const thread of reviewThreads) {
-    if (thread.rootCommentId === null) {
-      continue;
+    if (thread.rootCommentId !== null) {
+      map.set(thread.rootCommentId, {
+        isResolved: thread.isResolved,
+        isOutdated: thread.isOutdated,
+        threadId: thread.id,
+      });
     }
-
-    map.set(thread.rootCommentId, {
-      isResolved: thread.isResolved,
-      isOutdated: thread.isOutdated,
-      threadId: thread.id,
-    });
   }
 
   return map;

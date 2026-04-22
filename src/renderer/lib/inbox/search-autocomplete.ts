@@ -294,12 +294,10 @@ function withAliasSuggestions(
   const merged: SearchSuggestion[] = [];
 
   for (const suggestion of [...aliases, ...suggestions]) {
-    if (seen.has(suggestion.completion)) {
-      continue;
+    if (!seen.has(suggestion.completion)) {
+      seen.add(suggestion.completion);
+      merged.push(suggestion);
     }
-
-    seen.add(suggestion.completion);
-    merged.push(suggestion);
   }
 
   return merged;
@@ -341,12 +339,17 @@ function getRepoAliasSuggestions(context: PrSearchContext): SearchSuggestion[] {
 // Main API
 // ---------------------------------------------------------------------------
 
-export function getSearchSuggestions(
-  query: string,
-  cursor: number,
-  items: SearchablePrItem[],
-  context: PrSearchContext = {},
-): { suggestions: SearchSuggestion[]; token: CurrentToken | null } {
+export function getSearchSuggestions({
+  query,
+  cursor,
+  items,
+  context = {},
+}: {
+  query: string;
+  cursor: number;
+  items: SearchablePrItem[];
+  context?: PrSearchContext;
+}): { suggestions: SearchSuggestion[]; token: CurrentToken | null } {
   const token = findCurrentToken(query, cursor);
 
   if (!token) {

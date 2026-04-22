@@ -45,40 +45,69 @@ describe("getSearchSuggestions", () => {
 
   it("suggests new structured fields and values", () => {
     expect(
-      getSearchSuggestions("sta", 3, items).suggestions.map((suggestion) => suggestion.completion),
+      getSearchSuggestions({
+        query: "sta",
+        cursor: 3,
+        items,
+      }).suggestions.map((suggestion) => suggestion.completion),
     ).toContain("state:");
 
     expect(
-      getSearchSuggestions("review:c", 8, items).suggestions.map(
-        (suggestion) => suggestion.completion,
-      ),
+      getSearchSuggestions({
+        query: "review:c",
+        cursor: 8,
+        items,
+      }).suggestions.map((suggestion) => suggestion.completion),
     ).toContain("review:changes");
     expect(
-      getSearchSuggestions("upd", 3, items).suggestions.map((suggestion) => suggestion.completion),
+      getSearchSuggestions({
+        query: "upd",
+        cursor: 3,
+        items,
+      }).suggestions.map((suggestion) => suggestion.completion),
     ).toContain("updated:");
   });
 
   it("treats grouping characters as token boundaries", () => {
     expect(
-      getSearchSuggestions("(rev", 4, items).suggestions.map((suggestion) => suggestion.completion),
+      getSearchSuggestions({
+        query: "(rev",
+        cursor: 4,
+        items,
+      }).suggestions.map((suggestion) => suggestion.completion),
     ).toContain("review:");
   });
 
   it("suggests aliases and operators when context is available", () => {
     expect(
-      getSearchSuggestions("o", 1, items, {
-        currentAuthorLogin: "brayden",
-        currentRepoTerms: ["dispatch", "acme/dispatch"],
+      getSearchSuggestions({
+        query: "o",
+        cursor: 1,
+        items,
+        context: {
+          currentAuthorLogin: "brayden",
+          currentRepoTerms: ["dispatch", "acme/dispatch"],
+        },
       }).suggestions.map((suggestion) => suggestion.completion),
     ).toContain("OR");
     expect(
-      getSearchSuggestions("author:m", 8, items, {
-        currentAuthorLogin: "brayden",
+      getSearchSuggestions({
+        query: "author:m",
+        cursor: 8,
+        items,
+        context: {
+          currentAuthorLogin: "brayden",
+        },
       }).suggestions.map((suggestion) => suggestion.completion),
     ).toContain("author:me");
     expect(
-      getSearchSuggestions("repo:c", 6, items, {
-        currentRepoTerms: ["dispatch"],
+      getSearchSuggestions({
+        query: "repo:c",
+        cursor: 6,
+        items,
+        context: {
+          currentRepoTerms: ["dispatch"],
+        },
       }).suggestions.map((suggestion) => suggestion.completion),
     ).toContain("repo:current");
   });
@@ -86,7 +115,7 @@ describe("getSearchSuggestions", () => {
 
 describe("applySuggestion", () => {
   it("preserves negation prefixes when applying suggestions", () => {
-    const { token } = getSearchSuggestions("-rev", 4, []);
+    const { token } = getSearchSuggestions({ query: "-rev", cursor: 4, items: [] });
     const result = applySuggestion("-rev", token, {
       completion: "review:",
       label: "review:",

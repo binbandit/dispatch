@@ -3,6 +3,7 @@ import {
   isSearchStatePersistenceEnabled,
   SEARCH_STATE_PERSISTENCE_PREFERENCE_KEY,
 } from "@/shared/search-state";
+/* eslint-disable vitest/prefer-to-be-falsy, vitest/prefer-to-be-truthy -- These assertions intentionally use strict boolean matchers. */
 import { describe, expect, it } from "vitest";
 
 describe("search state preferences", () => {

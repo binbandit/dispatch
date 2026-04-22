@@ -16,8 +16,11 @@ import {
   getAiSlotConfigWithSecrets,
   getAiTaskConfigWithSecrets,
 } from "./ai-config";
-import { cacheOllamaSuggestedModels, parseOllamaTagsOutput } from "./ollama-models";
-import { refreshOpencodeModelsCache } from "./opencode-models";
+import {
+  cacheOllamaSuggestedModels,
+  parseOllamaTagsOutput,
+  refreshOpencodeModelsCache,
+} from "./ai-model-discovery";
 import { execFile, resolveExecutablePath, whichVersion } from "./shell";
 
 interface AiMessage {
@@ -808,56 +811,85 @@ async function completeWithCodex(args: ResolvedAiCompletionArgs): Promise<string
   }
 }
 
+class ClaudeToolArgRetryError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ClaudeToolArgRetryError";
+  }
+}
+
+async function runClaudeCompletionVariant(args: {
+  binaryPath: string;
+  model: string;
+  systemPrompt: string | null;
+  prompt: string;
+  cwd: string;
+  includeTools: boolean;
+}): Promise<string> {
+  try {
+    const result = await runProcess(
+      args.binaryPath,
+      buildClaudeCommandArgs(args.model, args.systemPrompt, args.includeTools),
+      {
+        cwd: args.cwd,
+        env: process.env,
+        input: args.prompt,
+        timeoutMs: AI_COMPLETION_TIMEOUT_MS,
+      },
+    );
+
+    if (result.exitCode !== 0) {
+      const detail = result.stderr.length > 0 ? result.stderr : result.stdout;
+      const message = detail.length > 0 ? detail : `Command failed with code ${result.exitCode}.`;
+      if (args.includeTools && isClaudeToolArgError(message)) {
+        throw new ClaudeToolArgRetryError(message);
+      }
+      throw createCliError("claude", message);
+    }
+
+    return result.stdout;
+  } catch (error) {
+    if (error instanceof ClaudeToolArgRetryError) {
+      throw error;
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    if (args.includeTools && isClaudeToolArgError(message)) {
+      throw new ClaudeToolArgRetryError(message);
+    }
+
+    throw error instanceof Error ? error : new Error(message);
+  }
+}
+
 async function completeWithClaude(args: ResolvedAiCompletionArgs): Promise<string> {
   const binaryPath = resolveConfiguredBinaryPath("claude", args.binaryPath);
   const { systemPrompt, prompt } = buildCompletionPrompt(args.messages);
 
   try {
-    const variants = [true, false] as const;
-    let lastError: Error | null = null;
-
-    for (const includeTools of variants) {
-      try {
-        const result = await runProcess(
-          binaryPath,
-          buildClaudeCommandArgs(args.model, systemPrompt, includeTools),
-          {
-            cwd: args.cwd,
-            env: process.env,
-            input: prompt,
-            timeoutMs: AI_COMPLETION_TIMEOUT_MS,
-          },
-        );
-
-        if (result.exitCode !== 0) {
-          const detail = result.stderr.length > 0 ? result.stderr : result.stdout;
-          const message =
-            detail.length > 0 ? detail : `Command failed with code ${result.exitCode}.`;
-          const error = createCliError("claude", message);
-          if (includeTools && isClaudeToolArgError(message)) {
-            lastError = error;
-            continue;
-          }
-          throw error;
-        }
-
-        return result.stdout;
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        lastError = error instanceof Error ? error : new Error(message);
-
-        if (includeTools && isClaudeToolArgError(message)) {
-          continue;
-        }
+    try {
+      return await runClaudeCompletionVariant({
+        binaryPath,
+        model: args.model,
+        systemPrompt,
+        prompt,
+        cwd: args.cwd,
+        includeTools: true,
+      });
+    } catch (error) {
+      if (!(error instanceof ClaudeToolArgRetryError)) {
         throw error;
       }
     }
 
-    if (lastError) {
-      throw lastError;
-    }
-
-    throw new Error("Claude completion failed.");
+    return await runClaudeCompletionVariant({
+      binaryPath,
+      model: args.model,
+      systemPrompt,
+      prompt,
+      cwd: args.cwd,
+      includeTools: false,
+    });
   } catch (error) {
     if (error instanceof Error && !error.message.startsWith("Claude CLI error:")) {
       throw createCliError("claude", error.message);

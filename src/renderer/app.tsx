@@ -1,18 +1,12 @@
-import type { Workspace } from "@/shared/ipc";
-
 import { ToastProvider } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { EnvCheck } from "./components/setup/env-check";
-import { Onboarding } from "./components/setup/onboarding";
-import { AppLayout } from "./components/shell/app-layout";
+import { AppScreen } from "./app-screen";
 import { SplashScreen } from "./components/shell/splash-screen";
 import { ipc } from "./lib/app/ipc";
-import { initPostHog } from "./lib/app/posthog";
 import { queryClient } from "./lib/app/query-client";
-import { WorkspaceProvider } from "./lib/app/workspace-context";
 
 /**
  * Boot flow:
@@ -71,14 +65,6 @@ function AppContent() {
     queryClient.invalidateQueries({ queryKey: ["env", "check"] });
   }, []);
 
-  // Determine which screen to show (only matters when showApp is true)
-  const phase = resolvePhase({
-    envData: envQuery.data ?? null,
-    activeWorkspace: activeQuery.data ?? null,
-    workspaces: workspacesQuery.data ?? [],
-    onboardingComplete,
-  });
-
   return (
     <>
       {/* Splash is always mounted — fades out via CSS, then hidden */}
@@ -90,95 +76,16 @@ function AppContent() {
       {/* App content renders behind the splash, becomes visible when showApp */}
       {showApp && (
         <AppScreen
-          phase={phase}
           envData={envQuery.data ?? null}
           activeWorkspace={activeQuery.data ?? null}
           workspaces={workspacesQuery.data ?? []}
+          onboardingComplete={onboardingComplete}
           onOnboardingComplete={handleOnboardingComplete}
           onRetryEnvCheck={handleRetryEnvCheck}
         />
       )}
     </>
   );
-}
-
-type AppPhase = "env-error" | "onboarding" | "ready";
-
-function resolvePhase({
-  envData,
-  activeWorkspace,
-  workspaces,
-  onboardingComplete,
-}: {
-  envData: { ghVersion: string | null; gitVersion: string | null; ghAuth: boolean } | null;
-  activeWorkspace: { id: number } | null;
-  workspaces: Workspace[];
-  onboardingComplete: boolean;
-}): AppPhase {
-  if (envData && (!envData.ghVersion || !envData.gitVersion || !envData.ghAuth)) {
-    return "env-error";
-  }
-
-  if (workspaces.length === 0 && !onboardingComplete) {
-    return "onboarding";
-  }
-
-  if (activeWorkspace || workspaces.length > 0) {
-    return "ready";
-  }
-
-  return "onboarding";
-}
-
-function AppScreen({
-  phase,
-  envData,
-  activeWorkspace,
-  workspaces,
-  onOnboardingComplete,
-  onRetryEnvCheck,
-}: {
-  phase: AppPhase;
-  envData: { ghVersion: string | null; gitVersion: string | null; ghAuth: boolean } | null;
-  activeWorkspace: {
-    id: number;
-    owner: string;
-    repo: string;
-    path: string | null;
-    name: string;
-  } | null;
-  workspaces: Workspace[];
-  onOnboardingComplete: () => void;
-  onRetryEnvCheck: () => void;
-}) {
-  switch (phase) {
-    case "env-error": {
-      return (
-        <EnvCheck
-          ghVersion={envData?.ghVersion ?? null}
-          gitVersion={envData?.gitVersion ?? null}
-          ghAuth={envData?.ghAuth ?? false}
-          onRetry={onRetryEnvCheck}
-        />
-      );
-    }
-    case "onboarding": {
-      return <Onboarding onComplete={onOnboardingComplete} />;
-    }
-    case "ready": {
-      const ws = activeWorkspace ?? workspaces[0];
-      if (!ws) {
-        return <Onboarding onComplete={onOnboardingComplete} />;
-      }
-      // Initialize PostHog analytics (opt-in only)
-      initPostHog().catch(() => {});
-      return (
-        <WorkspaceProvider workspace={ws}>
-          <AppLayout />
-        </WorkspaceProvider>
-      );
-    }
-  }
 }
 
 export function App() {

@@ -313,9 +313,7 @@ export function RepoSelector({
               placeholder="Find a repository…"
               className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
               onKeyDown={(event) => {
-                if (handleSearchInputEscape(event, { onEscape: onToggle })) {
-                  return;
-                }
+                handleSearchInputEscape(event, { onEscape: onToggle });
               }}
             />
           </div>

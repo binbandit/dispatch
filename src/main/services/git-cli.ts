@@ -263,8 +263,9 @@ export async function grepSymbol(args: {
   const matches: SymbolMatch[] = stdout
     .split("\n")
     .map((rawLine) => parseGrepLine(rawLine))
-    .filter((parsed): parsed is SymbolMatch =>
-      parsed !== null && (!args.excludeFile || parsed.file !== args.excludeFile),
+    .filter(
+      (parsed): parsed is SymbolMatch =>
+        parsed !== null && (!args.excludeFile || parsed.file !== args.excludeFile),
     );
 
   const truncated = matches.length > SYMBOL_GREP_LIMIT;

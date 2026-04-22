@@ -14,9 +14,9 @@ vi.mock(import("@/renderer/lib/app/ipc"), () => ({
 }));
 
 vi.mock(import("@/renderer/hooks/preferences/use-preference"), async () => {
-  const actual = await vi.importActual<
-    typeof import("@/renderer/hooks/preferences/use-preference")
-  >("@/renderer/hooks/preferences/use-preference");
+  const actual = await vi.importActual<Record<string, unknown>>(
+    "@/renderer/hooks/preferences/use-preference",
+  );
 
   return {
     ...actual,
@@ -29,9 +29,9 @@ vi.mock(import("@/renderer/components/shared/github-avatar"), () => ({
 }));
 
 vi.mock(import("@/renderer/components/review/trust-breakdown-modal"), async () => {
-  const actual = await vi.importActual<
-    typeof import("@/renderer/components/review/trust-breakdown-modal")
-  >("@/renderer/components/review/trust-breakdown-modal");
+  const actual = await vi.importActual<Record<string, unknown>>(
+    "@/renderer/components/review/trust-breakdown-modal",
+  );
 
   return {
     ...actual,

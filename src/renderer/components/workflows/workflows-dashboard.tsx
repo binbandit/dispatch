@@ -211,14 +211,10 @@ export function WorkflowsDashboard() {
                       placeholder="Search workflows…"
                       className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
                       onKeyDown={(e) => {
-                        if (
-                          handleSearchInputEscape(e, {
-                            onEscape: closeWorkflowMenu,
-                            stopPropagation: true,
-                          })
-                        ) {
-                          return;
-                        }
+                        handleSearchInputEscape(e, {
+                          onEscape: closeWorkflowMenu,
+                          stopPropagation: true,
+                        });
                       }}
                     />
                   </div>
@@ -291,9 +287,7 @@ export function WorkflowsDashboard() {
             placeholder="Search runs…"
             className="text-text-primary placeholder:text-text-tertiary min-w-0 flex-1 bg-transparent text-xs focus:outline-none"
             onKeyDown={(e) => {
-              if (handleSearchInputEscape(e)) {
-                return;
-              }
+              handleSearchInputEscape(e);
             }}
           />
           {searchQuery && (

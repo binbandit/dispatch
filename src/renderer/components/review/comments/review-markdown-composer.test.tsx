@@ -153,7 +153,7 @@ describe("ReviewMarkdownComposer", () => {
     textarea.setSelectionRange(start, end);
     fireEvent.select(textarea);
 
-    await act(async () => {
+    await act(() => {
       rewriteSelectionListener?.();
     });
 
@@ -195,7 +195,7 @@ describe("ReviewMarkdownComposer", () => {
     fireEvent.select(textarea);
     textarea.setSelectionRange(end, end);
 
-    await act(async () => {
+    await act(() => {
       rewriteSelectionListener?.();
     });
 

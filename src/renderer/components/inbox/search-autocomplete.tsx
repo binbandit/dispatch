@@ -45,7 +45,12 @@ export function SearchAutocomplete({
   const { suggestions, token } = useMemo(
     () =>
       visible
-        ? getSearchSuggestions(query, cursorPosition, items, context)
+        ? getSearchSuggestions({
+            query,
+            cursor: cursorPosition,
+            items,
+            context,
+          })
         : { suggestions: [], token: null },
     [query, cursorPosition, items, context, visible],
   );

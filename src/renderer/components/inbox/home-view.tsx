@@ -551,11 +551,7 @@ export function HomeView() {
                       e.currentTarget.blur();
                     }
 
-                    if (
-                      handleSearchInputEscape(e, { onEscape: () => setAutocompleteOpen(false) })
-                    ) {
-                      return;
-                    }
+                    handleSearchInputEscape(e, { onEscape: () => setAutocompleteOpen(false) });
                   }}
                 />
                 <Kbd className="h-[18px] min-w-[18px] px-1 text-[9px]">/</Kbd>

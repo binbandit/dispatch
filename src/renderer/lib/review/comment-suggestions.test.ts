@@ -37,7 +37,12 @@ const after = true;`;
 describe("getSuggestionTextForRange", () => {
   it("extracts the selected right-side diff lines for inline suggestions", () => {
     const file = parseDiff(MULTI_LINE_DIFF)[0]!;
-    const rows = buildRows(file, new Map(), new Map(), null);
+    const rows = buildRows({
+      file,
+      comments: new Map(),
+      annotations: new Map(),
+      composerRange: null,
+    });
     const range: CommentRange = { startLine: 2, endLine: 3, side: "RIGHT" };
 
     expect(getSuggestionTextForRange(rows, range)).toBe(
@@ -47,14 +52,25 @@ describe("getSuggestionTextForRange", () => {
 
   it("returns null for left-side selections", () => {
     const file = parseDiff(MULTI_LINE_DIFF)[0]!;
-    const rows = buildRows(file, new Map(), new Map(), null);
+    const rows = buildRows({
+      file,
+      comments: new Map(),
+      annotations: new Map(),
+      composerRange: null,
+    });
 
     expect(getSuggestionTextForRange(rows, { startLine: 2, endLine: 2, side: "LEFT" })).toBeNull();
   });
 
   it("extracts unchanged surrounding lines in full-file mode", () => {
     const file = parseDiff(FULL_FILE_DIFF)[0]!;
-    const rows = buildFullFileRows(file, FULL_FILE_CONTENT, new Map(), new Map(), null)!;
+    const rows = buildFullFileRows({
+      file,
+      fullFileContent: FULL_FILE_CONTENT,
+      comments: new Map(),
+      annotations: new Map(),
+      composerRange: null,
+    })!;
     const range: CommentRange = { startLine: 4, endLine: 5, side: "RIGHT" };
 
     expect(getSuggestionTextForRange(rows, range)).toBe("}\nconst after = true;");

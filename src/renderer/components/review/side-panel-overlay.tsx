@@ -791,9 +791,7 @@ function LabelPicker({
               outline: "none",
             }}
             onKeyDown={(e) => {
-              if (handleSearchInputEscape(e, { onEscape: onClose })) {
-                return;
-              }
+              handleSearchInputEscape(e, { onEscape: onClose });
             }}
           />
         </div>
